@@ -15,7 +15,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "bondang-salim-db",
+      "database_name": "bondang-salim-ledger",
       "migrations_dir": "public/migrations"
     }
   ],
