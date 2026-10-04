@@ -41,7 +41,7 @@ test('마감: 결재선·잔액 스냅샷 저장, 이력 기록, 이후 입력 �
   assert.equal(d.closing.status, 'CLOSED');
   assert.deepEqual(d.closing.approvalSteps, ['기안', '재정부회장', '사목회장', '주임신부']);
   assert.equal(d.closing.writerName, '사무장');
-  assert.equal(d.closing.balances.find((b) => b.name === '교무금').balance, 2001000);
+  assert.equal(d.closing.balances.find((b) => b.name === '교무금').balance, 1001000);
   assert.equal(d.closing.balances.length, 9);
   assert.equal(d.verification.ok, true);
   assert.deepEqual(d.events.map((e) => [e.action, e.actor]), [['CLOSE', 'office@test']]);
@@ -106,7 +106,7 @@ test('마감취소: 마지막 마감일만, 사유 필수, 재마감 시 새 스
   r = await api('POST', '/api/closings/2026-10-03/close', {});
   assert.equal(r.status, 200);
   const d = (await api('GET', '/api/closings/2026-10-03')).body;
-  assert.equal(d.closing.balances.find((b) => b.name === '교무금').balance, 2003500);
+  assert.equal(d.closing.balances.find((b) => b.name === '교무금').balance, 1003500);
   assert.equal(d.closing.writerName, '사무장'); // 재마감은 기본 작성자
   assert.deepEqual(d.events.map((e) => e.action), ['CLOSE', 'REOPEN', 'CLOSE']);
   assert.equal(d.events[1].reason, '금액 정정');
@@ -136,7 +136,7 @@ test('스냅샷 검증: 마감 후 잔액이 달라지면 불일치로 표시', 
   db.exec("UPDATE accounts SET opening_balance = opening_balance + 1 WHERE name = '경상비'");
   const v = (await api('GET', '/api/closings/2026-10-02')).body.verification;
   assert.equal(v.ok, false);
-  assert.deepEqual(v.mismatches.map((m) => [m.name, m.snapshot, m.current]), [['경상비', 30000000, 30000001]]);
+  assert.deepEqual(v.mismatches.map((m) => [m.name, m.snapshot, m.current]), [['경상비', 10000000, 10000001]]);
 });
 
 test('마감 후 통장 보호: 새 통장 초기잔액 0 만, 초기잔액 있는 통장 삭제 불가, 개시일 변경 불가', async () => {
@@ -151,6 +151,6 @@ test('마감 후 통장 보호: 새 통장 초기잔액 0 만, 초기잔액 있�
   assert.equal(r.body.error.code, 'OPENING_LOCKED_DELETE');
   r = await api('DELETE', `/api/accounts/${accounts.find((a) => a.name === '새통장').id}`);
   assert.equal(r.status, 200);
-  r = await api('PUT', '/api/settings/parish', { parishName: '용머리성당', startDate: '2026-09-01', writerName: '' });
+  r = await api('PUT', '/api/settings/parish', { parishName: '예시성당', startDate: '2026-09-01', writerName: '' });
   assert.equal(r.body.error.code, 'START_DATE_LOCKED');
 });

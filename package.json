@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "wrangler dev --var AUTH_MODE:dev",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:seed:local": "wrangler d1 execute DB --local --file=seed/dev-yongmeori.sql",
+    "db:seed:local": "wrangler d1 execute DB --local --file=seed/dev-sample.sql",
     "test": "node --test --disable-warning=ExperimentalWarning \"test/**/*.test.js\"",
     "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote"
   },

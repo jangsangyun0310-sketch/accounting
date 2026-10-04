@@ -106,12 +106,14 @@ dl.summary dt { color: var(--muted); }
 dl.summary dd { margin: 0; font-weight: 600; }
 
 /* ---- 결재란 ---- */
-table.approval-box { border-collapse: collapse; }
+/* 결재 칸은 모두 같은 너비: 고정 레이아웃 + 칸 수(--steps)로 전체 너비 계산 */
+table.approval-box { border-collapse: collapse; table-layout: fixed; width: calc(28px + var(--steps) * 84px); }
+table.approval-box col.vertical { width: 28px; }
 table.approval-box th, table.approval-box td {
   border: 1px solid #333; text-align: center; font-size: 13px; font-weight: normal;
 }
-table.approval-box th { padding: 4px 10px; min-width: 72px; background: #f4f6f9; }
-table.approval-box th.vertical { min-width: 0; width: 28px; padding: 4px; line-height: 1.6; }
+table.approval-box th { padding: 4px 2px; background: #f4f6f9; overflow-wrap: anywhere; }
+table.approval-box th.vertical { padding: 4px; line-height: 1.6; }
 table.approval-box td { height: 56px; }
 
 /* ---- 알림 ---- */

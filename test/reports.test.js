@@ -33,7 +33,7 @@ test('일일 결산서: 요약·수입·지출·이체·통장별 잔액, 취소
   });
 
   const r = (await api('GET', '/api/reports/daily?date=2026-10-02')).body;
-  assert.equal(r.parishName, '용머리성당');
+  assert.equal(r.parishName, '예시성당');
   assert.equal(r.status, 'PROVISIONAL');
   assert.equal(r.writerName, '사무장');
   assert.deepEqual(r.approvalSteps, ['기안', '재정부회장', '사목회장', '주임신부']);
@@ -49,9 +49,9 @@ test('일일 결산서: 요약·수입·지출·이체·통장별 잔액, 취소
 
   const g = r.funds.find((f) => f.code === 'GENERAL');
   assert.deepEqual([g.prev, g.income, g.expense, g.transferIn, g.transferOut, g.end],
-    [33600000, 300000, 50000, 0, 1000000, 32850000]);
-  assert.deepEqual([r.total.prev, r.total.income, r.total.expense, r.total.end], [66600000, 370000, 50000, 66920000]);
-  assert.equal(r.accounts.find((a) => a.name === '장기수선 예치금').end, 13000000);
+    [11800000, 300000, 50000, 0, 1000000, 11050000]);
+  assert.deepEqual([r.total.prev, r.total.income, r.total.expense, r.total.end], [28800000, 370000, 50000, 29120000]);
+  assert.equal(r.accounts.find((a) => a.name === '장기수선 예치금').end, 7000000);
 });
 
 test('마감된 날: 마감 당시 결재선·작성자 사용, 검증 결과 포함', async () => {
@@ -59,7 +59,7 @@ test('마감된 날: 마감 당시 결재선·작성자 사용, 검증 결과 �
   await tx('IN', '교무금', '교무금', 1000);
   await api('POST', '/api/closings/2026-10-02/close', { writerName: '홍길동' });
   await api('PUT', '/api/approval-steps', { titles: ['담당', '신부'] });
-  await api('PUT', '/api/settings/parish', { parishName: '용머리성당', startDate: '2026-10-01', writerName: '김사무' });
+  await api('PUT', '/api/settings/parish', { parishName: '예시성당', startDate: '2026-10-01', writerName: '김사무' });
 
   const r = (await api('GET', '/api/reports/daily?date=2026-10-02')).body;
   assert.equal(r.status, 'CLOSED');
@@ -73,7 +73,7 @@ test('마감된 날: 마감 당시 결재선·작성자 사용, 검증 결과 �
   assert.equal(p.status, 'PROVISIONAL');
   assert.equal(p.writerName, '김사무');
   assert.deepEqual(p.approvalSteps, ['담당', '신부']);
-  assert.equal(p.total.prev, 66601000);
+  assert.equal(p.total.prev, 28801000);
   assert.deepEqual(p.income.rows, []);
 });
 

@@ -14,7 +14,7 @@ export function createDb({ seed = true } = {}) {
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
     db.exec(readFileSync(join(dir, file), 'utf8'));
   }
-  if (seed) db.exec(readFileSync(join(root, 'seed', 'dev-yongmeori.sql'), 'utf8'));
+  if (seed) db.exec(readFileSync(join(root, 'seed', 'dev-sample.sql'), 'utf8'));
   return db;
 }
 

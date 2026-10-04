@@ -84,10 +84,12 @@ export async function attempt(fn, successMessage) {
   }
 }
 
-/** 결재란 미리보기 (결산서와 같은 모양) */
+/** 결재란 (화면 미리보기와 결산서 공용). 결재 칸은 명칭 길이와 관계없이 모두 같은 너비 */
 export function approvalBoxHtml(titles) {
   if (!titles.length) return '<p class="muted">결재 단계가 없습니다.</p>';
-  return `<table class="approval-box"><tr><th rowspan="2" class="vertical">결<br>재</th>
+  return `<table class="approval-box" style="--steps:${titles.length}">
+    <colgroup><col class="vertical">${titles.map(() => '<col class="step">').join('')}</colgroup>
+    <tr><th rowspan="2" class="vertical">결<br>재</th>
     ${titles.map((t) => `<th>${esc(t)}</th>`).join('')}</tr>
     <tr>${titles.map(() => '<td></td>').join('')}</tr></table>`;
 }

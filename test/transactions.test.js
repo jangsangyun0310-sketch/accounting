@@ -38,15 +38,15 @@ test('수입·지출 입력 → 하루 현황 집계와 잔액', async () => {
 
   const day = (await api('GET', '/api/day?date=2026-10-04')).body;
   const g = fund(day, 'GENERAL');
-  assert.deepEqual([g.prev, g.income, g.expense, g.end], [33600000, 350000, 120000, 33830000]);
-  assert.deepEqual([day.total.prev, day.total.end], [66600000, 66830000]);
+  assert.deepEqual([g.prev, g.income, g.expense, g.end], [11800000, 350000, 120000, 12030000]);
+  assert.deepEqual([day.total.prev, day.total.end], [28800000, 29030000]);
   assert.equal(day.transactions.length, 2);
   assert.equal(day.transactions[0].subjectName, '교무금');
   assert.equal(day.transactions[0].fundCode, 'GENERAL');
   assert.equal(day.locked, false);
   // 다음날 전일잔액 = 오늘 당일잔액
   const next = (await api('GET', '/api/day?date=2026-10-05')).body;
-  assert.equal(next.total.prev, 66830000);
+  assert.equal(next.total.prev, 29030000);
 });
 
 test('입력 검증: 금액·과목 구분·통장', async () => {
@@ -76,9 +76,9 @@ test('통장 간 이체: 회계 간 이동은 회계별 잔액만 바뀌고 전�
   const day = (await api('GET', '/api/day?date=2026-10-04')).body;
   const g = fund(day, 'GENERAL');
   const s = fund(day, 'SPECIAL');
-  assert.deepEqual([g.income, g.expense, g.transferOut, g.end], [0, 0, 1000000, 32600000]);
-  assert.deepEqual([s.transferIn, s.end], [1000000, 34000000]);
-  assert.equal(day.total.end, 66600000);
+  assert.deepEqual([g.income, g.expense, g.transferOut, g.end], [0, 0, 1000000, 10800000]);
+  assert.deepEqual([s.transferIn, s.end], [1000000, 18000000]);
+  assert.equal(day.total.end, 28800000);
   const out = day.transactions.find((t) => t.direction === 'OUT');
   assert.equal(out.counterpartName, '장기수선 예치금');
 
@@ -98,7 +98,7 @@ test('취소: 사유 필수, 잔액에서 제외, 두 번 취소 불가, 이체�
   const again = await api('POST', `/api/transactions/${id}/void`, { reason: '다시' });
   assert.equal(again.body.error.code, 'ALREADY_VOIDED');
   let day = (await api('GET', '/api/day?date=2026-10-04')).body;
-  assert.equal(day.total.end, 66600000);
+  assert.equal(day.total.end, 28800000);
   assert.equal(day.transactions[0].status, 'VOIDED');
   assert.equal(day.transactions[0].voidReason, '중복 입력');
 
@@ -111,7 +111,7 @@ test('취소: 사유 필수, 잔액에서 제외, 두 번 취소 불가, 이체�
   const audits = db.prepare("SELECT entity_id FROM audit_log WHERE action = 'VOID' ORDER BY id").all().map((r) => Number(r.entity_id));
   assert.deepEqual(audits, [id, ...tr.body.ids]);
   day = (await api('GET', '/api/day?date=2026-10-04')).body;
-  assert.equal(day.total.end, 66600000);
+  assert.equal(day.total.end, 28800000);
 });
 
 test('수정: 원본 취소 + 새 거래, 이력 조회, 같은 원본 재수정 불가', async () => {
@@ -194,12 +194,12 @@ test('거래 조회: 기간·통장별 잔액 흐름, 검색어, 취소 포함 �
   await api('POST', '/api/transfers', { date: '2026-10-05', fromAccountId: acc('경상비'), toAccountId: acc('교무금'), amount: '1000' });
 
   let r = (await api('GET', `/api/transactions?from=2026-10-03&to=2026-10-31&accountId=${acc('경상비')}`)).body;
-  assert.equal(r.openingBalance, 30100000);
-  assert.deepEqual(r.rows.map((x) => x.balanceAfter), [30070000, 30069000]);
+  assert.equal(r.openingBalance, 10100000);
+  assert.deepEqual(r.rows.map((x) => x.balanceAfter), [10070000, 10069000]);
   assert.deepEqual(r.totals, { income: 0, expense: 30000, transferIn: 0, transferOut: 1000 });
 
   r = (await api('GET', `/api/transactions?from=2026-10-01&to=2026-10-31&accountId=${acc('경상비')}&includeVoided=1`)).body;
-  assert.deepEqual(r.rows.map((x) => x.balanceAfter), [30100000, 30070000, null, 30069000]);
+  assert.deepEqual(r.rows.map((x) => x.balanceAfter), [10100000, 10070000, null, 10069000]);
 
   r = (await api('GET', '/api/transactions?from=2026-10-01&to=2026-10-31&q=' + encodeURIComponent('50%_'))).body;
   assert.deepEqual(r.rows.map((x) => x.memo), ['50%_할인 물품']);

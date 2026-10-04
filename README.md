@@ -48,7 +48,7 @@ src/               Worker 코드 (/api/*)
   lib/             인증, DB, 응답 공용 처리
   routes/          API 기능별 처리
 migrations/        D1 스키마 (순서대로 적용)
-seed/              개발용 초기 데이터 (용머리성당)
+seed/              개발·테스트용 가상 데이터 (예시성당, 실제 성당 자료 아님)
 test/              자동 테스트
 ```
 

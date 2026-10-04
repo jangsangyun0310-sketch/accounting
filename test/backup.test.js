@@ -58,7 +58,7 @@ test('백업 → 빈 DB 에 복구: 모든 표가 원본과 같고, 잔액·마�
   assert.match(res.headers.get('content-disposition'), /attachment/);
   const backup = res.body;
   assert.equal(backup.format, 'bondang-salim-backup');
-  assert.equal(backup.parishName, '용머리성당');
+  assert.equal(backup.parishName, '예시성당');
   assert.equal(backup.checksum, await sha256Hex(JSON.stringify(backup.tables)));
   assert.equal(backup.counts.transactions, 8);
 

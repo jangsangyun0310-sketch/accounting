@@ -129,7 +129,7 @@ test('거래가 있는 통장은 삭제 불가, 마감 후 초기잔액 변경 �
   assert.equal(r.body.error.code, 'OPENING_LOCKED');
   assert.equal((await api('GET', '/api/settings')).body.locks.openingBalance, true);
   // 초기잔액을 그대로 두면 이름 변경은 가능
-  r = await api('PUT', `/api/accounts/${acc.id}`, { ...base, name: '교무금 통장', openingBalance: '2,000,000' });
+  r = await api('PUT', `/api/accounts/${acc.id}`, { ...base, name: '교무금 통장', openingBalance: '1,000,000' });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   // 실패한 요청은 감사 로그를 남기지 않음
   assert.equal(db.prepare("SELECT COUNT(*) n FROM audit_log WHERE entity = 'accounts'").get().n, 1);
@@ -195,13 +195,13 @@ test('open 모드: 로그인 없이 사용, 처리자는 설정의 작성자 이
   assert.equal(lastActor(), '사무장');
 
   // 사무장이 바뀌면 설정에서 이름만 바꾸고, 그 다음 기록부터 새 이름
-  await call('PUT', '/api/settings/parish', { parishName: '용머리성당', startDate: '2026-10-01', writerName: '홍길동' });
+  await call('PUT', '/api/settings/parish', { parishName: '예시성당', startDate: '2026-10-01', writerName: '홍길동' });
   await call('POST', '/api/subjects', { kind: 'INCOME', name: '성탄 헌금' });
   assert.equal(lastActor(), '홍길동');
   assert.equal(db.prepare("SELECT actor FROM audit_log WHERE after_json LIKE '%바자회%'").get().actor, '사무장');
 
   // 작성자 이름이 비어 있거나 최초 설정 전이면 '사무실'
-  await call('PUT', '/api/settings/parish', { parishName: '용머리성당', startDate: '2026-10-01', writerName: '' });
+  await call('PUT', '/api/settings/parish', { parishName: '예시성당', startDate: '2026-10-01', writerName: '' });
   assert.equal((await call('GET', '/api/me')).email, '사무실');
   const fresh = { DB: d1Adapter(createDb({ seed: false })), AUTH_MODE: 'open' };
   assert.equal((await (await worker.fetch(new Request('http://local/api/me'), fresh)).json()).email, '사무실');

@@ -8,11 +8,11 @@ import { translateDbError } from '../src/lib/db.js';
 
 const rejects = (fn, code) => assert.throws(fn, (e) => String(e.message).includes(code), `expected ${code}`);
 
-test('초기잔액 합계: 일반 33,600,000 / 특별 33,000,000 / 전체 66,600,000', async () => {
+test('초기잔액 합계: 일반 11,800,000 / 특별 17,000,000 / 전체 28,800,000', async () => {
   const db = createDb();
   const b = await computeBalances(d1Adapter(db), '2026-10-01');
-  assert.deepEqual(b.funds.map((f) => [f.code, f.balance]), [['GENERAL', 33600000], ['SPECIAL', 33000000]]);
-  assert.equal(b.total, 66600000);
+  assert.deepEqual(b.funds.map((f) => [f.code, f.balance]), [['GENERAL', 11800000], ['SPECIAL', 17000000]]);
+  assert.equal(b.total, 28800000);
   assert.equal(b.accounts.length, 9);
 });
 
@@ -25,16 +25,16 @@ test('수입은 잔액 증가, 지출은 감소, 취소 거래는 제외', async
 
   let b = await computeBalances(adapter, '2026-10-04');
   const bal = (name) => b.accounts.find((a) => a.name === name).balance;
-  assert.equal(bal('교무금'), 2350000);
-  assert.equal(bal('경상비'), 29880000);
-  assert.equal(b.total, 66600000 + 350000 - 120000);
+  assert.equal(bal('교무금'), 1350000);
+  assert.equal(bal('경상비'), 9880000);
+  assert.equal(b.total, 28800000 + 350000 - 120000);
 
   // 전일(10/3) 잔액은 영향 없음, 다음날 거래는 당일 잔액에 미포함
-  assert.equal((await computeBalances(adapter, '2026-10-03')).total, 66600000);
+  assert.equal((await computeBalances(adapter, '2026-10-03')).total, 28800000);
 
   voidTx(db, out);
   b = await computeBalances(adapter, '2026-10-04');
-  assert.equal(bal('경상비'), 30000000);
+  assert.equal(bal('경상비'), 10000000);
 });
 
 test('금액: 실수·0·음수·문자열 저장 불가', () => {
@@ -95,8 +95,8 @@ test('통장 간 이체: 같은 그룹의 OUT/IN 한 쌍, 전체 합계 불변',
   ins.run('OUT', accountId(db, '교무금'));
   ins.run('IN', accountId(db, '경상비'));
   const b = await computeBalances(d1Adapter(db), '2026-10-04');
-  assert.equal(b.total, 66600000);
-  assert.equal(b.accounts.find((a) => a.name === '경상비').balance, 30500000);
+  assert.equal(b.total, 28800000);
+  assert.equal(b.accounts.find((a) => a.name === '경상비').balance, 10500000);
   // 이체에는 과목을 넣을 수 없고, 일반 거래에는 그룹을 넣을 수 없다
   assert.throws(() => db.prepare(
     `INSERT INTO transactions (tx_date, kind, direction, account_id, subject_id, transfer_group, amount, created_at, created_by)
