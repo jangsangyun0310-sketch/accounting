@@ -31,13 +31,13 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 }
 .topbar-inner.narrow { max-width: 860px; }
 .topbar-inner.wide { max-width: 1280px; }
-.topbar-inner.report { max-width: 210mm; padding: 0 4px; } /* 결산서: A4 용지 폭 */
+.topbar-inner.a4 { max-width: 210mm; padding: 0 4px; } /* 결산서: A4 용지 폭 */
 /* 화면이 넉넉하면 로고는 본문 줄 바깥 왼쪽에 두고, [설정] 버튼부터 본문 왼쪽 줄에 맞춘다.
    로고 폭 171px + 간격 16px. 화면이 좁으면 로고가 화면 밖으로 나가지 않게 이 배치를 쓰지 않는다. */
-@media (min-width: 1390px) { .topbar-inner:not(.narrow):not(.wide):not(.report) .brand { margin-left: -187px; } }
+@media (min-width: 1390px) { .topbar-inner:not(.narrow):not(.wide):not(.a4) .brand { margin-left: -187px; } }
 @media (min-width: 1210px) { .topbar-inner.narrow .brand { margin-left: -187px; } }
 @media (min-width: 1630px) { .topbar-inner.wide .brand { margin-left: -187px; } }
-@media (min-width: 1170px) { .topbar-inner.report .brand { margin-left: -187px; } }
+@media (min-width: 1170px) { .topbar-inner.a4 .brand { margin-left: -187px; } }
 .topbar .brand { display: flex; align-items: center; line-height: 0; }
 .topbar .brand img { height: 48px; width: auto; }
 .topbar .parish-box { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1.3; }
@@ -297,7 +297,7 @@ dialog#share-dialog h3 { margin-top: 0; }
 .copy-row { display: flex; gap: 6px; margin-top: 4px; }
 .copy-row input { flex: 1; font-size: 13px; color: var(--muted); }
 
-/* ---- 성당별 암호화 모드 ---- */
+/* ---- 시작 화면 (장부 파일 열기·새 장부 만들기) ---- */
 .unlock-screen {
   position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
   background: var(--bg);
@@ -310,13 +310,19 @@ dialog#share-dialog h3 { margin-top: 0; }
 .unlock-box h2 { text-align: center; margin: 0; }
 .unlock-box input { font-size: 17px; padding: 10px; }
 .unlock-box button { padding: 10px; font-size: 16px; }
-.unlock-box .help { margin: 0; }
-.start-box form, .form-narrow { display: flex; flex-direction: column; gap: 12px; max-width: 440px; }
-.start-box input[type="password"], .form-narrow input[type="password"] { font-size: 16px; padding: 9px; }
-.start-box button[type="submit"] { padding: 10px; font-size: 16px; }
+.unlock-box .help, .unlock-box p { margin: 0; }
+.unlock-box form, .unlock-box #start-body { display: flex; flex-direction: column; gap: 12px; }
+.unlock-box label.check { white-space: normal; align-items: flex-start; font-size: 14px; }
+.unlock-box label.check input { width: auto; margin-top: 3px; }
+.unlock-box .file-name { font-weight: 600; text-align: center; padding: 8px; background: var(--accent-soft); border-radius: 6px; word-break: break-all; }
+.unlock-box .start-actions { display: flex; flex-direction: column; gap: 8px; }
+.unlock-box .start-links { text-align: center; font-size: 14px; }
+.unlock-box ul.start-points { margin: 0; font-size: 14px; }
+.form-narrow { display: flex; flex-direction: column; gap: 12px; max-width: 440px; }
+.form-narrow input[type="password"] { font-size: 16px; padding: 9px; }
 ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 .copy-row.big input { font-size: 15px; color: var(--text); padding: 9px; }
 .parish-address { background: #f0f7f2; border-color: #b9dcc4; font-size: 14px; }
-.parish-address .copy-row { margin-top: 8px; max-width: 640px; }
+.parish-address #close-ledger { margin-left: 8px; }
 .parish-address .install-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 @media print { .topbar { position: static; } }

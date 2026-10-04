@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/index.js';
-import { createDb, d1Adapter, accountId, subjectId, closeDate } from './helpers.js';
+import { createDb, d1Adapter, accountId, subjectId, closeDate, worker } from './helpers.js';
 import { nextVoucher } from '../public/js/shared/voucher.js';
 
 function setup() {

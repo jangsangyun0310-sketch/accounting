@@ -5,14 +5,13 @@ import { initPage, bindAmountInput, attempt, approvalBoxHtml, FUND_LABEL, KIND_L
 import { formatWon } from './shared/money.js';
 import { formatDateTimeKST } from './shared/dates.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
-import { isLocalMode } from './base.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', ...(isLocalMode ? ['password'] : [])].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', 'password'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값
 
@@ -236,12 +235,12 @@ async function renderBackup() {
   const { html } = backupStatusHtml(s);
   panel.innerHTML = `
     <p>${html}</p>
-    <button type="button" data-action="backup-download">백업 파일 내려받기</button>
+    <button type="button" data-action="backup-download">백업 사본 저장하기</button>
     <div class="help">
-      <p>성당의 모든 회계 자료(설정, 거래, 마감 기록, 변경 기록)를 파일 하나로 PC 에 저장합니다.
-        <b>매주 한 번</b>, 그리고 월말에 저장해 두고, USB 등 다른 곳에도 복사해 두세요.</p>
-      <p>복구는 새로 설치한(비어 있는) 본당살림의 <b>최초 설정 화면</b>에서 "백업 파일로 복구하기"로 합니다.
-        이미 자료가 있는 곳에는 덮어쓰지 않습니다.</p>
+      <p>지금 장부 파일의 <b>사본</b>을 고른 곳에 저장합니다. 사본도 <b>같은 비밀번호로 잠겨</b> 있습니다.
+        <b>매주 한 번</b>, 그리고 월말에 저장하고, <b>USB나 OneDrive 처럼 이 컴퓨터 밖</b>에도 두세요.
+        컴퓨터가 고장 나면 장부 파일도 함께 잃을 수 있습니다.</p>
+      <p>되살릴 때는 시작 화면에서 <b>[장부 파일 열기]</b>로 백업 사본을 고르면 그대로 열립니다.</p>
     </div>
     ${s.history.length ? `
       <h4>최근 기록</h4>
@@ -249,12 +248,12 @@ async function renderBackup() {
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
 }
 
-// ---------------------------------------------------------------- 비밀번호 (성당별 암호화 모드)
+// ---------------------------------------------------------------- 비밀번호
 
 function renderPassword() {
   panel.innerHTML = `
     <form id="password-form" class="form-narrow" autocomplete="off">
-      <p>장부의 모든 자료가 새 비밀번호로 다시 암호화됩니다. 바꾸면 예전 비밀번호로는 열 수 없습니다.
+      <p>장부 파일 전체가 새 비밀번호로 다시 잠깁니다. 바꾸면 예전 비밀번호로는 이 파일을 열 수 없습니다.
         (직원이 그만두었을 때 바꾸세요)</p>
       <label>지금 비밀번호 <input type="password" id="pw-current" required></label>
       <label>새 비밀번호 (8자 이상) <input type="password" id="pw-new" minlength="8" required></label>
@@ -262,8 +261,7 @@ function renderPassword() {
       <label class="check"><input type="checkbox" id="pw-ack" required>
         새 비밀번호를 잊으면 누구도(개발자 포함) 자료를 되살릴 수 없다는 것을 이해했습니다.</label>
       <button type="submit" id="pw-save">비밀번호 바꾸기</button>
-      <p class="help">다른 PC 에서 이 장부를 열어 두었다면, 그 PC 에서는 새 비밀번호를 다시 입력해야 합니다.
-        이전에 내려받아 둔 백업 파일은 비밀번호와 상관없이 그대로 열리니 보관에 주의하세요.</p>
+      <p class="help">이미 저장해 둔 백업 사본은 <b>예전 비밀번호</b>로 잠겨 있습니다. 바꾼 뒤에는 백업 사본을 새로 저장해 두세요.</p>
     </form>`;
   const $f = (id) => document.getElementById(id);
   $f('password-form').addEventListener('submit', async (e) => {
@@ -431,7 +429,6 @@ tabs.addEventListener('click', (e) => {
   render();
 });
 
-if (isLocalMode) document.getElementById('password-tab').hidden = false;
 
 initPage('settings').then(async () => {
   await reload();

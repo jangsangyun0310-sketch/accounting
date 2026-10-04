@@ -1,17 +1,10 @@
-// 주소 모드 판별
-//   /p/{성당ID}/...  : 성당별 암호화 모드. 계산·저장은 이 브라우저 안의 엔진이 하고 서버에는 암호문만 보낸다.
-//   그 밖           : 서버 모드 (기존 설치, 서버의 D1 사용)
-const match = /^\/p\/([A-Za-z0-9_-]{16,64})(?=\/|$)/.exec(location.pathname);
+// 화면 공용 기초
+//   장부는 본당 컴퓨터의 파일에 있고, 계산·저장은 이 브라우저 안의 엔진이 한다 (서버에는 아무것도 보내지 않는다).
 
-export const PARISH_ID = match ? match[1] : null;
-export const BASE = match ? `/p/${match[1]}` : '';
-export const isLocalMode = Boolean(match);
+/** 화면 주소. 모든 화면이 사이트 바로 아래(/entry 등)에 있다 */
+export const href = (path) => path;
 
-/** 화면 주소에 성당 경로를 붙인다. href('/entry?date=..') → '/p/{id}/entry?date=..' */
-export const href = (path) => BASE + path;
-
-// 앱 설치(바탕화면 아이콘)용 manifest. 성당별 주소에서는 /p/{id}/manifest.webmanifest 를 써서
-// 설치한 아이콘이 그 성당 주소(start_url "./")로 열리게 한다.
+// 앱 설치(바탕화면 아이콘)용 manifest
 const manifest = document.createElement('link');
 manifest.rel = 'manifest';
 manifest.href = href('/manifest.webmanifest');

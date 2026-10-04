@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/index.js';
-import { createDb, d1Adapter, accountId, subjectId } from './helpers.js';
+import { createDb, d1Adapter, accountId, subjectId, worker } from './helpers.js';
 import { TABLES, sha256Hex } from '../public/core/lib/backup.js';
 
 function client(db) {
@@ -158,4 +157,15 @@ test('예전 백업(취소된 거래 포함)을 복구하면 취소된 거래는
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(target.prepare("SELECT COUNT(*) n FROM transactions WHERE status <> 'POSTED'").get().n, 0);
   assert.equal(target.prepare('SELECT COUNT(*) n FROM transactions').get().n, backup.counts.transactions);
+});
+
+test('장부 파일 사본 저장 기록: 백업 상태가 갱신된다', async () => {
+  const { api } = await richDb();
+  assert.equal((await api('GET', '/api/backup/status')).body.lastBackupAt, null);
+  const r = await api('POST', '/api/backup/log', { fileName: '본당살림 백업 예시성당 2026-10-05.bondang' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const status = (await api('GET', '/api/backup/status')).body;
+  assert.ok(status.lastBackupAt);
+  assert.equal(status.changesSince, 0);
+  assert.deepEqual(status.history.map((h) => h.action), ['BACKUP']);
 });

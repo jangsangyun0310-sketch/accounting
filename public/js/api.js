@@ -1,10 +1,8 @@
 // API 호출 공용 함수. 오류는 사용자 메시지를 담은 Error 로 던진다.
-// 성당별 모드(/p/{id}/...)에서는 서버 대신 이 브라우저 안의 엔진이 처리한다.
-import { isLocalMode } from './base.js';
+// /api/* 는 서버가 아니라 이 브라우저 안의 엔진(장부 파일)이 처리한다.
 
-/** fetch 와 같은 모양. 성당별 모드면 로컬 엔진으로 보낸다 */
+/** fetch 와 같은 모양으로 브라우저 안의 엔진에 보낸다 */
 export async function apiFetch(path, init = {}) {
-  if (!isLocalMode) return fetch(path, init);
   const { ready } = await import('./local/session.js');
   const engine = await ready();
   return engine.fetch(path, init);

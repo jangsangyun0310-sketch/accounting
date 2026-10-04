@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/index.js';
-import { createDb, d1Adapter, accountId, subjectId } from './helpers.js';
+import { createDb, d1Adapter, accountId, subjectId, worker } from './helpers.js';
 
 function setup() {
   const db = createDb();

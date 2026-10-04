@@ -30,6 +30,14 @@ export async function download({ env, actor }) {
   });
 }
 
+/** POST /api/backup/log : 장부 파일 사본을 저장했다는 기록 (사본은 브라우저가 직접 저장한다) */
+export async function log({ request, env, actor }) {
+  const { fileName } = await readJson(request);
+  await env.DB.prepare(`INSERT INTO backup_log (at, actor, action, summary) VALUES (?, ?, 'BACKUP', ?)`)
+    .bind(new Date().toISOString(), actor.email, JSON.stringify({ kind: 'file-copy', fileName: String(fileName ?? '').slice(0, 200) })).run();
+  return json({ ok: true });
+}
+
 /** GET /api/backup/status : 마지막 백업과 그 이후 변경 건수 */
 export async function status({ env }) {
   const db = env.DB;

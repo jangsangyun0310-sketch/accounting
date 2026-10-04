@@ -5,11 +5,9 @@
   "description": "본당살림 - 본당 회계·결산 관리",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --var AUTH_MODE:dev",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:seed:local": "wrangler d1 execute DB --local --file=seed/dev-sample.sql",
+    "dev": "wrangler dev",
     "test": "node --test --disable-warning=ExperimentalWarning \"test/**/*.test.js\"",
-    "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote"
+    "deploy": "wrangler deploy"
   },
   "engines": {
     "node": ">=22.13"

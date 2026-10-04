@@ -1,26 +1,17 @@
 // 백업 내려받기·백업 상태 (설정 화면과 홈 화면이 같이 사용)
-import { apiFetch, esc } from './api.js';
+import { api, esc } from './api.js';
 import { toast } from './ui.js';
-import { formatDateTimeKST, todayKST } from './shared/dates.js';
+import { formatDateTimeKST } from './shared/dates.js';
 
-/** 백업 파일을 받아 PC 에 저장. 성공하면 true */
+/** 백업: 장부 파일 사본(같은 비밀번호로 잠김)을 고른 곳에 저장하고 백업 기록을 남긴다. 저장했으면 true */
 export async function downloadBackup() {
   try {
-    const res = await apiFetch('/api/backup');
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      throw new Error(data?.error?.message || `백업 실패 (${res.status})`);
-    }
-    const disposition = res.headers.get('content-disposition') || '';
-    const encoded = /filename\*=UTF-8''([^;]+)/.exec(disposition)?.[1];
-    const fileName = encoded ? decodeURIComponent(encoded) : `bondang-backup-${todayKST()}.json`;
-    const url = URL.createObjectURL(await res.blob());
-    const a = Object.assign(document.createElement('a'), { href: url, download: fileName });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    toast(`백업 파일을 저장했습니다: ${fileName}`);
+    const { saveBackupCopy } = await import('./local/session.js');
+    const settings = await api('/api/settings');
+    const fileName = await saveBackupCopy(settings.parish?.parishName);
+    if (!fileName) return false; // 저장 창에서 취소
+    await api('/api/backup/log', { method: 'POST', body: { fileName } });
+    toast(`백업 사본을 저장했습니다: ${fileName}`);
     return true;
   } catch (err) {
     toast(err.message, 'error');

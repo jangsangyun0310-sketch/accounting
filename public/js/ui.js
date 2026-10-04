@@ -1,5 +1,5 @@
 // 화면 공용 부품: 상단 메뉴, 금액 입력칸, 알림, 결재란 미리보기
-import { href, isLocalMode } from './base.js';
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { formatWon } from './shared/money.js';
 
@@ -26,7 +26,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
     bar.classList.add('topbar');
     // 성당 이름·작성자 이름은 화면 캡처에 나오지 않도록 상단 막대에 표시하지 않는다
     // 메뉴 줄의 왼쪽·오른쪽 끝을 본문 상자 줄에 맞춘다 (본문과 같은 폭)
-    const width = document.body.classList.contains('report-page') ? 'report'
+    const width = document.body.classList.contains('report-page') ? 'a4'
       : ['wide', 'narrow'].find((w) => document.querySelector('main.container')?.classList.contains(w));
     bar.innerHTML = `<div class="topbar-inner${width ? ` ${width}` : ''}">
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
@@ -34,15 +34,15 @@ export async function initPage(active, { requireSetup = true } = {}) {
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
-      ${isLocalMode ? '<button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>' : ''}</div>`;
+      <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button></div>`;
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
   }
   return { me, settings };
 }
 
-// 다른 성당에 보낼 링크: 열면 그 성당 전용 빈 장부를 만드는 화면이 나온다. 우리 자료는 전혀 가지 않는다.
+// 다른 성당에 보낼 링크: 프로그램 주소만 보낸다. 장부는 각 성당 컴퓨터의 파일에 있으므로 우리 자료는 전혀 가지 않는다.
 function openShareDialog() {
-  const link = `${location.origin}/new`;
+  const link = `${location.origin}/`;
   let dlg = document.getElementById('share-dialog');
   if (!dlg) {
     dlg = document.createElement('dialog');
@@ -65,9 +65,9 @@ function openShareDialog() {
     <p>아래 링크를 다른 성당 사무장님께 보내 주세요.</p>
     <div class="copy-row big"><input readonly value="${esc(link)}"><button type="button" data-copy>링크 복사</button></div>
     <ul class="start-points">
-      <li>링크를 열면 <b>비밀번호 정하기 → 최초 설정</b> 화면이 바로 나옵니다. 설치·가입은 필요 없습니다.</li>
-      <li>그 성당 전용 <b>빈 장부</b>가 새로 만들어집니다. <b>우리 성당 자료는 전혀 전달되지 않습니다.</b></li>
-      <li>각 성당의 자료는 그 성당 비밀번호로 암호화되어, 다른 성당도 개발자도 볼 수 없습니다.</li>
+      <li>크롬이나 엣지로 링크를 열고 <b>[새 장부 만들기]</b>를 누르면 됩니다. 설치·가입은 필요 없습니다.</li>
+      <li>장부는 <b>그 성당 컴퓨터의 파일</b>에 따로 만들어집니다. <b>우리 성당 자료는 전혀 전달되지 않습니다.</b></li>
+      <li>장부 파일은 그 성당 비밀번호로 잠기고, 서버에는 아무것도 저장되지 않습니다.</li>
     </ul>
     <div class="dialog-foot"><button type="button" class="secondary" data-close>닫기</button></div>`;
   dlg.showModal();

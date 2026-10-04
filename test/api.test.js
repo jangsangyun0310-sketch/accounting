@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/index.js';
-import { createDb, d1Adapter, insertTx, closeDate } from './helpers.js';
+import { createDb, d1Adapter, insertTx, closeDate, worker } from './helpers.js';
 
 function client(db) {
   const env = { DB: d1Adapter(db), AUTH_MODE: 'dev', DEV_USER: 'office@test' };

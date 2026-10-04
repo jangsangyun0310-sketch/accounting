@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/index.js';
-import { createDb, d1Adapter, accountId, subjectId } from './helpers.js';
+import { createDb, d1Adapter, accountId, subjectId, worker } from './helpers.js';
 
 // 오늘 = 2026-10-04 로 고정 (todayKST 가 Date 를 쓰므로 Date.now 를 고정)
 const FIXED_NOW = Date.parse('2026-10-04T03:00:00Z');

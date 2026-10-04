@@ -1,36 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "bondang-salim",
-  "main": "src/index.js",
   "compatibility_date": "2026-10-01",
 
-  // 화면 파일. /api/* 만 Worker 코드가 처리한다.
+  // 프로그램 파일(public/)만 내려보낸다. 서버 코드·데이터베이스는 없다.
+  // 장부는 각 성당 컴퓨터의 파일(.bondang)에 저장되고, 계산·저장은 브라우저 안에서 한다.
   "assets": {
-    "directory": "./public",
-    "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/p/*", "/vault/*"]
-  },
-
-  // D1 데이터베이스. database_id 를 비워 두면 배포 시 자동 생성된다(Deploy to Cloudflare 버튼 포함).
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "bondang-salim-ledger",
-      "migrations_dir": "public/migrations"
-    }
-  ],
-
-  // 인증 방식
-  //   "open"   : 로그인 없이 사용 (기본). 처리자는 '사무실'로 기록된다.
-  //   "access" : Cloudflare Access 로그인 (선택). 이 경우 아래 두 값을 "비밀값(secret)"으로 등록한다.
-  //              ACCESS_TEAM_DOMAIN 예) https://myparish.cloudflareaccess.com
-  //              ACCESS_AUD        : Access 애플리케이션의 Application Audience (AUD) 태그
-  "vars": {
-    "AUTH_MODE": "open"
+    "directory": "./public"
   },
 
   // 버전별 미리보기 주소를 만들지 않는다 (접속 주소는 하나만)
-  "preview_urls": false,
-
-  "observability": { "enabled": true }
+  "preview_urls": false
 }

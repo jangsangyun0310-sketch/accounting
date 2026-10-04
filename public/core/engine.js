@@ -44,6 +44,7 @@ const routes = [
   ['GET', '/api/reports/period', reports.period],
   ['GET', '/api/backup', backup.download],
   ['GET', '/api/backup/status', backup.status],
+  ['POST', '/api/backup/log', backup.log],
   ['POST', '/api/restore', backup.restore],
 ].map(([method, path, handler]) => {
   const keys = [];

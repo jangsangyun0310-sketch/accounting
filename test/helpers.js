@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { handleApi } from '../public/core/engine.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -86,3 +87,6 @@ export function reopenDate(db, date, reason = '정정 필요') {
      WHERE close_date = ?`
   ).run(NOW, reason, date);
 }
+
+/** 브라우저 안의 엔진과 같은 API 처리 (fetch(request, env) 모양) */
+export const worker = { fetch: (request, env) => handleApi(request, env, new URL(request.url)) };
