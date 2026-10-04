@@ -23,18 +23,59 @@ export async function initPage(active, { requireSetup = true } = {}) {
   const bar = document.getElementById('topbar');
   if (bar) {
     bar.classList.add('topbar');
+    // 성당 이름·작성자 이름은 화면 캡처에 나오지 않도록 상단 막대에 표시하지 않는다
     bar.innerHTML = `
       <a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
-      <div class="parish-box">
-        <span class="parish">${esc(settings.parish?.parishName ?? '')}</span>
-        ${settings.setupCompleted
-          ? `<a href="/settings" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
-      </div>
+      ${settings.setupCompleted
+        ? `<a href="/settings" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${n.href}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
-      <span class="user">${esc(me.email)}</span>`;
+      <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>`;
+    bar.querySelector('#share-btn').addEventListener('click', openShareDialog);
   }
   return { me, settings };
+}
+
+// 다른 성당에 알려줄 설치 안내 주소. 이 주소로 설치하면 빈 프로그램(틀)만 설치되고 우리 자료는 전혀 가지 않는다.
+const SHARE_GUIDE_URL = 'https://github.com/jangsangyun0310-sketch/accounting#우리-성당에-설치하기';
+const SHARE_DEPLOY_URL = 'https://deploy.workers.cloudflare.com/?url=https://github.com/jangsangyun0310-sketch/accounting';
+
+function openShareDialog() {
+  let dlg = document.getElementById('share-dialog');
+  if (!dlg) {
+    dlg = document.createElement('dialog');
+    dlg.id = 'share-dialog';
+    document.body.append(dlg);
+    dlg.addEventListener('click', async (e) => {
+      if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
+      const copy = e.target.closest('[data-copy]');
+      if (copy) {
+        try {
+          await navigator.clipboard.writeText(copy.dataset.copy);
+          toast('주소를 복사했습니다. 카카오톡이나 문자에 붙여 넣으세요.');
+        } catch {
+          toast('복사하지 못했습니다. 주소를 직접 선택해 복사하세요.', 'error');
+        }
+      }
+    });
+  }
+  dlg.innerHTML = `
+    <h3>🔗 다른 성당에 본당살림 공유하기</h3>
+    <p>아래 주소를 다른 성당 사무장님께 보내 주세요.<br>
+      그 주소로 설치하면 <b>빈 프로그램(틀)만</b> 새로 만들어집니다.
+      <b>우리 성당의 통장·거래·금액·이름은 전혀 전달되지 않습니다.</b></p>
+    <label>설치 안내 주소 (권장)
+      <div class="copy-row"><input readonly value="${esc(SHARE_GUIDE_URL)}">
+        <button type="button" data-copy="${esc(SHARE_GUIDE_URL)}">복사</button></div>
+    </label>
+    <p class="help">설치 순서(버튼 클릭 → 이름 정하기 → 최초 설정)가 함께 안내된 페이지입니다.</p>
+    <label>바로 설치 주소
+      <div class="copy-row"><input readonly value="${esc(SHARE_DEPLOY_URL)}">
+        <button type="button" class="secondary" data-copy="${esc(SHARE_DEPLOY_URL)}">복사</button></div>
+    </label>
+    <p class="help">받는 성당은 무료 Cloudflare 계정만 있으면 됩니다. 각 성당의 자료는 각자의 계정에만 저장됩니다.</p>
+    <div class="dialog-foot"><button type="button" data-close>닫기</button></div>`;
+  dlg.showModal();
 }
 
 /**

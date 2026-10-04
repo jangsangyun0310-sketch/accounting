@@ -270,3 +270,11 @@ textarea { font: inherit; padding: 6px 8px; border: 1px solid #b9c0ca; border-ra
 /* [삭제] 버튼과 "삭제 불가" 표시를 같은 너비로 → [수정] 버튼 위치가 줄마다 같음 */
 table.grid td.actions .danger.small, .delete-blocked { width: 64px; box-sizing: border-box; }
 .delete-blocked { display: inline-block; font-size: 12px; color: #9ca3af; cursor: help; text-align: center; padding: 3px 0; border: 1px dotted #c5c9d0; border-radius: 4px; vertical-align: middle; }
+
+/* ---- 공유하기 ---- */
+.topbar .share-btn { margin-left: auto; background: #fff; color: var(--in); border: 1.5px solid var(--in); font-weight: 600; padding: 6px 14px; }
+.topbar .share-btn:hover { background: #e9f5ee; }
+dialog#share-dialog { width: min(640px, 95vw); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; }
+dialog#share-dialog h3 { margin-top: 0; }
+.copy-row { display: flex; gap: 6px; margin-top: 4px; }
+.copy-row input { flex: 1; font-size: 13px; color: var(--muted); }
