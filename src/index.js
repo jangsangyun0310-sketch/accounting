@@ -40,6 +40,7 @@ const routes = [
   ['POST', '/api/closings/:date/close', closings.close],
   ['POST', '/api/closings/:date/reopen', closings.reopen],
   ['GET', '/api/reports/daily', reports.daily],
+  ['GET', '/api/reports/period', reports.period],
   ['GET', '/api/backup', backup.download],
   ['GET', '/api/backup/status', backup.status],
   ['POST', '/api/restore', backup.restore],

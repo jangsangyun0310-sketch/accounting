@@ -54,13 +54,14 @@ export async function isDateLocked(db, date) {
 }
 
 /**
- * 하루 현황: 통장별·회계별 전일잔액 / 수입 / 지출 / 이체입금 / 이체출금 / 당일잔액 + 당일 거래 목록.
- * 전일잔액 + 수입 − 지출 + 이체입금 − 이체출금 = 당일잔액 이 맞지 않으면 오류를 낸다.
+ * 기간 현황 (from ~ to): 통장별·회계별 기초잔액(prev) / 수입 / 지출 / 이체입금 / 이체출금 / 기말잔액(end).
+ * 기초잔액 + 수입 − 지출 + 이체입금 − 이체출금 = 기말잔액 이 맞지 않으면 오류를 낸다.
+ * 하루 현황은 from = to 인 기간이다.
  */
-export async function computeDay(db, date) {
-  const [prev, end, sums, txs, locked] = await db.batch([
-    db.prepare(BALANCES_SQL).bind(addDays(date, -1)),
-    db.prepare(BALANCES_SQL).bind(date),
+export async function computePeriod(db, from, to) {
+  const [prev, end, sums] = await db.batch([
+    db.prepare(BALANCES_SQL).bind(addDays(from, -1)),
+    db.prepare(BALANCES_SQL).bind(to),
     db.prepare(
       `SELECT t.account_id,
               SUM(CASE WHEN t.kind = 'NORMAL'   AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS income,
@@ -68,48 +69,97 @@ export async function computeDay(db, date) {
               SUM(CASE WHEN t.kind = 'TRANSFER' AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS transfer_in,
               SUM(CASE WHEN t.kind = 'TRANSFER' AND t.direction = 'OUT' THEN t.amount ELSE 0 END) AS transfer_out
        FROM transactions t
-       WHERE t.tx_date = ? AND t.status = 'POSTED'
+       WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED'
        GROUP BY t.account_id`
-    ).bind(date),
-    db.prepare(`${TX_SELECT} WHERE t.tx_date = ? AND t.status = 'POSTED' ORDER BY t.id`).bind(date),
-    db.prepare(LOCKED_SQL).bind(date),
+    ).bind(from, to),
   ]);
 
   const prevById = new Map(prev.results.map((r) => [r.id, r.balance]));
   const sumById = new Map(sums.results.map((r) => [r.account_id, r]));
   const accounts = end.results.map((r) => {
-    const s = sumById.get(r.id) ?? {};
+    const sum = sumById.get(r.id) ?? {};
     const row = {
       id: r.id,
       fundCode: r.fund_code,
       name: r.name,
       isActive: r.is_active === 1,
       prev: assertInteger(prevById.get(r.id)),
-      income: assertInteger(s.income ?? 0),
-      expense: assertInteger(s.expense ?? 0),
-      transferIn: assertInteger(s.transfer_in ?? 0),
-      transferOut: assertInteger(s.transfer_out ?? 0),
+      income: assertInteger(sum.income ?? 0),
+      expense: assertInteger(sum.expense ?? 0),
+      transferIn: assertInteger(sum.transfer_in ?? 0),
+      transferOut: assertInteger(sum.transfer_out ?? 0),
       end: assertInteger(r.balance),
     };
     checkEquation(row, `통장 ${row.name}`);
     return row;
-  }).filter((a) => a.isActive || a.prev !== 0 || a.end !== 0 || a.income || a.expense || a.transferIn || a.transferOut);
+  }).filter((x) => x.isActive || x.prev !== 0 || x.end !== 0 || x.income || x.expense || x.transferIn || x.transferOut);
 
   const funds = [...new Map(end.results.map((r) => [r.fund_code, r.fund_name]))].map(([code, name]) => ({
-    code, name, ...totals(accounts.filter((a) => a.fundCode === code)),
+    code, name, ...totals(accounts.filter((x) => x.fundCode === code)),
   }));
   funds.forEach((f) => checkEquation(f, f.name));
   const total = totals(accounts);
   checkEquation(total, '전체');
+  return { from, to, accounts, funds, total };
+}
 
-  return {
-    date,
-    locked: locked.results[0].locked === 1,
-    accounts,
-    funds,
-    total,
-    transactions: txs.results.map(mapTx),
-  };
+/** 하루 현황 + 당일 거래 목록 + 잠김 여부 */
+export async function computeDay(db, date) {
+  const [period, txs, locked] = await Promise.all([
+    computePeriod(db, date, date),
+    db.prepare(`${TX_SELECT} WHERE t.tx_date = ? AND t.status = 'POSTED' ORDER BY t.id`).bind(date).all(),
+    db.prepare(LOCKED_SQL).bind(date).first('locked'),
+  ]);
+  const { accounts, funds, total } = period;
+  return { date, locked: locked === 1, accounts, funds, total, transactions: txs.results.map(mapTx) };
+}
+
+/**
+ * 예산과목별 합계 (회계별로 나눠서). kind = INCOME | EXPENSE
+ * @returns [{ subjectId, name, GENERAL, SPECIAL, total }]
+ */
+export async function subjectTotals(db, from, to, kind) {
+  const { results } = await db.prepare(
+    `SELECT s.id, s.name, s.sort_order, f.code AS fund_code, SUM(t.amount) AS amount
+     FROM transactions t
+     JOIN budget_subjects s ON s.id = t.subject_id
+     JOIN accounts a ON a.id = t.account_id
+     JOIN funds f ON f.id = a.fund_id
+     WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED' AND t.kind = 'NORMAL' AND s.kind = ?
+     GROUP BY s.id, f.code
+     ORDER BY s.sort_order, s.id`
+  ).bind(from, to, kind).all();
+  const bySubject = new Map();
+  for (const r of results) {
+    const row = bySubject.get(r.id) ?? { subjectId: r.id, name: r.name, GENERAL: 0, SPECIAL: 0, total: 0 };
+    row[r.fund_code] = sumAmounts([row[r.fund_code], assertInteger(r.amount)]);
+    row.total = sumAmounts([row.total, assertInteger(r.amount)]);
+    bySubject.set(r.id, row);
+  }
+  return [...bySubject.values()];
+}
+
+/**
+ * 기간 안의 날짜별(unit='day') 또는 월별(unit='month') 수입·지출과 그 시점 전체 잔액.
+ * 거래가 있는 날(달)만 나온다. 이체는 전체 잔액을 바꾸지 않으므로 수입·지출만 본다.
+ */
+export async function periodBreakdown(db, from, to, unit, openingTotal) {
+  const key = unit === 'month' ? 'substr(t.tx_date, 1, 7)' : 't.tx_date';
+  const { results } = await db.prepare(
+    `SELECT ${key} AS k,
+            SUM(CASE WHEN t.kind = 'NORMAL' AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS income,
+            SUM(CASE WHEN t.kind = 'NORMAL' AND t.direction = 'OUT' THEN t.amount ELSE 0 END) AS expense
+     FROM transactions t
+     WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED'
+     GROUP BY k ORDER BY k`
+  ).bind(from, to).all();
+  let running = assertInteger(openingTotal);
+  return results
+    .filter((r) => r.income || r.expense)
+    .map((r) => {
+      running = sumAmounts([running, assertInteger(r.income), -assertInteger(r.expense)]);
+      return { key: r.k, income: r.income, expense: r.expense, balance: running };
+    });
 }
 
 const FIELDS = ['prev', 'income', 'expense', 'transferIn', 'transferOut', 'end'];

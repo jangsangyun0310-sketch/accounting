@@ -2,10 +2,10 @@
 // 마감된 날은 마감 당시의 결재선·작성자를 쓰고, 잔액이 마감 스냅샷과 같은지 검증 결과를 함께 준다.
 // 미마감 날은 현재 결재선·기본 작성자로 "가결산"을 만든다.
 import { json } from '../lib/http.js';
-import { computeDay, verifySnapshot } from '../lib/ledger.js';
+import { computeDay, computePeriod, periodBreakdown, subjectTotals, verifySnapshot } from '../lib/ledger.js';
 import { bad } from '../lib/validate.js';
 import { sumAmounts } from '../../public/js/shared/money.js';
-import { isValidDate, todayKST } from '../../public/js/shared/dates.js';
+import { addDays, isValidDate, todayKST } from '../../public/js/shared/dates.js';
 
 /** GET /api/reports/daily?date= */
 export async function daily({ env, url }) {
@@ -63,5 +63,57 @@ export async function daily({ env, url }) {
     income: { rows: income, total: sumAmounts(income.map((r) => r.amount)) },
     expense: { rows: expense, total: sumAmounts(expense.map((r) => r.amount)) },
     transfers: { rows: transfers, total: sumAmounts(transfers.map((r) => r.amount)) },
+  });
+}
+
+/**
+ * GET /api/reports/period?type=month&month=YYYY-MM | type=year&year=YYYY : 월말·연말 결산
+ * 기간 안의 모든 날이 마감되어 있으면 CLOSED, 아니면 PROVISIONAL(가결산).
+ */
+export async function period({ env, url }) {
+  const p = url.searchParams;
+  const type = p.get('type');
+  let from;
+  let to;
+  if (type === 'month') {
+    const m = p.get('month') || todayKST().slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(m) || !isValidDate(`${m}-01`)) throw bad('월 형식이 올바르지 않습니다.', 'BAD_DATE');
+    from = `${m}-01`;
+    to = addDays(`${addDays(from, 31).slice(0, 7)}-01`, -1);
+  } else if (type === 'year') {
+    const y = p.get('year') || todayKST().slice(0, 4);
+    if (!/^\d{4}$/.test(y)) throw bad('연도 형식이 올바르지 않습니다.', 'BAD_DATE');
+    from = `${y}-01-01`;
+    to = `${y}-12-31`;
+  } else {
+    throw bad('결산 종류가 올바르지 않습니다.');
+  }
+
+  const db = env.DB;
+  const [summary, income, expense, parish, steps, lastClosed] = await Promise.all([
+    computePeriod(db, from, to),
+    subjectTotals(db, from, to, 'INCOME'),
+    subjectTotals(db, from, to, 'EXPENSE'),
+    db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first(),
+    db.prepare('SELECT title FROM approval_steps ORDER BY seq').all(),
+    db.prepare(`SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'`).first('d'),
+  ]);
+  const breakdown = await periodBreakdown(db, from, to, type === 'year' ? 'month' : 'day', summary.total.prev);
+
+  return json({
+    type,
+    from,
+    to,
+    parishName: parish?.parish_name ?? '',
+    writerName: parish?.writer_name ?? '',
+    approvalSteps: steps.results.map((s) => s.title),
+    status: lastClosed && lastClosed >= to ? 'CLOSED' : 'PROVISIONAL',
+    closedThrough: lastClosed ?? null,
+    funds: summary.funds,
+    total: summary.total,
+    accounts: summary.accounts,
+    income: { rows: income, total: sumAmounts(income.map((r) => r.total)) },
+    expense: { rows: expense, total: sumAmounts(expense.map((r) => r.total)) },
+    breakdown,
   });
 }

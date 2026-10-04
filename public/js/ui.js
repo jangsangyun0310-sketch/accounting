@@ -7,7 +7,7 @@ const NAV = [
   { href: '/entry', label: '거래 입력', key: 'entry' },
   { href: '/ledger', label: '거래 조회', key: 'ledger' },
   { href: '/closing', label: '일 마감', key: 'closing' },
-  { href: '/report', label: '결산서', key: 'report' },
+  { href: '/report', label: '결산', key: 'report' },
 ];
 
 /**

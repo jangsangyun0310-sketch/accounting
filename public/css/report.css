@@ -86,3 +86,11 @@ body.report-page { background: #e9ecf0; }
 .r-grand td { background: #eceef1; font-weight: 700; }
 .r-table.fixed { table-layout: fixed; }
 .r-table.fixed td { overflow-wrap: anywhere; }
+
+/* 결산 종류 선택 (일일·월말·연말) */
+.report-tabs { display: flex; gap: 4px; max-width: 210mm; margin: 16px auto 0; padding: 0 4px; }
+.report-tabs button { background: #fff; color: var(--accent); border: 1.5px solid var(--accent); padding: 8px 22px; font-weight: 600; }
+.report-tabs button.active { background: var(--accent); color: #fff; }
+.report-tabs + .report-toolbar { margin-top: 10px; }
+.report-toolbar select, .report-toolbar input[type="month"] { width: auto; }
+.r-meta .range { font-weight: normal; color: #555; font-size: 9pt; }

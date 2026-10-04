@@ -80,3 +80,53 @@ test('잘못된 날짜 거부', async () => {
   const { api } = setup();
   assert.equal((await api('GET', '/api/reports/daily?date=2026-02-30')).status, 400);
 });
+
+test('월말결산: 기초·기말 잔액, 과목별 합계(회계별), 일자별 현황, 마감 여부', async () => {
+  const { api, tx, db } = setup();
+  await tx('IN', '교무금', '교무금', 300000, '홍길동');               // 10/02 일반
+  await tx('IN', '주일학교 예치금', '후원금', 70000);                  // 10/02 특별
+  await tx('OUT', '경상비', '관리운영비', 50000);                       // 10/02
+  await api('POST', '/api/transactions', {                             // 10/05 일반 후원금
+    date: '2026-10-05', direction: 'IN', accountId: accountId(db, '기타 후원금'), subjectId: subjectId(db, 'INCOME', '후원금'), amount: '1000',
+  });
+  await api('POST', '/api/transfers', { date: '2026-10-05', fromAccountId: 1, toAccountId: 7, amount: '500000' });
+  await api('POST', '/api/transactions', {                             // 11월은 제외되어야 함
+    date: '2026-11-01', direction: 'IN', accountId: accountId(db, '교무금'), subjectId: subjectId(db, 'INCOME', '교무금'), amount: '9',
+  });
+
+  const r = (await api('GET', '/api/reports/period?type=month&month=2026-10')).body;
+  assert.equal(r.from, '2026-10-01');
+  assert.equal(r.to, '2026-10-31');
+  assert.equal(r.status, 'PROVISIONAL');
+  assert.deepEqual([r.total.prev, r.total.income, r.total.expense, r.total.transferIn - r.total.transferOut, r.total.end],
+    [28800000, 371000, 50000, 0, 29121000]);
+  const g = r.funds.find((f) => f.code === 'GENERAL');
+  assert.deepEqual([g.prev, g.transferOut, g.end], [11800000, 500000, 11800000 + 301000 - 50000 - 500000]);
+  // 후원금은 일반·특별 양쪽에 있음
+  assert.deepEqual(r.income.rows.map((x) => [x.name, x.GENERAL, x.SPECIAL, x.total]),
+    [['교무금', 300000, 0, 300000], ['후원금', 1000, 70000, 71000]]);
+  assert.equal(r.income.total, 371000);
+  assert.deepEqual(r.expense.rows.map((x) => [x.name, x.total]), [['관리운영비', 50000]]);
+  // 일자별: 이체만 있는 날은 수입·지출이 없으므로 10/05 는 후원금 1,000 만
+  assert.deepEqual(r.breakdown.map((x) => [x.key, x.income, x.expense, x.balance]),
+    [['2026-10-02', 370000, 50000, 29120000], ['2026-10-05', 1000, 0, 29121000]]);
+
+  await api('POST', '/api/closings/2026-10-02/close', {});
+  assert.equal((await api('GET', '/api/reports/period?type=month&month=2026-10')).body.status, 'PROVISIONAL');
+});
+
+test('연말결산: 월별 현황, 2월 말일 계산, 잘못된 입력 거부', async () => {
+  const { api, tx, db } = setup();
+  await tx('IN', '교무금', '교무금', 1000);
+  await api('POST', '/api/transactions', {
+    date: '2026-11-15', direction: 'OUT', accountId: accountId(db, '경상비'), subjectId: subjectId(db, 'EXPENSE', '인건비'), amount: '400',
+  });
+  const y = (await api('GET', '/api/reports/period?type=year&year=2026')).body;
+  assert.deepEqual([y.from, y.to], ['2026-01-01', '2026-12-31']);
+  assert.deepEqual(y.breakdown.map((x) => [x.key, x.income, x.expense, x.balance]),
+    [['2026-10', 1000, 0, 28801000], ['2026-11', 0, 400, 28800600]]);
+  assert.equal((await api('GET', '/api/reports/period?type=month&month=2027-02')).body.to, '2027-02-28');
+  assert.equal((await api('GET', '/api/reports/period?type=month&month=2028-02')).body.to, '2028-02-29');
+  assert.equal((await api('GET', '/api/reports/period?type=month&month=2026-13')).status, 400);
+  assert.equal((await api('GET', '/api/reports/period?type=week')).status, 400);
+});

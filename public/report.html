@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>일일 결산서 - 본당살림</title>
+  <title>결산서 - 본당살림</title>
   <link rel="icon" href="/img/icon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="/img/icon-180.png">
   <link rel="stylesheet" href="/css/app.css">
@@ -11,12 +11,19 @@
 </head>
 <body class="report-page">
   <header id="topbar" class="topbar no-print"><a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a></header>
+  <div class="report-tabs no-print" id="report-tabs" role="tablist">
+    <button type="button" data-type="day">일일결산</button>
+    <button type="button" data-type="month">월말결산</button>
+    <button type="button" data-type="year">연말결산</button>
+  </div>
   <div class="report-toolbar no-print">
     <div class="date-nav">
-      <button type="button" class="secondary small" id="prev-day" title="전날">◀</button>
+      <button type="button" class="secondary small" id="prev" title="이전">◀</button>
       <input type="date" id="date" aria-label="결산일">
-      <button type="button" class="secondary small" id="next-day" title="다음날">▶</button>
-      <button type="button" class="secondary small" id="today">오늘</button>
+      <input type="month" id="month" aria-label="결산 월">
+      <select id="year" aria-label="결산 연도"></select>
+      <button type="button" class="secondary small" id="next" title="다음">▶</button>
+      <button type="button" class="secondary small" id="now">오늘</button>
     </div>
     <span id="state"></span>
     <button type="button" id="print">인쇄 <kbd>Ctrl+P</kbd></button>
