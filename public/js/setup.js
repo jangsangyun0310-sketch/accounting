@@ -61,7 +61,8 @@ function renderParish() {
       <label>운영 개시일 <input id="startDate" type="date" value="${esc(p.startDate)}"></label>
       <label>결산서 작성자 <input id="writerName" value="${esc(p.writerName)}" maxlength="20" placeholder="예) 사무장 이름"></label>
     </div>
-    <p class="help">운영 개시일은 각 통장 초기잔액의 기준일입니다. 이 날짜 이전으로는 거래를 입력할 수 없습니다.</p>`;
+    <p class="help">운영 개시일은 각 통장 초기잔액의 기준일입니다. 이 날짜 이전으로는 거래를 입력할 수 없습니다.<br>
+      결산서 작성자 이름은 결산서에 인쇄되고, 거래 입력·수정·마감 기록의 처리자로도 남습니다.</p>`;
   for (const key of ['parishName', 'startDate', 'writerName']) {
     $(key).addEventListener('input', (e) => { p[key] = e.target.value; saveDraft(); });
   }

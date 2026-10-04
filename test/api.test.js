@@ -182,16 +182,29 @@ test('라우팅: JSON 이 아닌 변경 요청 거부, 없는 경로 404, 잘못
   assert.equal(res.status, 405);
 });
 
-test('open 모드: 로그인 없이 사용, 처리자는 사무실', async () => {
+test('open 모드: 로그인 없이 사용, 처리자는 설정의 작성자 이름', async () => {
   const db = createDb();
   const env = { DB: d1Adapter(db), AUTH_MODE: 'open' };
-  const me = await (await worker.fetch(new Request('http://local/api/me'), env)).json();
-  assert.equal(me.email, '사무실');
-  const res = await worker.fetch(new Request('http://local/api/subjects', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'INCOME', name: '바자회' }),
-  }), env);
-  assert.equal(res.status, 201);
-  assert.equal(db.prepare('SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1').get().actor, '사무실');
+  const call = async (method, path, body) => (await worker.fetch(new Request(`http://local${path}`, {
+    method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined,
+  }), env)).json();
+  const lastActor = () => db.prepare('SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1').get().actor;
+
+  assert.equal((await call('GET', '/api/me')).email, '사무장');
+  await call('POST', '/api/subjects', { kind: 'INCOME', name: '바자회' });
+  assert.equal(lastActor(), '사무장');
+
+  // 사무장이 바뀌면 설정에서 이름만 바꾸고, 그 다음 기록부터 새 이름
+  await call('PUT', '/api/settings/parish', { parishName: '용머리성당', startDate: '2026-10-01', writerName: '홍길동' });
+  await call('POST', '/api/subjects', { kind: 'INCOME', name: '성탄 헌금' });
+  assert.equal(lastActor(), '홍길동');
+  assert.equal(db.prepare("SELECT actor FROM audit_log WHERE after_json LIKE '%바자회%'").get().actor, '사무장');
+
+  // 작성자 이름이 비어 있거나 최초 설정 전이면 '사무실'
+  await call('PUT', '/api/settings/parish', { parishName: '용머리성당', startDate: '2026-10-01', writerName: '' });
+  assert.equal((await call('GET', '/api/me')).email, '사무실');
+  const fresh = { DB: d1Adapter(createDb({ seed: false })), AUTH_MODE: 'open' };
+  assert.equal((await (await worker.fetch(new Request('http://local/api/me'), fresh)).json()).email, '사무실');
 });
 
 test('AUTH_MODE 미설정은 access 로 취급, Access 설정 없이는 거부', async () => {

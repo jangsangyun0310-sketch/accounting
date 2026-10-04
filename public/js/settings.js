@@ -37,6 +37,7 @@ function renderParish() {
       <label>결산서 작성자 <input name="writerName" value="${esc(p.writerName)}" maxlength="20"></label>
     </div>
     ${locked ? '<p class="help">거래가 입력되어 있어 운영 개시일은 변경할 수 없습니다.</p>' : ''}
+    <p class="help">결산서 작성자 이름은 거래·마감 기록의 처리자로도 남습니다. 사무장이 바뀌면 이름을 바꾸세요. (이전 기록은 그대로 유지)</p>
     <button type="button" data-action="parish-save">저장</button>`;
 }
 

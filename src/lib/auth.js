@@ -1,5 +1,6 @@
 // 사용자 식별
-// AUTH_MODE = 'open'   (기본 배포) : 로그인 없이 사용. 처리자는 '사무실'로 기록한다.
+// AUTH_MODE = 'open'   (기본 배포) : 로그인 없이 사용. 성당마다 사무장 한 명이 쓰므로
+//                                    처리자는 설정의 '결산서 작성자' 이름으로 기록한다 (없으면 '사무실').
 // AUTH_MODE = 'access' (선택)      : Cloudflare Access 로그인. Cf-Access-Jwt-Assertion 서명·대상·만료를 검증한다.
 // AUTH_MODE = 'dev'    (로컬 개발) : 검증 없이 DEV_USER 로 동작한다.
 // 값이 없으면 안전하게 'access' 로 취급한다.
@@ -13,7 +14,10 @@ export const OPEN_ACTOR = '사무실';
 /** @returns {Promise<{ email: string }>} */
 export async function getActor(request, env) {
   const mode = env.AUTH_MODE || 'access';
-  if (mode === 'open') return { email: OPEN_ACTOR };
+  if (mode === 'open') {
+    const writer = await env.DB.prepare('SELECT writer_name FROM parish_settings WHERE id = 1').first('writer_name');
+    return { email: writer?.trim() || OPEN_ACTOR };
+  }
   if (mode === 'dev') return { email: env.DEV_USER || 'dev@local' };
   if (mode !== 'access') throw new ApiError(500, 'AUTH_MODE_INVALID', '인증 설정(AUTH_MODE)이 올바르지 않습니다.');
 
