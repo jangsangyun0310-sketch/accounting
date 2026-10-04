@@ -9,7 +9,7 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:seed:local": "wrangler d1 execute DB --local --file=seed/dev-yongmeori.sql",
     "test": "node --test --disable-warning=ExperimentalWarning \"test/**/*.test.js\"",
-    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy"
+    "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote"
   },
   "engines": {
     "node": ">=22.13"

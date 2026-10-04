@@ -7,6 +7,40 @@
 - 데이터: Cloudflare D1
 - 로그인: Cloudflare Access
 
+## 우리 성당에 설치하기
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jangsangyun0310-sketch/accounting)
+
+Cloudflare 계정(무료)만 있으면 됩니다. 성당마다 프로그램과 데이터베이스가 따로 만들어지므로 다른 성당과 데이터가 섞이지 않습니다.
+
+### 1. 배포
+
+1. 위 **Deploy to Cloudflare** 버튼을 누르고 Cloudflare 에 로그인합니다.
+2. GitHub 계정을 연결하고, 프로젝트 이름(예: `bondang-ourparish`)을 정한 뒤 **배포**를 누릅니다.
+   - 데이터베이스(D1)는 자동으로 만들어지고 표 구조도 자동으로 적용됩니다.
+3. 완료되면 `https://프로젝트이름.계정이름.workers.dev` 주소가 생깁니다.
+   - 이 단계에서는 화면만 열리고 데이터는 "Access 설정 필요" 오류로 막혀 있습니다. **정상입니다.**
+
+### 2. 로그인(Cloudflare Access) 켜기 — 필수
+
+허용한 이메일을 가진 사람만 프로그램을 쓸 수 있게 합니다.
+
+1. Cloudflare 대시보드 → **Workers & Pages** → 내 프로젝트 → **Settings** → **Domains & Routes**
+2. `workers.dev` 줄의 메뉴(⋯)에서 **Enable Cloudflare Access** 를 누릅니다.
+   - Zero Trust 를 처음 쓰는 경우 팀 이름을 정하고 **Free** 요금제를 고르라는 안내가 나옵니다.
+3. 나오는 창에서 두 값을 복사해 둡니다.
+   - **Team domain** (예: `https://ourparish.cloudflareaccess.com`)
+   - **AUD** (긴 영문·숫자)
+4. 같은 화면의 **Manage Cloudflare Access** 에서 정책(Policy)의 **Include → Emails** 에 프로그램을 쓸 사람의 이메일(사무장, 재정부회장 등)을 추가합니다.
+5. 내 프로젝트 → **Settings** → **Variables and Secrets** 에서 **Secret** 두 개를 추가합니다.
+   - `ACCESS_TEAM_DOMAIN` = 3번의 Team domain
+   - `ACCESS_AUD` = 3번의 AUD
+
+### 3. 최초 설정
+
+주소로 접속하면 이메일로 받은 인증 코드로 로그인한 뒤 **최초 설정** 화면이 열립니다.
+성당명, 통장과 초기잔액, 예산과목, 결재선을 입력하면 바로 사용할 수 있습니다.
+
 ## 폴더 구조
 
 ```
@@ -61,6 +95,20 @@ npm test                   # 금액 처리·DB 무결성 테스트
 - 마감 시 결재선과 통장별 잔액을 같은 SQL 문 안에서 스냅샷으로 저장합니다. 이후 조회 때 현재 계산 잔액과 비교해 불일치를 알립니다.
 - 마감된 날짜가 있으면 새 통장은 초기잔액 0원으로만 만들 수 있고, 초기잔액이 있는 통장은 삭제할 수 없습니다.
 
-## 배포
+## 배포 (개발자용)
 
-배포 안내(Deploy to Cloudflare 버튼, Cloudflare Access 설정)는 6단계에서 작성합니다.
+```bash
+npx wrangler login
+npm run deploy     # Worker 배포(첫 배포 때 D1 자동 생성) → D1 스키마 적용
+```
+
+- `wrangler.jsonc` 에는 `database_id` 를 넣지 않습니다. 배포 계정에서 `database_name` 으로 찾거나 새로 만듭니다.
+- Access 값은 설정 파일이 아니라 비밀값으로 등록합니다 (배포해도 유지).
+  ```bash
+  npx wrangler secret put ACCESS_TEAM_DOMAIN
+  npx wrangler secret put ACCESS_AUD
+  ```
+- GitHub `main` 에 올릴 때 자동 배포하려면: 대시보드 → 프로젝트 → **Settings** → **Build** → 저장소 연결,
+  배포 명령(Deploy command)을 `npm run deploy` 로 지정합니다.
+- 운영 환경에서는 `AUTH_MODE` 가 항상 `access` 입니다. Access 토큰(JWT)의 서명·대상(AUD)·만료를 API 가 직접 검증하므로
+  Access 를 거치지 않은 주소로 접근해도 데이터를 읽거나 쓸 수 없습니다.
