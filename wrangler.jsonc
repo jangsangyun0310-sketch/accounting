@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bondang-salim",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+
+  // 화면 파일. /api/* 만 Worker 코드가 처리한다.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // D1 데이터베이스. database_id 를 비워 두면 배포 시 자동 생성된다(Deploy to Cloudflare 버튼 포함).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bondang-salim-db",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // 인증: 운영에서는 Cloudflare Access 필수.
+  // ACCESS_TEAM_DOMAIN 예) https://myparish.cloudflareaccess.com
+  // ACCESS_AUD        : Access 애플리케이션의 Application Audience (AUD) 태그
+  "vars": {
+    "AUTH_MODE": "access",
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": ""
+  },
+
+  "observability": { "enabled": true }
+}

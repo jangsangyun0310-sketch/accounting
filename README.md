@@ -1,0 +1,48 @@
+# 본당살림
+
+성당 사무실용 본당 회계·결산 관리 프로그램입니다. 여러 통장의 수입·지출과 잔액을 통합 관리하고 일일 결산서를 출력합니다.
+
+- 화면: HTML / CSS / JavaScript (빌드 과정 없음)
+- 서버: Cloudflare Workers (정적 파일 + `/api/*`)
+- 데이터: Cloudflare D1
+- 로그인: Cloudflare Access
+
+## 폴더 구조
+
+```
+public/            화면 (정적 파일)
+  js/shared/       브라우저·서버 공용 모듈 (금액, 날짜)
+src/               Worker 코드 (/api/*)
+  lib/             인증, DB, 응답 공용 처리
+  routes/          API 기능별 처리
+migrations/        D1 스키마 (순서대로 적용)
+seed/              개발용 초기 데이터 (용머리성당)
+test/              자동 테스트
+```
+
+## 개발 환경
+
+Node.js 22.13 이상이 필요합니다.
+
+```bash
+npm install
+npm run db:migrate:local   # 로컬 D1 에 스키마 적용
+npm run db:seed:local      # 개발용 초기값 입력 (처음 한 번)
+npm run dev                # http://localhost:8787 (로그인 없이 dev@local 사용자로 실행)
+npm test                   # 금액 처리·DB 무결성 테스트
+```
+
+로컬 데이터를 처음부터 다시 만들려면 `.wrangler/state` 폴더를 지우고 위 명령을 다시 실행합니다.
+
+## 회계 데이터 원칙
+
+- 금액은 원 단위 정수만 저장합니다 (DB `CHECK` 로 강제).
+- 잔액은 저장하지 않습니다. `초기잔액 + 확정(POSTED) 거래 합계`로 계산합니다.
+- 거래는 수정·삭제하지 않습니다. 수정은 "원본 취소 + 새 거래", 삭제는 "취소(사유 필수)"로 처리합니다.
+- 마감된 날짜(마지막 마감일 이하)의 거래는 DB 트리거가 변경을 막습니다.
+- 마감은 날짜순으로만, 마감취소는 마지막 마감일부터 역순으로만 가능합니다.
+- 마감·마감취소 이력과 감사 로그는 추가만 가능합니다.
+
+## 배포
+
+배포 안내(Deploy to Cloudflare 버튼, Cloudflare Access 설정)는 6단계에서 작성합니다.
