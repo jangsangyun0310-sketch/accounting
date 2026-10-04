@@ -37,8 +37,7 @@ body.report-page { background: #e9ecf0; }
 .r-meta td { font-weight: 600; padding: 0.6mm 0; min-width: 45mm; border-bottom: 1px solid #999; }
 .r-meta .seal { float: right; font-weight: normal; color: #555; margin-left: 6mm; }
 
-.report table.approval-box { width: calc(7mm + var(--steps) * 21mm); }
-.report table.approval-box col.vertical { width: 7mm; }
+.report table.approval-box { width: calc((var(--steps) + 1) * 21mm); }
 .report table.approval-box th { font-size: 9pt; padding: 1mm 0.5mm; background: #f2f2f2; }
 /* 결재 단계가 많아 아래로 내린 경우: 용지 너비에 맞춰 같은 너비로 나눔 */
 .report .r-head.stacked table.approval-box { width: 100%; }
