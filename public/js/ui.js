@@ -6,6 +6,7 @@ const NAV = [
   { href: '/', label: '홈', key: 'home' },
   { href: '/entry', label: '거래 입력', key: 'entry' },
   { href: '/ledger', label: '거래 조회', key: 'ledger' },
+  { href: '/closing', label: '일 마감', key: 'closing' },
   { href: '/settings', label: '설정', key: 'settings' },
 ];
 
@@ -89,6 +90,9 @@ export function approvalBoxHtml(titles) {
     ${titles.map((t) => `<th>${esc(t)}</th>`).join('')}</tr>
     <tr>${titles.map(() => '<td></td>').join('')}</tr></table>`;
 }
+
+/** 이체 순액처럼 부호가 의미 있는 금액: +1,000 / -1,000 / 0 */
+export const signedWon = (n) => (n > 0 ? `+${formatWon(n)}` : formatWon(n));
 
 export const FUND_LABEL = { GENERAL: '일반회계', SPECIAL: '특별회계' };
 export const KIND_LABEL = { INCOME: '수입', EXPENSE: '지출' };

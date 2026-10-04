@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>일 마감 - 본당살림</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header id="topbar" class="topbar"><h1>본당살림</h1></header>
+  <main class="container wide">
+    <section class="closing-status" id="status">불러오는 중…</section>
+    <div class="closing-layout">
+      <section>
+        <div class="cal-head">
+          <button type="button" class="secondary small" id="prev-month">◀</button>
+          <h2 id="month-label"></h2>
+          <button type="button" class="secondary small" id="next-month">▶</button>
+        </div>
+        <div class="calendar" id="calendar"></div>
+        <ul class="legend">
+          <li><span class="dot closed"></span>마감</li>
+          <li><span class="dot locked"></span>함께 잠김(거래 없는 날)</li>
+          <li><span class="dot open"></span>미마감 거래 있음</li>
+          <li><span class="dot reopened"></span>마감취소됨</li>
+        </ul>
+      </section>
+      <section id="detail"><p class="muted">달력에서 날짜를 고르세요.</p></section>
+    </div>
+    <section>
+      <h2>마감·마감취소 기록</h2>
+      <div id="events"></div>
+    </section>
+  </main>
+  <dialog id="action-dialog"></dialog>
+  <script type="module" src="/js/closing.js"></script>
+</body>
+</html>

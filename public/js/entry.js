@@ -1,6 +1,6 @@
 // 거래 입력 화면: 수입·지출·이체 입력, 수정(취소 후 재입력), 취소, 하루 현황
 import { api, esc } from './api.js';
-import { initPage, bindAmountInput, toast, FUND_LABEL } from './ui.js';
+import { initPage, bindAmountInput, toast, signedWon, FUND_LABEL } from './ui.js';
 import { openHistory } from './history.js';
 import { formatWon, parseAmount, sumAmounts } from './shared/money.js';
 import { addDays, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
@@ -80,6 +80,7 @@ async function loadDay() {
 function renderLock() {
   const locked = day.locked;
   $('lock-banner').hidden = !locked;
+  $('lock-link').href = `/closing?date=${day.date}`;
   $('fields').querySelectorAll('input, select, button').forEach((el) => { el.disabled = locked; });
   document.querySelectorAll('.kind-toggle button').forEach((b) => { b.disabled = locked || isKindLocked(b.dataset.kind); });
 }
@@ -90,15 +91,13 @@ function isKindLocked(k) {
   return (editing.type === 'TRANSFER') !== (k === 'TRANSFER');
 }
 
-const signed = (n) => (n > 0 ? `+${formatWon(n)}` : n < 0 ? formatWon(n) : '0');
-
 function renderSummary() {
   const row = (label, r, cls = '') => `
     <tr class="${cls}"><td>${label}</td>
       <td class="num">${formatWon(r.prev)}</td>
       <td class="num in">${formatWon(r.income)}</td>
       <td class="num out">${formatWon(r.expense)}</td>
-      <td class="num">${signed(r.transferIn - r.transferOut)}</td>
+      <td class="num">${signedWon(r.transferIn - r.transferOut)}</td>
       <td class="num"><b>${formatWon(r.end)}</b></td></tr>`;
   $('summary').innerHTML = `
     <table class="grid summary">
@@ -407,6 +406,8 @@ initPage('entry').then(async (ctx) => {
   $('show-voided').checked = !!prefs.showVoided;
   let start = todayKST();
   try { start = sessionStorage.getItem('bondang.entryDate') || start; } catch { /* 무시 */ }
+  const param = new URLSearchParams(location.search).get('date');
+  if (isValidDate(param)) start = param;
   $('date').value = start;
   $('date').min = settings.parish.startDate;
   setKind('IN');

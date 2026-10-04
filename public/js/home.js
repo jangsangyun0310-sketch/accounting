@@ -7,7 +7,11 @@ const $ = (id) => document.getElementById(id);
 
 async function main() {
   const { settings } = await initPage('home');
-  const [balances, health] = await Promise.all([api('/api/balances'), api('/api/health')]);
+  const [balances, health, closings] = await Promise.all([api('/api/balances'), api('/api/health'), api('/api/closings')]);
+
+  const pending = closings.nextRequired && closings.nextRequired <= closings.today;
+  $('closing-status').innerHTML = `마지막 마감일: <b>${closings.lastClosed ? formatKoreanDate(closings.lastClosed) : '없음'}</b>`
+    + (pending ? ` · <span class="error">마감하지 않은 거래가 있습니다 (${formatKoreanDate(closings.nextRequired)}부터)</span> <a href="/closing">마감하러 가기</a>` : '');
 
   $('as-of').textContent = `${formatKoreanDate(balances.date)} 기준`;
 

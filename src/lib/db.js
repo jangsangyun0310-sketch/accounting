@@ -17,7 +17,10 @@ const DB_ERRORS = {
   CLOSING_INVALID: [409, '잘못된 마감 처리 요청입니다.'],
   CLOSING_NO_DELETE: [409, '마감 기록은 삭제할 수 없습니다.'],
   LOG_IMMUTABLE: [409, '이력 기록은 변경하거나 삭제할 수 없습니다.'],
+  OPENING_LOCKED_NEW: [409, '마감된 날짜가 있어 새 통장의 초기잔액은 0원이어야 합니다. 입금은 거래나 이체로 입력하세요.'],
+  OPENING_LOCKED_DELETE: [409, '마감된 날짜가 있어 초기잔액이 있는 통장은 삭제할 수 없습니다. 사용중지로 처리하세요.'],
   OPENING_LOCKED: [409, '마감된 날짜가 있어 초기잔액을 변경할 수 없습니다.'],
+  ALREADY_CLOSED: [409, '이미 마감된 날짜입니다.'],
   ACCOUNT_IN_USE: [409, '거래가 있는 통장은 삭제하거나 회계 구분을 바꿀 수 없습니다. 사용 중지로 처리하세요.'],
   SUBJECT_IN_USE: [409, '사용된 과목은 삭제하거나 수입/지출 구분을 바꿀 수 없습니다. 사용 중지로 처리하세요.'],
   START_DATE_LOCKED: [409, '거래가 있어 운영 개시일을 변경할 수 없습니다.'],
@@ -32,6 +35,7 @@ export function translateDbError(err) {
   let message = String(err?.message ?? err);
   if (message.includes('UNIQUE constraint failed: setup_lock')) message = 'SETUP_DONE';
   if (message.includes('UNIQUE constraint failed: transactions.replaces_id')) message = 'ALREADY_REPLACED';
+  if (message.includes('UNIQUE constraint failed: daily_closings.close_date')) message = 'ALREADY_CLOSED';
   for (const [code, [status, text]] of Object.entries(DB_ERRORS)) {
     if (message.includes(code)) return new ApiError(status, code, text);
   }

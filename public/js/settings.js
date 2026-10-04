@@ -45,7 +45,7 @@ function renderParish() {
 function renderAccounts() {
   const openingLocked = settings.locks.openingBalance;
   panel.innerHTML = `
-    ${openingLocked ? '<p class="notice">마감된 날짜가 있어 초기잔액은 변경할 수 없습니다. (과거 결산서 보호)</p>' : ''}
+    ${openingLocked ? '<p class="notice">마감된 날짜가 있어 초기잔액은 변경할 수 없습니다. 새 통장은 0원으로 시작하고, 돈은 거래나 이체로 넣으세요. (과거 결산서 보호)</p>' : ''}
     ${['GENERAL', 'SPECIAL'].map((fund) => {
       const list = settings.accounts.filter((a) => a.fundCode === fund);
       return `
@@ -63,7 +63,7 @@ function renderAccounts() {
             <td><input name="name" maxlength="30" placeholder="새 통장명"></td>
             <td><input name="bankName" maxlength="30"></td>
             <td><input name="accountNo" maxlength="40"></td>
-            <td><input name="openingBalance" placeholder="0"></td>
+            <td><input name="openingBalance" placeholder="0" ${openingLocked ? 'disabled title="마감 후 새 통장은 0원으로 시작합니다"' : ''}></td>
             <td></td>
             <td><button type="button" data-action="account-add" data-fund="${fund}">추가</button></td>
           </tr>

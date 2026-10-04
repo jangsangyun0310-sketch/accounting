@@ -8,6 +8,7 @@ import * as system from './routes/system.js';
 import * as setup from './routes/setup.js';
 import * as settings from './routes/settings.js';
 import * as transactions from './routes/transactions.js';
+import * as closings from './routes/closings.js';
 
 const routes = [
   ['GET', '/api/health', system.health],
@@ -32,6 +33,11 @@ const routes = [
   ['POST', '/api/transactions/:id/void', transactions.voidTx],
   ['POST', '/api/transactions/:id/replace', transactions.replace],
   ['POST', '/api/transfers', transactions.createTransfer],
+  ['GET', '/api/closings', closings.list],
+  ['GET', '/api/closing-events', closings.events],
+  ['GET', '/api/closings/:date', closings.detail],
+  ['POST', '/api/closings/:date/close', closings.close],
+  ['POST', '/api/closings/:date/reopen', closings.reopen],
 ].map(([method, path, handler]) => {
   const keys = [];
   const pattern = new RegExp(`^${path.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)'))}$`);
