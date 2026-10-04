@@ -1,7 +1,7 @@
 // 백업 내려받기, 백업 상태, 복구
 import { ApiError, json, readJson } from '../lib/http.js';
 import { buildBackup, restoreStatements, validateBackup } from '../lib/backup.js';
-import { todayKST } from '../../public/js/shared/dates.js';
+import { todayKST } from '../../js/shared/dates.js';
 
 async function currentSchema(db) {
   try {

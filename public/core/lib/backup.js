@@ -1,7 +1,7 @@
 // 백업 파일 만들기·검증·복구 SQL 생성
 // 백업 파일 = 모든 표의 원본 행 + SHA-256 검사값. 복구는 빈 DB 에 한 batch 로 넣는다.
 import { ApiError } from './http.js';
-import { sumAmounts } from '../../public/js/shared/money.js';
+import { sumAmounts } from '../../js/shared/money.js';
 
 export const BACKUP_FORMAT = 'bondang-salim-backup';
 export const BACKUP_VERSION = 1;

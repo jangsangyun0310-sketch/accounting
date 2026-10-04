@@ -4,7 +4,7 @@
 import { ApiError, json, readJson } from '../lib/http.js';
 import { BALANCES_SQL } from '../lib/db.js';
 import { verifySnapshot } from '../lib/ledger.js';
-import { addDays, isValidDate, todayKST } from '../../public/js/shared/dates.js';
+import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
 import { bad, date as parseDate, text } from '../lib/validate.js';
 
 // ?1 = 마감일. BALANCES_SQL 도 ?1 을 기준일로 쓴다.

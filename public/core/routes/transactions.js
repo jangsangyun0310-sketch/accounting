@@ -4,7 +4,7 @@ import { ApiError, json, readJson } from '../lib/http.js';
 import { auditRowStatement, auditStatement, readRowJson } from '../lib/db.js';
 import { computeDay, searchTransactions } from '../lib/ledger.js';
 import { amount, bad, date, id as parseId, oneOf, text } from '../lib/validate.js';
-import { isValidDate, todayKST } from '../../public/js/shared/dates.js';
+import { isValidDate, todayKST } from '../../js/shared/dates.js';
 
 // ---------------------------------------------------------------- 입력 검증
 

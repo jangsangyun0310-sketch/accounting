@@ -1,7 +1,7 @@
 // 서버 입력 검증. 실패 시 사용자에게 보여줄 메시지를 담은 ApiError(400)를 던진다.
 import { ApiError } from './http.js';
-import { parseAmount, MoneyError } from '../../public/js/shared/money.js';
-import { isValidDate } from '../../public/js/shared/dates.js';
+import { parseAmount, MoneyError } from '../../js/shared/money.js';
+import { isValidDate } from '../../js/shared/dates.js';
 
 export function bad(message, code = 'INVALID_INPUT') {
   return new ApiError(400, code, message);

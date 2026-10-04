@@ -10,7 +10,7 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 export function createDb({ seed = true } = {}) {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON'); // D1 은 항상 외래키 검사
-  const dir = join(root, 'migrations');
+  const dir = join(root, 'public', 'migrations');
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
     db.exec(readFileSync(join(dir, file), 'utf8'));
   }

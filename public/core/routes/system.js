@@ -1,8 +1,8 @@
 // 시스템 상태·설정 조회·잔액 조회 API (1단계: 조회 전용)
 import { ApiError, json } from '../lib/http.js';
 import { BALANCES_SQL } from '../lib/db.js';
-import { isValidDate, todayKST } from '../../public/js/shared/dates.js';
-import { assertInteger, sumAmounts } from '../../public/js/shared/money.js';
+import { isValidDate, todayKST } from '../../js/shared/dates.js';
+import { assertInteger, sumAmounts } from '../../js/shared/money.js';
 
 export async function health({ env }) {
   await env.DB.prepare('SELECT 1').first();

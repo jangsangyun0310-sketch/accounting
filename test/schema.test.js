@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {
   createDb, d1Adapter, insertTx, deleteTx, closeDate, reopenDate, accountId, subjectId,
 } from './helpers.js';
-import { computeBalances } from '../src/routes/system.js';
-import { translateDbError } from '../src/lib/db.js';
+import { computeBalances } from '../public/core/routes/system.js';
+import { translateDbError } from '../public/core/lib/db.js';
 
 const rejects = (fn, code) => assert.throws(fn, (e) => String(e.message).includes(code), `expected ${code}`);
 
@@ -161,8 +161,8 @@ test('0007 마이그레이션: 기존 취소 기록 정리, 유효 거래·잔�
   const { readFileSync, readdirSync } = await import('node:fs');
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
-  const files = readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort();
-  for (const f of files.filter((x) => x < '0007')) db.exec(readFileSync(`migrations/${f}`, 'utf8'));
+  const files = readdirSync('public/migrations').filter((f) => f.endsWith('.sql')).sort();
+  for (const f of files.filter((x) => x < '0007')) db.exec(readFileSync(`public/migrations/${f}`, 'utf8'));
   db.exec(readFileSync('seed/dev-sample.sql', 'utf8'));
   // 예전 방식: 취소(VOIDED), 수정(원본 취소 + replaces_id), 이체 취소
   const ins = (amount, extra = '') => db.prepare(
@@ -179,7 +179,7 @@ test('0007 마이그레이션: 기존 취소 기록 정리, 유효 거래·잔�
       COALESCE((SELECT SUM(amount) FROM transactions t WHERE t.account_id = a.id AND t.status = 'POSTED'), 0))), 's', 'now', 't' FROM accounts a`).run();
   const before = await computeBalances(d1Adapter(db), '2026-10-02');
 
-  db.exec(readFileSync('migrations/0007_delete_instead_of_void.sql', 'utf8'));
+  db.exec(readFileSync('public/migrations/0007_delete_instead_of_void.sql', 'utf8'));
 
   const rows = db.prepare('SELECT id, status, replaces_id FROM transactions ORDER BY id').all().map((r) => ({ ...r }));
   assert.deepEqual(rows, [{ id: keep, status: 'POSTED', replaces_id: null }, { id: repl, status: 'POSTED', replaces_id: null }]);

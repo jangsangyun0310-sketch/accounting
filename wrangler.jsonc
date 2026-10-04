@@ -16,7 +16,7 @@
     {
       "binding": "DB",
       "database_name": "bondang-salim-db",
-      "migrations_dir": "migrations"
+      "migrations_dir": "public/migrations"
     }
   ],
 

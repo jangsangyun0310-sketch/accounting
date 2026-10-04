@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/index.js';
 import { createDb, d1Adapter, accountId, subjectId } from './helpers.js';
-import { TABLES, sha256Hex } from '../src/lib/backup.js';
+import { TABLES, sha256Hex } from '../public/core/lib/backup.js';
 
 function client(db) {
   const env = { DB: d1Adapter(db), AUTH_MODE: 'open' };

@@ -1,8 +1,8 @@
 // 거래·잔액 조회 로직 (거래 입력 화면, 거래 조회 화면, 이후 결산서가 함께 사용)
 import { ApiError } from './http.js';
 import { BALANCES_SQL } from './db.js';
-import { addDays } from '../../public/js/shared/dates.js';
-import { assertInteger, sumAmounts } from '../../public/js/shared/money.js';
+import { addDays } from '../../js/shared/dates.js';
+import { assertInteger, sumAmounts } from '../../js/shared/money.js';
 
 export const TX_SELECT = `
   SELECT t.id, t.tx_date, t.kind, t.direction, t.account_id, a.name AS account_name, f.code AS fund_code,

@@ -4,8 +4,8 @@
 import { json } from '../lib/http.js';
 import { computeDay, computePeriod, periodBreakdown, subjectTotals, verifySnapshot } from '../lib/ledger.js';
 import { bad } from '../lib/validate.js';
-import { sumAmounts } from '../../public/js/shared/money.js';
-import { addDays, isValidDate, todayKST } from '../../public/js/shared/dates.js';
+import { sumAmounts } from '../../js/shared/money.js';
+import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
 
 /** GET /api/reports/daily?date= */
 export async function daily({ env, url }) {
