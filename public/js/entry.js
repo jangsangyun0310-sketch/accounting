@@ -57,6 +57,11 @@ function setKind(next, values = prefs[next] ?? {}) {
   if (kind === 'TRANSFER') {
     setSelect($('from-account'), accountOptions(values.fromAccountId), values.fromAccountId);
     setSelect($('to-account'), accountOptions(values.toAccountId), values.toAccountId);
+    // 처음 쓸 때 두 칸이 같은 통장이면 받는 곳을 다른 통장으로
+    if ($('to-account').value === $('from-account').value) {
+      const other = [...$('to-account').options].find((o) => o.value !== $('from-account').value);
+      if (other) $('to-account').value = other.value;
+    }
   } else {
     setSelect($('account'), accountOptions(values.accountId), values.accountId);
     setSelect($('subject'), subjectOptions(kind === 'IN' ? 'INCOME' : 'EXPENSE', values.subjectId), values.subjectId);
@@ -231,7 +236,7 @@ async function save() {
     body.fromAccountId = Number($('from-account').value);
     body.toAccountId = Number($('to-account').value);
     if (body.fromAccountId === body.toAccountId) {
-      toast('출금 통장과 입금 통장이 같습니다.', 'error');
+      toast('보내는 곳과 받는 곳이 같은 통장입니다.', 'error');
       $('to-account').focus();
       return;
     }

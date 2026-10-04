@@ -23,7 +23,7 @@
         <div class="kind-toggle" role="radiogroup" aria-label="거래 구분">
           <button type="button" data-kind="IN" class="in">수입 <kbd>F2</kbd></button>
           <button type="button" data-kind="OUT" class="out">지출 <kbd>F3</kbd></button>
-          <button type="button" data-kind="TRANSFER" class="transfer">이체 <kbd>F4</kbd></button>
+          <button type="button" data-kind="TRANSFER" class="transfer" title="사무실 현금을 통장에 입금하거나 통장끼리 돈을 옮길 때">이체·입금 <kbd>F4</kbd></button>
         </div>
       </div>
 
@@ -38,14 +38,15 @@
       <div class="entry-fields" id="fields">
         <label class="f-normal">통장 <select id="account"></select></label>
         <label class="f-normal">예산과목 <select id="subject"></select></label>
-        <label class="f-transfer">출금 통장 <select id="from-account"></select></label>
-        <label class="f-transfer">입금 통장 <select id="to-account"></select></label>
+        <label class="f-transfer">보내는 곳 (출금) <select id="from-account"></select></label>
+        <label class="f-transfer">받는 곳 (입금) <select id="to-account"></select></label>
         <label class="f-amount">금액(원) <input id="amount" placeholder="0"></label>
         <label class="f-memo">적요 <input id="memo" maxlength="100" placeholder="예) 홍길동 10월 교무금"></label>
         <label class="f-voucher">증빙번호 <input id="voucher" maxlength="30"></label>
         <label class="f-reason" hidden>수정 사유 <input id="reason" maxlength="200" placeholder="예) 금액 오기"></label>
         <button type="button" id="save" class="save">저장 <kbd>Enter</kbd></button>
       </div>
+      <p class="help f-transfer transfer-help">💡 <b>이체·입금</b>은 사무실 현금을 통장에 입금하거나 통장끼리 돈을 옮길 때 씁니다. 성당의 돈이 늘거나 줄지 않으므로 <b>수입·지출에 잡히지 않습니다.</b> 예) 사무실 현금 → 보통예금 3,000,000</p>
       <p class="help">Enter: 다음 칸 → 마지막 칸에서 저장. 저장 후에는 통장·과목이 유지되고 금액 칸으로 돌아갑니다.</p>
     </section>
 

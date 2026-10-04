@@ -32,7 +32,7 @@ function transferInput(body) {
     fromAccountId: parseId(body?.fromAccountId, '출금 통장'),
     toAccountId: parseId(body?.toAccountId, '입금 통장'),
   };
-  if (input.fromAccountId === input.toAccountId) throw bad('출금 통장과 입금 통장이 같습니다.');
+  if (input.fromAccountId === input.toAccountId) throw bad('보내는 곳과 받는 곳이 같은 통장입니다.');
   return input;
 }
 
