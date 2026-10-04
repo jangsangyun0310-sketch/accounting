@@ -21,12 +21,14 @@ const DB_ERRORS = {
   ACCOUNT_IN_USE: [409, '거래가 있는 통장은 삭제하거나 회계 구분을 바꿀 수 없습니다. 사용 중지로 처리하세요.'],
   SUBJECT_IN_USE: [409, '사용된 과목은 삭제하거나 수입/지출 구분을 바꿀 수 없습니다. 사용 중지로 처리하세요.'],
   START_DATE_LOCKED: [409, '거래가 있어 운영 개시일을 변경할 수 없습니다.'],
+  SETUP_DONE: [409, '최초 설정이 이미 완료되었습니다. 변경은 설정 화면에서 하세요.'],
 };
 
 /** D1 오류를 ApiError 로 번역. 알 수 없는 오류는 그대로 다시 던진다. */
 export function translateDbError(err) {
   if (err instanceof ApiError) return err;
-  const message = String(err?.message ?? err);
+  let message = String(err?.message ?? err);
+  if (message.includes('UNIQUE constraint failed: setup_lock')) message = 'SETUP_DONE';
   for (const [code, [status, text]] of Object.entries(DB_ERRORS)) {
     if (message.includes(code)) return new ApiError(status, code, text);
   }
@@ -55,6 +57,38 @@ export function auditStatement(db, { actor, entity, entityId, action, before = n
       before == null ? null : JSON.stringify(before),
       after == null ? null : JSON.stringify(after)
     );
+}
+
+// 감사 로그에 남길 테이블별 컬럼
+const SNAPSHOT_COLUMNS = {
+  parish_settings: ['parish_name', 'start_date', 'writer_name', 'setup_completed'],
+  accounts: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active'],
+  budget_subjects: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active'],
+};
+
+/** 해당 테이블 한 행을 JSON 문자열로 만드는 SQL 식 */
+export function rowJsonSql(table) {
+  return `json_object(${SNAPSHOT_COLUMNS[table].map((c) => `'${c}', ${c}`).join(', ')})`;
+}
+
+/** 변경 전 행 스냅샷 (JSON 문자열). 행이 없으면 null */
+export async function readRowJson(db, table, id) {
+  return db.prepare(`SELECT ${rowJsonSql(table)} AS j FROM ${table} WHERE id = ?`).bind(id).first('j');
+}
+
+/**
+ * 변경 직후의 행을 DB 에서 직접 읽어 after_json 으로 기록하는 감사 로그 문.
+ * 같은 batch 안에서 변경 문 바로 뒤에 둔다.
+ * id = 'last' 이면 직전 INSERT 의 행(last_insert_rowid)을 기록한다.
+ */
+export function auditRowStatement(db, { actor, action, table, id, beforeJson = null }) {
+  const where = id === 'last' ? 'id = last_insert_rowid()' : 'id = ?6';
+  const stmt = db.prepare(
+    `INSERT INTO audit_log (at, actor, entity, entity_id, action, before_json, after_json)
+     SELECT ?1, ?2, ?3, CAST(id AS TEXT), ?4, ?5, ${rowJsonSql(table)} FROM ${table} WHERE ${where}`
+  );
+  const params = [new Date().toISOString(), actor, table, action, beforeJson];
+  return id === 'last' ? stmt.bind(...params) : stmt.bind(...params, id);
 }
 
 /**

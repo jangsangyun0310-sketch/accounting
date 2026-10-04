@@ -1,0 +1,345 @@
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선
+// 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
+import { api, esc } from './api.js';
+import { initPage, bindAmountInput, attempt, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
+import { formatWon } from './shared/money.js';
+
+const MAX_STEPS = 10;
+const panel = document.getElementById('panel');
+const tabs = document.getElementById('tabs');
+
+let settings = null;
+let tab = ['parish', 'accounts', 'subjects', 'approval'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
+let approvalDraft = null; // 결재선 편집 중 값
+
+async function reload() {
+  settings = await api('/api/settings');
+  render();
+}
+
+function render() {
+  tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval })[tab]();
+  panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
+  panel.querySelector('[autofocus]')?.focus();
+}
+
+// ---------------------------------------------------------------- 성당 정보
+
+function renderParish() {
+  const p = settings.parish;
+  const locked = settings.locks.startDate;
+  panel.innerHTML = `
+    <div class="form-grid" data-form="parish">
+      <label>성당명 <input name="parishName" value="${esc(p.parishName)}" maxlength="40"></label>
+      <label>운영 개시일 <input name="startDate" type="date" value="${esc(p.startDate)}" ${locked ? 'disabled' : ''}></label>
+      <label>결산서 작성자 <input name="writerName" value="${esc(p.writerName)}" maxlength="20"></label>
+    </div>
+    ${locked ? '<p class="help">거래가 입력되어 있어 운영 개시일은 변경할 수 없습니다.</p>' : ''}
+    <button type="button" data-action="parish-save">저장</button>`;
+}
+
+// ---------------------------------------------------------------- 통장
+
+function renderAccounts() {
+  const openingLocked = settings.locks.openingBalance;
+  panel.innerHTML = `
+    ${openingLocked ? '<p class="notice">마감된 날짜가 있어 초기잔액은 변경할 수 없습니다. (과거 결산서 보호)</p>' : ''}
+    ${['GENERAL', 'SPECIAL'].map((fund) => {
+      const list = settings.accounts.filter((a) => a.fundCode === fund);
+      return `
+      <h3>${FUND_LABEL[fund]}</h3>
+      <table class="grid edit">
+        <thead><tr><th class="order">순서</th><th>통장명</th><th>은행</th><th>계좌번호</th>
+          <th class="num">초기잔액(원)</th><th class="status">상태</th><th class="actions"></th></tr></thead>
+        <tbody>
+          ${list.map((a, i) => (editing === `account:${a.id}` ? accountEditRow(a) : accountViewRow(a, i, list.length))).join('')
+            || '<tr><td colspan="7" class="muted">등록된 통장이 없습니다.</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr data-form="account-new" data-fund="${fund}">
+            <td></td>
+            <td><input name="name" maxlength="30" placeholder="새 통장명"></td>
+            <td><input name="bankName" maxlength="30"></td>
+            <td><input name="accountNo" maxlength="40"></td>
+            <td><input name="openingBalance" placeholder="0"></td>
+            <td></td>
+            <td><button type="button" data-action="account-add" data-fund="${fund}">추가</button></td>
+          </tr>
+        </tfoot>
+      </table>`;
+    }).join('')}
+    <p class="help">거래가 있는 통장은 삭제할 수 없습니다. 더 이상 쓰지 않는 통장은 [수정]에서 "사용"을 해제하세요.</p>`;
+}
+
+function accountViewRow(a, i, count) {
+  return `
+    <tr class="${a.isActive ? '' : 'inactive'}">
+      <td class="order">${orderButtons('account', a.id, i, count)}</td>
+      <td>${esc(a.name)}</td><td>${esc(a.bankName)}</td><td>${esc(a.accountNo)}</td>
+      <td class="num">${formatWon(a.openingBalance)}</td>
+      <td class="status">${a.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
+      <td class="actions">
+        <button type="button" class="secondary small" data-action="edit" data-key="account:${a.id}">수정</button>
+        ${a.txCount === 0 ? `<button type="button" class="danger small" data-action="account-delete" data-id="${a.id}">삭제</button>` : ''}
+      </td>
+    </tr>`;
+}
+
+function accountEditRow(a) {
+  const fundLocked = a.txCount > 0;
+  return `
+    <tr data-form="account-edit" data-id="${a.id}" class="editing">
+      <td><select name="fundCode" ${fundLocked ? 'disabled title="거래가 있어 변경 불가"' : ''}>
+        ${['GENERAL', 'SPECIAL'].map((f) => `<option value="${f}" ${f === a.fundCode ? 'selected' : ''}>${FUND_LABEL[f]}</option>`).join('')}
+      </select></td>
+      <td><input name="name" value="${esc(a.name)}" maxlength="30" autofocus></td>
+      <td><input name="bankName" value="${esc(a.bankName)}" maxlength="30"></td>
+      <td><input name="accountNo" value="${esc(a.accountNo)}" maxlength="40"></td>
+      <td><input name="openingBalance" value="${formatWon(a.openingBalance)}" ${settings.locks.openingBalance ? 'disabled' : ''}></td>
+      <td><label class="check"><input type="checkbox" name="isActive" ${a.isActive ? 'checked' : ''}> 사용</label></td>
+      <td class="actions">
+        <button type="button" class="small" data-action="account-save" data-id="${a.id}">저장</button>
+        <button type="button" class="secondary small" data-action="cancel">취소</button>
+      </td>
+    </tr>`;
+}
+
+// ---------------------------------------------------------------- 예산과목
+
+function renderSubjects() {
+  panel.innerHTML = `
+    <div class="two-col">
+    ${['INCOME', 'EXPENSE'].map((kind) => {
+      const list = settings.subjects.filter((s) => s.kind === kind);
+      return `
+      <div>
+        <h3>${KIND_LABEL[kind]} 과목</h3>
+        <table class="grid edit">
+          <thead><tr><th class="order">순서</th><th>과목명</th><th class="status">상태</th><th class="actions"></th></tr></thead>
+          <tbody>
+            ${list.map((s, i) => (editing === `subject:${s.id}` ? subjectEditRow(s) : subjectViewRow(s, i, list.length))).join('')
+              || '<tr><td colspan="4" class="muted">등록된 과목이 없습니다.</td></tr>'}
+          </tbody>
+          <tfoot>
+            <tr data-form="subject-new" data-kind="${kind}">
+              <td></td>
+              <td><input name="name" maxlength="30" placeholder="새 과목명"></td>
+              <td></td>
+              <td><button type="button" data-action="subject-add" data-kind="${kind}">추가</button></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+    }).join('')}
+    </div>
+    <p class="help">사용된 과목은 삭제할 수 없습니다. 더 이상 쓰지 않는 과목은 [수정]에서 "사용"을 해제하세요.</p>`;
+}
+
+function subjectViewRow(s, i, count) {
+  return `
+    <tr class="${s.isActive ? '' : 'inactive'}">
+      <td class="order">${orderButtons('subject', s.id, i, count)}</td>
+      <td>${esc(s.name)}</td>
+      <td class="status">${s.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
+      <td class="actions">
+        <button type="button" class="secondary small" data-action="edit" data-key="subject:${s.id}">수정</button>
+        ${s.txCount === 0 ? `<button type="button" class="danger small" data-action="subject-delete" data-id="${s.id}">삭제</button>` : ''}
+      </td>
+    </tr>`;
+}
+
+function subjectEditRow(s) {
+  return `
+    <tr data-form="subject-edit" data-id="${s.id}" data-kind="${s.kind}" class="editing">
+      <td></td>
+      <td><input name="name" value="${esc(s.name)}" maxlength="30" autofocus></td>
+      <td><label class="check"><input type="checkbox" name="isActive" ${s.isActive ? 'checked' : ''}> 사용</label></td>
+      <td class="actions">
+        <button type="button" class="small" data-action="subject-save" data-id="${s.id}">저장</button>
+        <button type="button" class="secondary small" data-action="cancel">취소</button>
+      </td>
+    </tr>`;
+}
+
+function orderButtons(type, id, i, count) {
+  return `<button type="button" class="icon" data-action="${type}-move" data-id="${id}" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="위로">▲</button>`
+    + `<button type="button" class="icon" data-action="${type}-move" data-id="${id}" data-dir="1" ${i === count - 1 ? 'disabled' : ''} title="아래로">▼</button>`;
+}
+
+// ---------------------------------------------------------------- 결재선
+
+function renderApproval() {
+  approvalDraft ??= settings.approvalSteps.map((s) => s.title);
+  const steps = approvalDraft;
+  panel.innerHTML = `
+    <label class="inline">결재 단계 수
+      <select id="approval-count">${Array.from({ length: MAX_STEPS }, (_, i) =>
+        `<option ${i + 1 === steps.length ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
+    </label>
+    <div class="form-grid" id="approval-titles">
+      ${steps.map((t, i) => `<label>${i + 1}단계 <input data-i="${i}" value="${esc(t)}" maxlength="12"></label>`).join('')}
+    </div>
+    <h4>결산서 결재란 미리보기</h4>
+    <div id="approval-preview">${approvalBoxHtml(steps.map((t) => t.trim() || '　'))}</div>
+    <p class="help">이미 마감된 날짜의 결산서는 마감 당시 결재선으로 출력됩니다.</p>
+    <button type="button" data-action="approval-save">저장</button>`;
+}
+
+panel.addEventListener('change', (e) => {
+  if (e.target.id !== 'approval-count') return;
+  const n = Number(e.target.value);
+  approvalDraft = Array.from({ length: n }, (_, i) => approvalDraft[i] ?? '');
+  render();
+});
+
+panel.addEventListener('input', (e) => {
+  if (!e.target.closest('#approval-titles')) return;
+  approvalDraft[e.target.dataset.i] = e.target.value;
+  document.getElementById('approval-preview').innerHTML = approvalBoxHtml(approvalDraft.map((t) => t.trim() || '　'));
+});
+
+// ---------------------------------------------------------------- 동작
+
+const field = (row, name) => row.querySelector(`[name="${name}"]`);
+
+const actions = {
+  'parish-save': async () => {
+    const form = panel.querySelector('[data-form="parish"]');
+    const body = {
+      parishName: field(form, 'parishName').value,
+      startDate: field(form, 'startDate').value,
+      writerName: field(form, 'writerName').value,
+    };
+    if (await attempt(() => api('/api/settings/parish', { method: 'PUT', body }), '저장했습니다.')) await reload();
+  },
+
+  edit: async (btn) => { editing = btn.dataset.key; render(); },
+  cancel: async () => { editing = null; render(); },
+
+  'account-add': async (btn) => {
+    const row = btn.closest('tr');
+    const body = {
+      fundCode: btn.dataset.fund,
+      name: field(row, 'name').value,
+      bankName: field(row, 'bankName').value,
+      accountNo: field(row, 'accountNo').value,
+      openingBalance: field(row, 'openingBalance').value || '0',
+    };
+    if (await attempt(() => api('/api/accounts', { method: 'POST', body }), '통장을 추가했습니다.')) {
+      await reload();
+      panel.querySelector(`[data-form="account-new"][data-fund="${btn.dataset.fund}"] input`)?.focus();
+    }
+  },
+  'account-save': async (btn) => {
+    const row = btn.closest('tr');
+    const body = {
+      fundCode: field(row, 'fundCode').value,
+      name: field(row, 'name').value,
+      bankName: field(row, 'bankName').value,
+      accountNo: field(row, 'accountNo').value,
+      openingBalance: field(row, 'openingBalance').value || '0',
+      isActive: field(row, 'isActive').checked,
+    };
+    if (await attempt(() => api(`/api/accounts/${btn.dataset.id}`, { method: 'PUT', body }), '저장했습니다.')) {
+      editing = null;
+      await reload();
+    }
+  },
+  'account-delete': async (btn) => {
+    const a = settings.accounts.find((x) => x.id === Number(btn.dataset.id));
+    if (!confirm(`'${a.name}' 통장을 삭제할까요?`)) return;
+    if (await attempt(() => api(`/api/accounts/${a.id}`, { method: 'DELETE' }), '삭제했습니다.')) await reload();
+  },
+  'account-move': async (btn) => {
+    const a = settings.accounts.find((x) => x.id === Number(btn.dataset.id));
+    const ids = moved(settings.accounts.filter((x) => x.fundCode === a.fundCode), a.id, Number(btn.dataset.dir));
+    if (await attempt(() => api('/api/accounts/reorder', { method: 'POST', body: { fundCode: a.fundCode, ids } }))) await reload();
+  },
+
+  'subject-add': async (btn) => {
+    const row = btn.closest('tr');
+    const body = { kind: btn.dataset.kind, name: field(row, 'name').value };
+    if (await attempt(() => api('/api/subjects', { method: 'POST', body }), '과목을 추가했습니다.')) {
+      await reload();
+      panel.querySelector(`[data-form="subject-new"][data-kind="${btn.dataset.kind}"] input`)?.focus();
+    }
+  },
+  'subject-save': async (btn) => {
+    const row = btn.closest('tr');
+    const body = { kind: row.dataset.kind, name: field(row, 'name').value, isActive: field(row, 'isActive').checked };
+    if (await attempt(() => api(`/api/subjects/${btn.dataset.id}`, { method: 'PUT', body }), '저장했습니다.')) {
+      editing = null;
+      await reload();
+    }
+  },
+  'subject-delete': async (btn) => {
+    const s = settings.subjects.find((x) => x.id === Number(btn.dataset.id));
+    if (!confirm(`'${s.name}' 과목을 삭제할까요?`)) return;
+    if (await attempt(() => api(`/api/subjects/${s.id}`, { method: 'DELETE' }), '삭제했습니다.')) await reload();
+  },
+  'subject-move': async (btn) => {
+    const s = settings.subjects.find((x) => x.id === Number(btn.dataset.id));
+    const ids = moved(settings.subjects.filter((x) => x.kind === s.kind), s.id, Number(btn.dataset.dir));
+    if (await attempt(() => api('/api/subjects/reorder', { method: 'POST', body: { kind: s.kind, ids } }))) await reload();
+  },
+
+  'approval-save': async () => {
+    const body = { titles: approvalDraft };
+    if (await attempt(() => api('/api/approval-steps', { method: 'PUT', body }), '결재선을 저장했습니다.')) {
+      approvalDraft = null;
+      await reload();
+    }
+  },
+};
+
+/** 목록에서 id 를 dir(-1 위, +1 아래) 만큼 옮긴 새 id 순서 */
+function moved(list, id, dir) {
+  const ids = list.map((x) => x.id);
+  const i = ids.indexOf(id);
+  [ids[i], ids[i + dir]] = [ids[i + dir], ids[i]];
+  return ids;
+}
+
+let busy = false;
+panel.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn || busy) return;
+  busy = true;
+  btn.disabled = true;
+  try {
+    await actions[btn.dataset.action](btn);
+  } finally {
+    busy = false;
+    if (btn.isConnected) btn.disabled = false;
+  }
+});
+
+// Enter: 같은 줄의 다음 칸으로, 마지막 칸이면 그 줄의 저장/추가 버튼
+panel.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && editing) { editing = null; render(); return; }
+  if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+  const form = e.target.closest('[data-form]') || e.target.closest('#approval-titles');
+  if (!form) return;
+  e.preventDefault();
+  const inputs = [...form.querySelectorAll('input:not([disabled]):not([type="checkbox"]), select:not([disabled])')];
+  const next = inputs[inputs.indexOf(e.target) + 1];
+  if (next) next.focus();
+  else (form.querySelector('[data-action]') ?? panel.querySelector('[data-action$="-save"]'))?.click();
+});
+
+tabs.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (!b) return;
+  tab = b.dataset.tab;
+  editing = null;
+  history.replaceState(null, '', `#${tab}`);
+  render();
+});
+
+initPage('settings').then(async () => {
+  await reload();
+}).catch((err) => {
+  panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
+});

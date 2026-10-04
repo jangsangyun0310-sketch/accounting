@@ -19,28 +19,6 @@ export async function me({ actor }) {
   return json({ email: actor.email });
 }
 
-export async function getSettings({ env }) {
-  const db = env.DB;
-  const [parish, funds, accounts, subjects, steps] = await db.batch([
-    db.prepare('SELECT parish_name, start_date, writer_name, setup_completed FROM parish_settings WHERE id = 1'),
-    db.prepare('SELECT id, code, name FROM funds ORDER BY sort_order'),
-    db.prepare(`SELECT id, fund_id, name, bank_name, account_no, opening_balance, sort_order, is_active
-                FROM accounts ORDER BY fund_id, sort_order, id`),
-    db.prepare(`SELECT id, kind, parent_id, code, name, sort_order, is_active
-                FROM budget_subjects ORDER BY kind, sort_order, id`),
-    db.prepare('SELECT seq, title FROM approval_steps ORDER BY seq'),
-  ]);
-  const p = parish.results[0] ?? null;
-  return json({
-    setupCompleted: p ? p.setup_completed === 1 : false,
-    parish: p && { parishName: p.parish_name, startDate: p.start_date, writerName: p.writer_name },
-    funds: funds.results,
-    accounts: accounts.results,
-    subjects: subjects.results,
-    approvalSteps: steps.results,
-  });
-}
-
 /** GET /api/balances?date=YYYY-MM-DD : 해당 일자 업무 종료 기준 통장별·회계별 잔액 */
 export async function getBalances({ env, url }) {
   const date = url.searchParams.get('date') || todayKST();

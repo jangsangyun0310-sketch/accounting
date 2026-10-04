@@ -37,3 +37,5 @@ INSERT INTO approval_steps (seq, title) VALUES
   (2, '재정부회장'),
   (3, '사목회장'),
   (4, '주임신부');
+
+INSERT INTO setup_lock (id, created_at, created_by) VALUES (1, '2026-10-01T00:00:00.000Z', 'seed');
