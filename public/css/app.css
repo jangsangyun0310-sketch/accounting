@@ -18,10 +18,23 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 
 /* ---- 상단 메뉴 ---- */
 .topbar {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 12px 24px; background: #fff; color: var(--text);
+  padding: 12px 0; background: #fff; color: var(--text);
   border-bottom: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
 }
+/* 본문(.container)과 같은 폭·여백이라 메뉴 왼쪽 끝이 본문 상자 왼쪽 줄에 맞는다 */
+.topbar-inner {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  max-width: 1040px; margin: 0 auto; padding: 0 16px;
+}
+.topbar-inner.narrow { max-width: 860px; }
+.topbar-inner.wide { max-width: 1280px; }
+.topbar-inner.report { max-width: 210mm; padding: 0 4px; } /* 결산서: A4 용지 폭 */
+/* 화면이 넉넉하면 로고는 본문 줄 바깥 왼쪽에 두고, [설정] 버튼부터 본문 왼쪽 줄에 맞춘다.
+   로고 폭 171px + 간격 16px. 화면이 좁으면 로고가 화면 밖으로 나가지 않게 이 배치를 쓰지 않는다. */
+@media (min-width: 1390px) { .topbar-inner:not(.narrow):not(.wide):not(.report) .brand { margin-left: -187px; } }
+@media (min-width: 1210px) { .topbar-inner.narrow .brand { margin-left: -187px; } }
+@media (min-width: 1630px) { .topbar-inner.wide .brand { margin-left: -187px; } }
+@media (min-width: 1170px) { .topbar-inner.report .brand { margin-left: -187px; } }
 .topbar .brand { display: flex; align-items: center; line-height: 0; }
 .topbar .brand img { height: 48px; width: auto; }
 .topbar .parish-box { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1.3; }

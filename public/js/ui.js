@@ -25,14 +25,17 @@ export async function initPage(active, { requireSetup = true } = {}) {
   if (bar) {
     bar.classList.add('topbar');
     // 성당 이름·작성자 이름은 화면 캡처에 나오지 않도록 상단 막대에 표시하지 않는다
-    bar.innerHTML = `
+    // 메뉴 줄의 왼쪽·오른쪽 끝을 본문 상자 줄에 맞춘다 (본문과 같은 폭)
+    const width = document.body.classList.contains('report-page') ? 'report'
+      : ['wide', 'narrow'].find((w) => document.querySelector('main.container')?.classList.contains(w));
+    bar.innerHTML = `<div class="topbar-inner${width ? ` ${width}` : ''}">
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
       ${settings.setupCompleted
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
       ${isLocalMode ? '<button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>' : ''}
-      ${isLocalMode ? '<button type="button" class="lock-btn" id="lock-btn" title="장부를 잠그고 비밀번호 화면으로">🔒 잠금</button>' : ''}`;
+      ${isLocalMode ? '<button type="button" class="lock-btn" id="lock-btn" title="장부를 잠그고 비밀번호 화면으로">🔒 잠금</button>' : ''}</div>`;
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
     bar.querySelector('#lock-btn')?.addEventListener('click', async () => {
       const { lock } = await import('./local/session.js');
