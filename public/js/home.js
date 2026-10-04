@@ -1,3 +1,4 @@
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, approvalBoxHtml } from './ui.js';
 import { formatWon } from './shared/money.js';
@@ -14,14 +15,14 @@ async function main() {
   const b = backupStatusHtml(backup);
   $('backup-status').innerHTML = b.html + (b.needed
     ? ' <button type="button" class="small" id="backup-now">지금 백업</button>'
-    : ' <a href="/settings#backup">백업 관리</a>');
+    : ` <a href="${href('/settings#backup')}">백업 관리</a>`);
   document.getElementById('backup-now')?.addEventListener('click', async () => {
     if (await downloadBackup()) location.reload();
   });
 
   const pending = closings.nextRequired && closings.nextRequired <= closings.today;
   $('closing-status').innerHTML = `마지막 마감일: <b>${closings.lastClosed ? formatKoreanDate(closings.lastClosed) : '없음'}</b>`
-    + (pending ? ` · <span class="error">마감하지 않은 거래가 있습니다 (${formatKoreanDate(closings.nextRequired)}부터)</span> <a href="/closing">마감하러 가기</a>` : '');
+    + (pending ? ` · <span class="error">마감하지 않은 거래가 있습니다 (${formatKoreanDate(closings.nextRequired)}부터)</span> <a href="${href('/closing')}">마감하러 가기</a>` : '');
 
   $('as-of').textContent = `${formatKoreanDate(balances.date)} 기준`;
 

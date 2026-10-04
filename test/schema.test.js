@@ -187,3 +187,9 @@ test('0007 마이그레이션: 기존 취소 기록 정리, 유효 거래·잔�
   // 마감된 날짜는 이제 삭제도 막힌다
   rejects(() => db.prepare('DELETE FROM transactions WHERE id = ?').run(keep), 'DATE_CLOSED');
 });
+
+test('브라우저 엔진의 마이그레이션 목록이 폴더와 같다', async () => {
+  const { MIGRATIONS } = await import('../public/core/migrations.js');
+  const { readdirSync } = await import('node:fs');
+  assert.deepEqual(MIGRATIONS, readdirSync('public/migrations').filter((f) => f.endsWith('.sql')).sort());
+});

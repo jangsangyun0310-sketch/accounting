@@ -1,4 +1,5 @@
 // 일 마감 화면: 마감 달력, 날짜별 현황·마감 정보, 마감/마감취소, 기록
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml, signedWon } from './ui.js';
 import { formatWon } from './shared/money.js';
@@ -87,7 +88,7 @@ async function loadDetail(date) {
       <tbody>${day.funds.map((f) => sumRow(esc(f.name), f)).join('')}${sumRow('합계', day.total, 'total')}</tbody>
     </table>
     <p class="muted">거래 ${postedCount}건${day.transactions.length > postedCount ? ` (취소 ${day.transactions.length - postedCount}건 별도)` : ''}
-      · <a href="/entry?date=${date}">거래 내역 보기</a></p>
+      · <a href="${href(`/entry?date=${date}`)}">거래 내역 보기</a></p>
 
     ${closed ? `
       <dl class="summary">
@@ -102,7 +103,7 @@ async function loadDetail(date) {
       ${approvalBoxHtml(c.approvalSteps)}` : ''}
 
     <div class="detail-actions">
-      <a class="button secondary" href="/report?date=${date}">결산서 보기·인쇄</a>
+      <a class="button secondary" href="${href(`/report?date=${date}`)}">결산서 보기·인쇄</a>
       ${info.canClose ? `<button type="button" data-close-date="${date}">이 날짜 마감하기</button>` : ''}
       ${info.canReopen ? `<button type="button" class="danger" data-reopen="${date}">마감취소</button>` : ''}
       ${!info.canClose && !closed && !covered && date <= info.today && date >= info.startDate

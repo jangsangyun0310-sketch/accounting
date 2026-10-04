@@ -1,5 +1,6 @@
 // 최초 설정 마법사
 // 입력 내용은 브라우저에 임시 저장되며, 마지막 "설정 완료" 때 한 번에 서버로 전송된다.
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
 import { parseAmount, sumAmounts, formatWon } from './shared/money.js';
@@ -349,7 +350,7 @@ $('next').addEventListener('click', async () => {
   try {
     await api('/api/setup', { method: 'POST', body: buildPayload() });
     clearDraft();
-    location.replace('/');
+    location.replace(href('/'));
   } catch (err) {
     toast(err.message, 'error');
     btn.disabled = false;
@@ -370,11 +371,11 @@ panel.addEventListener('keydown', (e) => {
 initPage('setup', { requireSetup: false }).then(({ settings }) => {
   if (settings.setupCompleted) {
     clearDraft();
-    location.replace('/settings');
+    location.replace(href('/settings'));
     return;
   }
   initRestore(document.getElementById('restore-box'), {
-    onRestored: () => { clearDraft(); location.replace('/'); },
+    onRestored: () => { clearDraft(); location.replace(href('/')); },
   });
   render();
 }).catch((err) => {

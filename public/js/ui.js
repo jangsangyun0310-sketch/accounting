@@ -1,4 +1,5 @@
 // 화면 공용 부품: 상단 메뉴, 금액 입력칸, 알림, 결재란 미리보기
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { formatWon } from './shared/money.js';
 
@@ -17,7 +18,7 @@ const NAV = [
 export async function initPage(active, { requireSetup = true } = {}) {
   const [me, settings] = await Promise.all([api('/api/me'), api('/api/settings')]);
   if (requireSetup && !settings.setupCompleted) {
-    location.replace('/setup');
+    location.replace(href('/setup'));
     return new Promise(() => {}); // 이동 중에는 이후 코드 실행 안 함
   }
   const bar = document.getElementById('topbar');
@@ -25,11 +26,11 @@ export async function initPage(active, { requireSetup = true } = {}) {
     bar.classList.add('topbar');
     // 성당 이름·작성자 이름은 화면 캡처에 나오지 않도록 상단 막대에 표시하지 않는다
     bar.innerHTML = `
-      <a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
+      <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
       ${settings.setupCompleted
-        ? `<a href="/settings" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
+        ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
-        `<a href="${n.href}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
+        `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
       <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>`;
     bar.querySelector('#share-btn').addEventListener('click', openShareDialog);
   }

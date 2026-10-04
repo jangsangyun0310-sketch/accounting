@@ -1,4 +1,5 @@
 // 결산서: 일일결산 · 월말결산 · 연말결산 A4 미리보기와 인쇄
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml, signedWon } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
@@ -61,7 +62,7 @@ function render(r) {
   document.title = `일일결산 ${r.date} - 본당살림`;
   $('state').innerHTML = closed
     ? `<span class="pill closed">마감</span> <span class="muted">${formatDateTimeKST(r.closedAt)} · ${esc(r.closedBy)}</span>`
-    : `<span class="pill open">미마감</span> <span class="muted">가결산으로 출력됩니다. <a href="/closing?date=${r.date}">마감하러 가기</a></span>`;
+    : `<span class="pill open">미마감</span> <span class="muted">가결산으로 출력됩니다. <a href="${href(`/closing?date=${r.date}`)}">마감하러 가기</a></span>`;
   $('warning').innerHTML = r.verification && !r.verification.ok
     ? `<p class="lock-banner">마감 시점 잔액과 현재 잔액이 다릅니다: ${r.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>`
     : '';

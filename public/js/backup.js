@@ -1,12 +1,12 @@
 // 백업 내려받기·백업 상태 (설정 화면과 홈 화면이 같이 사용)
-import { api, esc } from './api.js';
+import { apiFetch, esc } from './api.js';
 import { toast } from './ui.js';
 import { formatDateTimeKST, todayKST } from './shared/dates.js';
 
 /** 백업 파일을 받아 PC 에 저장. 성공하면 true */
 export async function downloadBackup() {
   try {
-    const res = await fetch('/api/backup');
+    const res = await apiFetch('/api/backup');
     if (!res.ok) {
       const data = await res.json().catch(() => null);
       throw new Error(data?.error?.message || `백업 실패 (${res.status})`);

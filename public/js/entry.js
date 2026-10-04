@@ -1,4 +1,5 @@
 // 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제, 하루 현황
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, toast, signedWon, FUND_LABEL } from './ui.js';
 import { formatWon, parseAmount, sumAmounts } from './shared/money.js';
@@ -84,8 +85,8 @@ async function loadDay() {
 function renderLock() {
   const locked = day.locked;
   $('lock-banner').hidden = !locked;
-  $('lock-link').href = `/closing?date=${day.date}`;
-  $('report-link').href = `/report?date=${day.date}`;
+  $('lock-link').href = href(`/closing?date=${day.date}`);
+  $('report-link').href = href(`/report?date=${day.date}`);
   $('fields').querySelectorAll('input, select, button').forEach((el) => { el.disabled = locked; });
   document.querySelectorAll('.kind-toggle button').forEach((b) => { b.disabled = locked || isKindLocked(b.dataset.kind); });
 }
