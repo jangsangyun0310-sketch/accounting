@@ -32,7 +32,6 @@
 
 ## 다음 할 일
 
-
 - [ ] Cloudflare 에서 bondang-salim 을 GitHub 저장소와 연결 (사용자가 대시보드에서: Settings → Build → Connect, 저장소 accounting · main, Deploy command `npm run deploy`)
 - [ ] /new 에서 진짜 장부 새로 만들기 (예전 장부 주소는 이제 열리지 않음)
 - [ ] 예전 주소(암호화 안 된 첫 화면 "/")를 막을지 결정
