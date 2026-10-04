@@ -4,6 +4,8 @@ import { formatWon } from './shared/money.js';
 
 const NAV = [
   { href: '/', label: '홈', key: 'home' },
+  { href: '/entry', label: '거래 입력', key: 'entry' },
+  { href: '/ledger', label: '거래 조회', key: 'ledger' },
   { href: '/settings', label: '설정', key: 'settings' },
 ];
 

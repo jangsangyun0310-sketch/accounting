@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>거래 입력 - 본당살림</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header id="topbar" class="topbar"><h1>본당살림</h1></header>
+  <main class="container wide">
+    <section class="entry" id="entry">
+      <div class="entry-head">
+        <div class="date-nav">
+          <button type="button" class="secondary small" id="prev-day" title="전날">◀</button>
+          <input type="date" id="date" aria-label="거래일">
+          <button type="button" class="secondary small" id="next-day" title="다음날">▶</button>
+          <button type="button" class="secondary small" id="today">오늘</button>
+          <span id="date-label" class="muted"></span>
+        </div>
+        <div class="kind-toggle" role="radiogroup" aria-label="거래 구분">
+          <button type="button" data-kind="IN" class="in">수입 <kbd>F2</kbd></button>
+          <button type="button" data-kind="OUT" class="out">지출 <kbd>F3</kbd></button>
+          <button type="button" data-kind="TRANSFER" class="transfer">이체 <kbd>F4</kbd></button>
+        </div>
+      </div>
+
+      <div id="lock-banner" class="lock-banner" hidden>
+        이 날짜는 <b>마감</b>되었습니다. 거래를 입력·수정하려면 먼저 마감취소를 해야 합니다.
+      </div>
+      <div id="edit-banner" class="edit-banner" hidden>
+        <span id="edit-label"></span> 수정 중입니다. 내용을 고치고 수정 사유를 입력한 뒤 저장하세요.
+        <button type="button" class="secondary small" id="cancel-edit">수정 취소 <kbd>Esc</kbd></button>
+      </div>
+
+      <div class="entry-fields" id="fields">
+        <label class="f-normal">통장 <select id="account"></select></label>
+        <label class="f-normal">예산과목 <select id="subject"></select></label>
+        <label class="f-transfer">출금 통장 <select id="from-account"></select></label>
+        <label class="f-transfer">입금 통장 <select id="to-account"></select></label>
+        <label class="f-amount">금액(원) <input id="amount" placeholder="0"></label>
+        <label class="f-memo">적요 <input id="memo" maxlength="100" placeholder="예) 홍길동 10월 교무금"></label>
+        <label class="f-voucher">증빙번호 <input id="voucher" maxlength="30"></label>
+        <label class="f-reason" hidden>수정 사유 <input id="reason" maxlength="200" placeholder="예) 금액 오기"></label>
+        <button type="button" id="save" class="save">저장 <kbd>Enter</kbd></button>
+      </div>
+      <p class="help">Enter: 다음 칸 → 마지막 칸에서 저장. 저장 후에는 통장·과목이 유지되고 금액 칸으로 돌아갑니다.</p>
+    </section>
+
+    <section>
+      <h2>하루 현황 <small id="summary-date" class="muted"></small></h2>
+      <div id="summary"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>거래 내역</h2>
+        <label class="check"><input type="checkbox" id="show-voided"> 취소된 거래도 보기</label>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
+  <script type="module" src="/js/entry.js"></script>
+</body>
+</html>

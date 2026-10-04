@@ -1,0 +1,216 @@
+// 거래·잔액 조회 로직 (거래 입력 화면, 거래 조회 화면, 이후 결산서가 함께 사용)
+import { ApiError } from './http.js';
+import { BALANCES_SQL } from './db.js';
+import { addDays } from '../../public/js/shared/dates.js';
+import { assertInteger, sumAmounts } from '../../public/js/shared/money.js';
+
+export const TX_SELECT = `
+  SELECT t.id, t.tx_date, t.kind, t.direction, t.account_id, a.name AS account_name, f.code AS fund_code,
+         t.subject_id, s.name AS subject_name, t.transfer_group,
+         (SELECT p.account_id FROM transactions p
+           WHERE p.transfer_group = t.transfer_group AND p.id <> t.id) AS counterpart_account_id,
+         (SELECT pa.name FROM transactions p JOIN accounts pa ON pa.id = p.account_id
+           WHERE p.transfer_group = t.transfer_group AND p.id <> t.id) AS counterpart_name,
+         t.amount, t.memo, t.voucher_no, t.status, t.replaces_id,
+         (SELECT r.id FROM transactions r WHERE r.replaces_id = t.id) AS replaced_by_id,
+         t.void_reason, t.voided_at, t.voided_by, t.created_at, t.created_by
+  FROM transactions t
+  JOIN accounts a ON a.id = t.account_id
+  JOIN funds f ON f.id = a.fund_id
+  LEFT JOIN budget_subjects s ON s.id = t.subject_id`;
+
+export function mapTx(r) {
+  return {
+    id: r.id,
+    date: r.tx_date,
+    kind: r.kind,
+    direction: r.direction,
+    accountId: r.account_id,
+    accountName: r.account_name,
+    fundCode: r.fund_code,
+    subjectId: r.subject_id,
+    subjectName: r.subject_name,
+    transferGroup: r.transfer_group,
+    counterpartAccountId: r.counterpart_account_id,
+    counterpartName: r.counterpart_name,
+    amount: assertInteger(r.amount),
+    memo: r.memo,
+    voucherNo: r.voucher_no,
+    status: r.status,
+    replacesId: r.replaces_id,
+    replacedById: r.replaced_by_id,
+    voidReason: r.void_reason,
+    voidedAt: r.voided_at,
+    voidedBy: r.voided_by,
+    createdAt: r.created_at,
+    createdBy: r.created_by,
+  };
+}
+
+const LOCKED_SQL = `SELECT EXISTS (SELECT 1 FROM daily_closings WHERE status = 'CLOSED' AND close_date >= ?) AS locked`;
+
+export async function isDateLocked(db, date) {
+  return (await db.prepare(LOCKED_SQL).bind(date).first('locked')) === 1;
+}
+
+/**
+ * 하루 현황: 통장별·회계별 전일잔액 / 수입 / 지출 / 이체입금 / 이체출금 / 당일잔액 + 당일 거래 목록.
+ * 전일잔액 + 수입 − 지출 + 이체입금 − 이체출금 = 당일잔액 이 맞지 않으면 오류를 낸다.
+ */
+export async function computeDay(db, date) {
+  const [prev, end, sums, txs, locked] = await db.batch([
+    db.prepare(BALANCES_SQL).bind(addDays(date, -1)),
+    db.prepare(BALANCES_SQL).bind(date),
+    db.prepare(
+      `SELECT t.account_id,
+              SUM(CASE WHEN t.kind = 'NORMAL'   AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS income,
+              SUM(CASE WHEN t.kind = 'NORMAL'   AND t.direction = 'OUT' THEN t.amount ELSE 0 END) AS expense,
+              SUM(CASE WHEN t.kind = 'TRANSFER' AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS transfer_in,
+              SUM(CASE WHEN t.kind = 'TRANSFER' AND t.direction = 'OUT' THEN t.amount ELSE 0 END) AS transfer_out
+       FROM transactions t
+       WHERE t.tx_date = ? AND t.status = 'POSTED'
+       GROUP BY t.account_id`
+    ).bind(date),
+    db.prepare(`${TX_SELECT} WHERE t.tx_date = ? ORDER BY t.id`).bind(date),
+    db.prepare(LOCKED_SQL).bind(date),
+  ]);
+
+  const prevById = new Map(prev.results.map((r) => [r.id, r.balance]));
+  const sumById = new Map(sums.results.map((r) => [r.account_id, r]));
+  const accounts = end.results.map((r) => {
+    const s = sumById.get(r.id) ?? {};
+    const row = {
+      id: r.id,
+      fundCode: r.fund_code,
+      name: r.name,
+      isActive: r.is_active === 1,
+      prev: assertInteger(prevById.get(r.id)),
+      income: assertInteger(s.income ?? 0),
+      expense: assertInteger(s.expense ?? 0),
+      transferIn: assertInteger(s.transfer_in ?? 0),
+      transferOut: assertInteger(s.transfer_out ?? 0),
+      end: assertInteger(r.balance),
+    };
+    checkEquation(row, `통장 ${row.name}`);
+    return row;
+  }).filter((a) => a.isActive || a.prev !== 0 || a.end !== 0 || a.income || a.expense || a.transferIn || a.transferOut);
+
+  const funds = [...new Map(end.results.map((r) => [r.fund_code, r.fund_name]))].map(([code, name]) => ({
+    code, name, ...totals(accounts.filter((a) => a.fundCode === code)),
+  }));
+  funds.forEach((f) => checkEquation(f, f.name));
+  const total = totals(accounts);
+  checkEquation(total, '전체');
+
+  return {
+    date,
+    locked: locked.results[0].locked === 1,
+    accounts,
+    funds,
+    total,
+    transactions: txs.results.map(mapTx),
+  };
+}
+
+const FIELDS = ['prev', 'income', 'expense', 'transferIn', 'transferOut', 'end'];
+
+function totals(rows) {
+  return Object.fromEntries(FIELDS.map((k) => [k, sumAmounts(rows.map((r) => r[k]))]));
+}
+
+function checkEquation(r, label) {
+  const computed = sumAmounts([r.prev, r.income, -r.expense, r.transferIn, -r.transferOut]);
+  if (computed !== r.end) {
+    throw new ApiError(500, 'INTEGRITY', `잔액 검증 실패(${label}): 계산 ${computed}, 실제 ${r.end}. 관리자에게 문의하세요.`);
+  }
+}
+
+/**
+ * 거래 검색. accountId 를 지정하면 기간 시작 전 잔액(openingBalance)과 거래별 잔액(balanceAfter)을 함께 준다.
+ * @param {{from:string,to:string,accountId?:number,subjectId?:number,kind?:string,q?:string,includeVoided?:boolean}} f
+ */
+export async function searchTransactions(db, f, limit = 2000) {
+  const where = ['t.tx_date BETWEEN ? AND ?'];
+  const binds = [f.from, f.to];
+  if (f.accountId) { where.push('t.account_id = ?'); binds.push(f.accountId); }
+  if (f.subjectId) { where.push('t.subject_id = ?'); binds.push(f.subjectId); }
+  if (f.kind === 'IN' || f.kind === 'OUT') { where.push("t.kind = 'NORMAL' AND t.direction = ?"); binds.push(f.kind); }
+  if (f.kind === 'TRANSFER') where.push("t.kind = 'TRANSFER'");
+  if (!f.includeVoided) where.push("t.status = 'POSTED'");
+  if (f.q) {
+    const like = `%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    where.push("(t.memo LIKE ? ESCAPE '\\' OR t.voucher_no LIKE ? ESCAPE '\\')");
+    binds.push(like, like);
+  }
+  const { results } = await db.prepare(`${TX_SELECT} WHERE ${where.join(' AND ')} ORDER BY t.tx_date, t.id LIMIT ?`)
+    .bind(...binds, limit + 1).all();
+  const truncated = results.length > limit;
+  const rows = results.slice(0, limit).map(mapTx);
+
+  let openingBalance = null;
+  if (f.accountId) {
+    openingBalance = assertInteger(await db.prepare(
+      `SELECT a.opening_balance + COALESCE((
+         SELECT SUM(CASE t.direction WHEN 'IN' THEN t.amount ELSE -t.amount END) FROM transactions t
+         WHERE t.account_id = a.id AND t.status = 'POSTED' AND t.tx_date < ?), 0) AS balance
+       FROM accounts a WHERE a.id = ?`
+    ).bind(f.from, f.accountId).first('balance') ?? 0);
+    // 검색어·과목·구분 필터가 있으면 일부 거래만 보이므로 거래별 잔액은 의미가 없다
+    if (!f.subjectId && !f.kind && !f.q) {
+      let running = openingBalance;
+      for (const r of rows) {
+        if (r.status !== 'POSTED') { r.balanceAfter = null; continue; }
+        running = sumAmounts([running, r.direction === 'IN' ? r.amount : -r.amount]);
+        r.balanceAfter = running;
+      }
+    }
+  }
+
+  const posted = rows.filter((r) => r.status === 'POSTED');
+  return {
+    rows,
+    truncated,
+    openingBalance,
+    totals: {
+      income: sumAmounts(posted.filter((r) => r.kind === 'NORMAL' && r.direction === 'IN').map((r) => r.amount)),
+      expense: sumAmounts(posted.filter((r) => r.kind === 'NORMAL' && r.direction === 'OUT').map((r) => r.amount)),
+      transferIn: sumAmounts(posted.filter((r) => r.kind === 'TRANSFER' && r.direction === 'IN').map((r) => r.amount)),
+      transferOut: sumAmounts(posted.filter((r) => r.kind === 'TRANSFER' && r.direction === 'OUT').map((r) => r.amount)),
+    },
+  };
+}
+
+/** 거래 한 건의 수정 이력(원본 → … → 최신)과 감사 로그 */
+export async function transactionHistory(db, id) {
+  const { results: chainRows } = await db.prepare(
+    `WITH RECURSIVE
+       up(id, replaces_id) AS (
+         SELECT id, replaces_id FROM transactions WHERE id = ?1
+         UNION ALL
+         SELECT t.id, t.replaces_id FROM transactions t JOIN up ON t.id = up.replaces_id
+       ),
+       root(id) AS (SELECT id FROM up WHERE replaces_id IS NULL),
+       down(id, depth) AS (
+         SELECT id, 0 FROM root
+         UNION ALL
+         SELECT t.id, down.depth + 1 FROM transactions t JOIN down ON t.replaces_id = down.id
+       )
+     SELECT down.depth, x.* FROM down JOIN (${TX_SELECT}) x ON x.id = down.id ORDER BY down.depth`
+  ).bind(id).all();
+  if (!chainRows.length) throw new ApiError(404, 'NOT_FOUND', '거래를 찾을 수 없습니다.');
+
+  const ids = chainRows.map((r) => String(r.id));
+  const { results: audit } = await db.prepare(
+    `SELECT id, at, actor, entity_id, action, before_json, after_json FROM audit_log
+     WHERE entity = 'transactions' AND entity_id IN (${ids.map(() => '?').join(',')}) ORDER BY id`
+  ).bind(...ids).all();
+
+  return {
+    versions: chainRows.map(mapTx),
+    audit: audit.map((a) => ({
+      id: a.id, at: a.at, actor: a.actor, transactionId: Number(a.entity_id), action: a.action,
+      before: a.before_json ? JSON.parse(a.before_json) : null,
+      after: a.after_json ? JSON.parse(a.after_json) : null,
+    })),
+  };
+}

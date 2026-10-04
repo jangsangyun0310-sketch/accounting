@@ -21,6 +21,8 @@ const DB_ERRORS = {
   ACCOUNT_IN_USE: [409, '거래가 있는 통장은 삭제하거나 회계 구분을 바꿀 수 없습니다. 사용 중지로 처리하세요.'],
   SUBJECT_IN_USE: [409, '사용된 과목은 삭제하거나 수입/지출 구분을 바꿀 수 없습니다. 사용 중지로 처리하세요.'],
   START_DATE_LOCKED: [409, '거래가 있어 운영 개시일을 변경할 수 없습니다.'],
+  TRANSFER_MISMATCH: [400, '이체의 출금·입금 내역이 맞지 않습니다.'],
+  ALREADY_REPLACED: [409, '이미 수정된 거래입니다. 화면을 새로고침하세요.'],
   SETUP_DONE: [409, '최초 설정이 이미 완료되었습니다. 변경은 설정 화면에서 하세요.'],
 };
 
@@ -29,6 +31,7 @@ export function translateDbError(err) {
   if (err instanceof ApiError) return err;
   let message = String(err?.message ?? err);
   if (message.includes('UNIQUE constraint failed: setup_lock')) message = 'SETUP_DONE';
+  if (message.includes('UNIQUE constraint failed: transactions.replaces_id')) message = 'ALREADY_REPLACED';
   for (const [code, [status, text]] of Object.entries(DB_ERRORS)) {
     if (message.includes(code)) return new ApiError(status, code, text);
   }
@@ -64,6 +67,8 @@ const SNAPSHOT_COLUMNS = {
   parish_settings: ['parish_name', 'start_date', 'writer_name', 'setup_completed'],
   accounts: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active'],
   budget_subjects: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active'],
+  transactions: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount',
+    'memo', 'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by'],
 };
 
 /** 해당 테이블 한 행을 JSON 문자열로 만드는 SQL 식 */

@@ -32,3 +32,15 @@ export function formatKoreanDate(text) {
   const w = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   return `${y}년 ${m}월 ${d}일(${w})`;
 }
+
+/** UTC ISO 시각 → 한국 시간 'YYYY-MM-DD HH:mm' */
+export function formatDateTimeKST(iso) {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso ?? '';
+  return new Date(t + KST_OFFSET_MS).toISOString().slice(0, 16).replace('T', ' ');
+}
+
+/** 해당 날짜가 속한 달의 1일 */
+export function monthStart(text) {
+  return `${text.slice(0, 7)}-01`;
+}

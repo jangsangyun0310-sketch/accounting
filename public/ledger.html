@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>거래 조회 - 본당살림</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header id="topbar" class="topbar"><h1>본당살림</h1></header>
+  <main class="container wide">
+    <section>
+      <div class="filters" id="filters">
+        <label>시작일 <input type="date" id="from"></label>
+        <label>종료일 <input type="date" id="to"></label>
+        <div class="quick">
+          <button type="button" class="secondary small" data-range="today">오늘</button>
+          <button type="button" class="secondary small" data-range="month">이번 달</button>
+          <button type="button" class="secondary small" data-range="last-month">지난 달</button>
+        </div>
+        <label>통장 <select id="account"></select></label>
+        <label>예산과목 <select id="subject"></select></label>
+        <label>구분
+          <select id="kind">
+            <option value="">전체</option><option value="IN">수입</option>
+            <option value="OUT">지출</option><option value="TRANSFER">이체</option>
+          </select>
+        </label>
+        <label>적요·증빙 검색 <input id="q" maxlength="50"></label>
+        <label class="check"><input type="checkbox" id="include-voided"> 취소 포함</label>
+        <button type="button" id="search">조회</button>
+      </div>
+      <p class="help">통장을 하나 선택하면 통장 거래내역처럼 거래마다 잔액이 표시됩니다. (통장 사본과 대조할 때 사용)</p>
+    </section>
+    <section>
+      <div id="result"><p class="muted">조건을 정하고 [조회]를 누르세요.</p></div>
+    </section>
+  </main>
+  <script type="module" src="/js/ledger.js"></script>
+</body>
+</html>

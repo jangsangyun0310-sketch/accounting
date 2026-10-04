@@ -7,6 +7,7 @@ import { MoneyError } from '../public/js/shared/money.js';
 import * as system from './routes/system.js';
 import * as setup from './routes/setup.js';
 import * as settings from './routes/settings.js';
+import * as transactions from './routes/transactions.js';
 
 const routes = [
   ['GET', '/api/health', system.health],
@@ -24,6 +25,13 @@ const routes = [
   ['PUT', '/api/subjects/:id', settings.updateSubject],
   ['DELETE', '/api/subjects/:id', settings.deleteSubject],
   ['PUT', '/api/approval-steps', settings.updateApprovalSteps],
+  ['GET', '/api/day', transactions.getDay],
+  ['GET', '/api/transactions', transactions.search],
+  ['POST', '/api/transactions', transactions.create],
+  ['GET', '/api/transactions/:id', transactions.detail],
+  ['POST', '/api/transactions/:id/void', transactions.voidTx],
+  ['POST', '/api/transactions/:id/replace', transactions.replace],
+  ['POST', '/api/transfers', transactions.createTransfer],
 ].map(([method, path, handler]) => {
   const keys = [];
   const pattern = new RegExp(`^${path.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)'))}$`);

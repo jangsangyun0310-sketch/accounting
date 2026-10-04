@@ -122,3 +122,81 @@ table.approval-box td { height: 56px; }
 }
 #toast.show { opacity: 1; transform: translateX(-50%); }
 #toast.error { background: var(--danger); }
+
+/* ---- 링크 버튼 ---- */
+a.button {
+  display: inline-block; padding: 8px 18px; border-radius: 4px; text-decoration: none;
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+}
+a.button.secondary { background: #fff; color: var(--accent); }
+.container.wide { max-width: 1280px; }
+.small { font-size: 12px; }
+.in { color: var(--in); }
+.out { color: var(--out); }
+kbd {
+  font: 11px/1 inherit; padding: 2px 4px; border: 1px solid currentColor; border-radius: 3px; opacity: .6; margin-left: 4px;
+}
+.section-head { display: flex; align-items: center; justify-content: space-between; }
+
+/* ---- 거래 입력 ---- */
+.entry-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.date-nav { display: flex; align-items: center; gap: 6px; }
+.date-nav input { width: auto; font-weight: 600; }
+.kind-toggle { display: flex; }
+.kind-toggle button { background: #fff; color: var(--text); border-color: #b9c0ca; border-radius: 0; padding: 8px 18px; }
+.kind-toggle button:first-child { border-radius: 4px 0 0 4px; }
+.kind-toggle button:last-child { border-radius: 0 4px 4px 0; }
+.kind-toggle button + button { margin-left: -1px; }
+.kind-toggle button.in.active { background: var(--in); border-color: var(--in); color: #fff; }
+.kind-toggle button.out.active { background: var(--out); border-color: var(--out); color: #fff; }
+.kind-toggle button.transfer.active { background: #4b5563; border-color: #4b5563; color: #fff; }
+
+.entry-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.entry-fields label { flex: 1 1 150px; }
+.entry-fields .f-amount { flex: 0 1 160px; }
+.entry-fields .f-amount input { font-size: 17px; font-weight: 600; }
+.entry-fields .f-memo { flex: 2 1 220px; }
+.entry-fields .f-voucher { flex: 0 1 120px; }
+.entry-fields .f-reason { flex: 1 1 200px; }
+.entry-fields .save { padding: 8px 20px; height: 38px; }
+#entry[data-kind="TRANSFER"] .f-normal { display: none; }
+#entry:not([data-kind="TRANSFER"]) .f-transfer { display: none; }
+#entry[data-kind="IN"] { border-top: 4px solid var(--in); }
+#entry[data-kind="OUT"] { border-top: 4px solid var(--out); }
+#entry[data-kind="TRANSFER"] { border-top: 4px solid #4b5563; }
+#entry.editing { background: #fffbea; }
+.lock-banner { background: #fde8e8; border: 1px solid #f5b5b5; color: #8a1c1c; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; }
+.edit-banner { background: #fff3c4; border: 1px solid #e6c44d; padding: 6px 12px; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; }
+.edit-banner[hidden], .lock-banner[hidden], .f-reason[hidden] { display: none; }
+
+table.summary td:first-child { white-space: nowrap; }
+details summary { cursor: pointer; color: var(--accent); margin: 8px 0; }
+
+/* ---- 거래 목록 ---- */
+table.tx-list td { vertical-align: middle; }
+tr.voided td { color: #9ca3af; }
+tr.voided td.num { text-decoration: line-through; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; color: #fff; white-space: nowrap; }
+.badge.in { background: var(--in); }
+.badge.out { background: var(--out); }
+.badge.transfer { background: #4b5563; }
+tr.voided .badge { background: #c5c9d0; }
+
+/* ---- 거래 조회 ---- */
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.filters label { flex: 0 1 160px; }
+.filters .quick { display: flex; gap: 4px; padding-bottom: 4px; }
+.filters label.check { flex: 0 0 auto; padding-bottom: 8px; }
+p.totals { font-size: 14px; }
+#result tr[data-history] { cursor: pointer; }
+#result tr[data-history]:hover td { background: #f5f8fc; }
+
+/* ---- 이력 창 ---- */
+dialog#history-dialog { width: min(1100px, 95vw); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; }
+dialog::backdrop { background: rgba(0, 0, 0, .35); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; }
+.dialog-head h3 { margin: 0; }
+.dialog-foot { text-align: right; margin-top: 12px; }
+.scroll { overflow-x: auto; }
+tr.selected td { background: var(--accent-soft); }
+ul.audit { font-size: 13px; color: #374151; padding-left: 18px; }
