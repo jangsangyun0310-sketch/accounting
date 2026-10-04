@@ -28,7 +28,10 @@ export function d1Adapter(db) {
     },
     all: async () => ({ results: db.prepare(sql).all(...params).map((r) => ({ ...r })) }),
     run: async () => db.prepare(sql).run(...params),
-    _exec: () => ({ results: db.prepare(sql).all(...params).map((r) => ({ ...r })) }),
+    _exec: () => {
+      const results = db.prepare(sql).all(...params).map((r) => ({ ...r }));
+      return { results, meta: { changes: db.prepare('SELECT changes() AS c').get().c } };
+    },
   });
   return {
     prepare: (sql) => wrap(sql),

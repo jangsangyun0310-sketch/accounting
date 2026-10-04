@@ -1,5 +1,5 @@
 // 화면 공용 부품: 상단 메뉴, 금액 입력칸, 알림, 결재란 미리보기
-import { href } from './base.js';
+import { href, isLocalMode } from './base.js';
 import { api, esc } from './api.js';
 import { formatWon } from './shared/money.js';
 
@@ -31,17 +31,20 @@ export async function initPage(active, { requireSetup = true } = {}) {
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
-      <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>`;
-    bar.querySelector('#share-btn').addEventListener('click', openShareDialog);
+      ${isLocalMode ? '<button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>' : ''}
+      ${isLocalMode ? '<button type="button" class="lock-btn" id="lock-btn" title="장부를 잠그고 비밀번호 화면으로">🔒 잠금</button>' : ''}`;
+    bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
+    bar.querySelector('#lock-btn')?.addEventListener('click', async () => {
+      const { lock } = await import('./local/session.js');
+      lock();
+    });
   }
   return { me, settings };
 }
 
-// 다른 성당에 알려줄 설치 안내 주소. 이 주소로 설치하면 빈 프로그램(틀)만 설치되고 우리 자료는 전혀 가지 않는다.
-const SHARE_GUIDE_URL = 'https://github.com/jangsangyun0310-sketch/accounting#우리-성당에-설치하기';
-const SHARE_DEPLOY_URL = 'https://deploy.workers.cloudflare.com/?url=https://github.com/jangsangyun0310-sketch/accounting';
-
+// 다른 성당에 보낼 링크: 열면 그 성당 전용 빈 장부를 만드는 화면이 나온다. 우리 자료는 전혀 가지 않는다.
 function openShareDialog() {
+  const link = `${location.origin}/new`;
   let dlg = document.getElementById('share-dialog');
   if (!dlg) {
     dlg = document.createElement('dialog');
@@ -49,33 +52,26 @@ function openShareDialog() {
     document.body.append(dlg);
     dlg.addEventListener('click', async (e) => {
       if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
-      const copy = e.target.closest('[data-copy]');
-      if (copy) {
+      if (e.target.closest('[data-copy]')) {
         try {
-          await navigator.clipboard.writeText(copy.dataset.copy);
-          toast('주소를 복사했습니다. 카카오톡이나 문자에 붙여 넣으세요.');
+          await navigator.clipboard.writeText(link);
+          toast('링크를 복사했습니다. 카카오톡이나 문자에 붙여 넣으세요.');
         } catch {
-          toast('복사하지 못했습니다. 주소를 직접 선택해 복사하세요.', 'error');
+          toast('복사하지 못했습니다. 링크를 직접 선택해 복사하세요.', 'error');
         }
       }
     });
   }
   dlg.innerHTML = `
-    <h3>🔗 다른 성당에 본당살림 공유하기</h3>
-    <p>아래 주소를 다른 성당 사무장님께 보내 주세요.<br>
-      그 주소로 설치하면 <b>빈 프로그램(틀)만</b> 새로 만들어집니다.
-      <b>우리 성당의 통장·거래·금액·이름은 전혀 전달되지 않습니다.</b></p>
-    <label>설치 안내 주소 (권장)
-      <div class="copy-row"><input readonly value="${esc(SHARE_GUIDE_URL)}">
-        <button type="button" data-copy="${esc(SHARE_GUIDE_URL)}">복사</button></div>
-    </label>
-    <p class="help">설치 순서(버튼 클릭 → 이름 정하기 → 최초 설정)가 함께 안내된 페이지입니다.</p>
-    <label>바로 설치 주소
-      <div class="copy-row"><input readonly value="${esc(SHARE_DEPLOY_URL)}">
-        <button type="button" class="secondary" data-copy="${esc(SHARE_DEPLOY_URL)}">복사</button></div>
-    </label>
-    <p class="help">받는 성당은 무료 Cloudflare 계정만 있으면 됩니다. 각 성당의 자료는 각자의 계정에만 저장됩니다.</p>
-    <div class="dialog-foot"><button type="button" data-close>닫기</button></div>`;
+    <h3>🔗 다른 성당에 본당살림 알려주기</h3>
+    <p>아래 링크를 다른 성당 사무장님께 보내 주세요.</p>
+    <div class="copy-row big"><input readonly value="${esc(link)}"><button type="button" data-copy>링크 복사</button></div>
+    <ul class="start-points">
+      <li>링크를 열면 <b>비밀번호 정하기 → 최초 설정</b> 화면이 바로 나옵니다. 설치·가입은 필요 없습니다.</li>
+      <li>그 성당 전용 <b>빈 장부</b>가 새로 만들어집니다. <b>우리 성당 자료는 전혀 전달되지 않습니다.</b></li>
+      <li>각 성당의 자료는 그 성당 비밀번호로 암호화되어, 다른 성당도 개발자도 볼 수 없습니다.</li>
+    </ul>
+    <div class="dialog-foot"><button type="button" class="secondary" data-close>닫기</button></div>`;
   dlg.showModal();
 }
 

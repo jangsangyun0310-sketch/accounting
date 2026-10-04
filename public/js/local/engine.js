@@ -28,14 +28,27 @@ export async function openEngine(bytes, { onChange } = {}) {
   const env = { DB: d1Adapter(db), AUTH_MODE: 'open' };
   const exportBytes = () => s3.capi.sqlite3_js_db_export(db);
 
+  // 저장에 실패하면 화면의 자료와 저장된 자료가 달라지므로, 새로고침할 때까지 더 이상 처리하지 않는다
+  let broken = null;
+  const errorResponse = (status, code, message) => new Response(
+    JSON.stringify({ error: { code, message } }), { status, headers: { 'content-type': 'application/json' } });
+
   return {
     exportBytes,
     /** fetch 와 같은 모양으로 /api/* 를 처리 */
     async fetch(path, init = {}) {
+      if (broken) return errorResponse(409, 'RELOAD_REQUIRED', broken);
       const request = new Request(new URL(path, location.origin), init);
       const response = await handleApi(request, env);
       const method = (init.method || 'GET').toUpperCase();
-      if (method !== 'GET' && response.ok && onChange) await onChange(exportBytes());
+      if (method !== 'GET' && response.ok && onChange) {
+        try {
+          await onChange(exportBytes());
+        } catch (err) {
+          broken = `${err.message} (방금 입력한 내용은 저장되지 않았습니다. 새로고침(F5) 후 다시 입력하세요.)`;
+          return errorResponse(409, err.code || 'SAVE_FAILED', broken);
+        }
+      }
       return response;
     },
     close: () => db.close(),

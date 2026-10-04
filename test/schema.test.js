@@ -191,5 +191,6 @@ test('0007 마이그레이션: 기존 취소 기록 정리, 유효 거래·잔�
 test('브라우저 엔진의 마이그레이션 목록이 폴더와 같다', async () => {
   const { MIGRATIONS } = await import('../public/core/migrations.js');
   const { readdirSync } = await import('node:fs');
-  assert.deepEqual(MIGRATIONS, readdirSync('public/migrations').filter((f) => f.endsWith('.sql')).sort());
+  // _server_ 가 붙은 것은 서버 전용 (암호문 보관함) 이라 브라우저 엔진은 적용하지 않는다
+  assert.deepEqual(MIGRATIONS, readdirSync('public/migrations').filter((f) => f.endsWith('.sql') && !f.includes('_server_')).sort());
 });

@@ -278,3 +278,27 @@ dialog#share-dialog { width: min(640px, 95vw); border: 1px solid var(--line); bo
 dialog#share-dialog h3 { margin-top: 0; }
 .copy-row { display: flex; gap: 6px; margin-top: 4px; }
 .copy-row input { flex: 1; font-size: 13px; color: var(--muted); }
+
+/* ---- 성당별 암호화 모드 ---- */
+.unlock-screen {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+.unlock-box {
+  width: min(420px, 92vw); background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  padding: 28px 28px 20px; box-shadow: 0 4px 24px rgba(0, 0, 0, .08); display: flex; flex-direction: column; gap: 12px;
+}
+.unlock-box img { align-self: center; height: 56px; width: auto; }
+.unlock-box h2 { text-align: center; margin: 0; }
+.unlock-box input { font-size: 17px; padding: 10px; }
+.unlock-box button { padding: 10px; font-size: 16px; }
+.unlock-box .help { margin: 0; }
+.topbar .lock-btn { background: #fff; color: var(--muted); border: 1.5px solid #c5c9d0; padding: 6px 12px; }
+.topbar .lock-btn:hover { color: var(--text); border-color: var(--muted); }
+.start-box form, .form-narrow { display: flex; flex-direction: column; gap: 12px; max-width: 440px; }
+.start-box input[type="password"], .form-narrow input[type="password"] { font-size: 16px; padding: 9px; }
+.start-box button[type="submit"] { padding: 10px; font-size: 16px; }
+ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
+.copy-row.big input { font-size: 15px; color: var(--text); padding: 9px; }
+.parish-address { background: #f0f7f2; border-color: #b9dcc4; font-size: 14px; }
+.parish-address .copy-row { margin-top: 8px; max-width: 640px; }

@@ -1,6 +1,6 @@
-import { href } from './base.js';
+import { href, isLocalMode } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, approvalBoxHtml } from './ui.js';
+import { initPage, approvalBoxHtml, toast } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { formatKoreanDate } from './shared/dates.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
@@ -11,6 +11,16 @@ async function main() {
   const { settings } = await initPage('home');
   const [balances, health, closings, backup] = await Promise.all([
     api('/api/balances'), api('/api/health'), api('/api/closings'), api('/api/backup/status')]);
+
+  if (isLocalMode) {
+    const box = $('parish-address');
+    const url = `${location.origin}${href('/')}`;
+    box.hidden = false;
+    box.innerHTML = `<b>우리 성당 장부 주소</b> — 이 주소와 비밀번호로 어느 PC 에서든 열 수 있습니다. <b>즐겨찾기(Ctrl+D)</b> 해 두세요.
+      <div class="copy-row"><input readonly value="${esc(url)}"><button type="button" class="secondary small" id="copy-address">주소 복사</button></div>`;
+    $('copy-address').addEventListener('click', () => navigator.clipboard.writeText(url).then(
+      () => toast('주소를 복사했습니다.'), () => toast('복사하지 못했습니다. 주소를 직접 복사하세요.', 'error')));
+  }
 
   const b = backupStatusHtml(backup);
   $('backup-status').innerHTML = b.html + (b.needed

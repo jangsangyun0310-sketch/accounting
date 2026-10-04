@@ -7,7 +7,18 @@
 - 데이터: Cloudflare D1
 - 로그인: 기본은 로그인 없음, 선택적으로 Cloudflare Access
 
-## 우리 성당에 설치하기
+## 시작하기 (가장 쉬운 방법)
+
+**https://bondang-salim.jangsangyun0310.workers.dev/new** 를 열고 비밀번호를 정하면, 그 성당 전용 장부가 만들어지고 바로 최초 설정 화면이 나옵니다.
+
+- 장부의 모든 자료는 **브라우저 안에서 비밀번호로 암호화**된 뒤 서버에 저장됩니다(AES-256-GCM, 열쇠는 PBKDF2-SHA256 60만 회).
+  서버(운영자)에는 암호문만 있어 **프로그램 개발자도 내용을 볼 수 없습니다.**
+- 성당 전용 주소()와 비밀번호로 어느 PC 에서든 엽니다. 사무원과 함께 쓰면 비밀번호를 같이 씁니다.
+- **비밀번호를 잊으면 누구도 자료를 되살릴 수 없습니다.** 설정 → 백업에서 백업 파일을 자주 내려받아 두세요.
+- 비밀번호 10번 틀리면 15분 잠금, 설정 → 비밀번호에서 변경(전체 재암호화), 두 곳에서 동시에 고치면 나중 쪽에 안내.
+- 다른 성당에 알릴 때는 상단의 [🔗 공유하기] 링크()만 보내면 됩니다. 우리 자료는 전달되지 않습니다.
+
+## 직접 설치하기 (자기 Cloudflare 계정에 따로 설치)
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jangsangyun0310-sketch/accounting)
 

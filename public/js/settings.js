@@ -5,13 +5,14 @@ import { initPage, bindAmountInput, attempt, approvalBoxHtml, FUND_LABEL, KIND_L
 import { formatWon } from './shared/money.js';
 import { formatDateTimeKST } from './shared/dates.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
+import { isLocalMode } from './base.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', ...(isLocalMode ? ['password'] : [])].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값
 
@@ -22,7 +23,7 @@ async function reload() {
 
 function render() {
   tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup, password: renderPassword })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -248,6 +249,46 @@ async function renderBackup() {
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
 }
 
+// ---------------------------------------------------------------- 비밀번호 (성당별 암호화 모드)
+
+function renderPassword() {
+  panel.innerHTML = `
+    <form id="password-form" class="form-narrow" autocomplete="off">
+      <p>장부의 모든 자료가 새 비밀번호로 다시 암호화됩니다. 바꾸면 예전 비밀번호로는 열 수 없습니다.
+        (직원이 그만두었을 때 바꾸세요)</p>
+      <label>지금 비밀번호 <input type="password" id="pw-current" required></label>
+      <label>새 비밀번호 (8자 이상) <input type="password" id="pw-new" minlength="8" required></label>
+      <label>새 비밀번호 확인 <input type="password" id="pw-new2" minlength="8" required></label>
+      <label class="check"><input type="checkbox" id="pw-ack" required>
+        새 비밀번호를 잊으면 누구도(개발자 포함) 자료를 되살릴 수 없다는 것을 이해했습니다.</label>
+      <button type="submit" id="pw-save">비밀번호 바꾸기</button>
+      <p class="help">다른 PC 에서 이 장부를 열어 두었다면, 그 PC 에서는 새 비밀번호를 다시 입력해야 합니다.
+        이전에 내려받아 둔 백업 파일은 비밀번호와 상관없이 그대로 열리니 보관에 주의하세요.</p>
+    </form>`;
+  const $f = (id) => document.getElementById(id);
+  $f('password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if ($f('pw-new').value.length < 8) return toastError('새 비밀번호는 8자 이상으로 정하세요.');
+    if ($f('pw-new').value !== $f('pw-new2').value) return toastError('새 비밀번호 확인이 다릅니다.');
+    if (!$f('pw-ack').checked) return toastError('안내를 확인하고 체크해 주세요.');
+    const button = $f('pw-save');
+    button.disabled = true;
+    button.textContent = '바꾸는 중…';
+    await attempt(async () => {
+      const { checkPassword, changePassword } = await import('./local/session.js');
+      if (!(await checkPassword($f('pw-current').value))) throw new Error('지금 비밀번호가 맞지 않습니다.');
+      await changePassword($f('pw-new').value);
+      $f('password-form').reset();
+    }, '비밀번호를 바꿨습니다.');
+    button.disabled = false;
+    button.textContent = '비밀번호 바꾸기';
+  });
+}
+
+function toastError(message) {
+  attempt(async () => { throw new Error(message); });
+}
+
 // ---------------------------------------------------------------- 동작
 
 const field = (row, name) => row.querySelector(`[name="${name}"]`);
@@ -389,6 +430,8 @@ tabs.addEventListener('click', (e) => {
   history.replaceState(null, '', `#${tab}`);
   render();
 });
+
+if (isLocalMode) document.getElementById('password-tab').hidden = false;
 
 initPage('settings').then(async () => {
   await reload();

@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/p/*"]
+    "run_worker_first": ["/api/*", "/p/*", "/vault/*"]
   },
 
   // D1 데이터베이스. database_id 를 비워 두면 배포 시 자동 생성된다(Deploy to Cloudflare 버튼 포함).
