@@ -214,3 +214,25 @@ export async function transactionHistory(db, id) {
     })),
   };
 }
+
+/**
+ * 마감 스냅샷(통장별 잔액)과 현재 계산 잔액 비교.
+ * @param {string} snapshotJson daily_closings.balance_snapshot
+ * @returns {Promise<{ok:boolean, mismatches:Array}>}
+ */
+export async function verifySnapshot(db, date, snapshotJson) {
+  const snapshot = JSON.parse(snapshotJson);
+  const { results } = await db.prepare(BALANCES_SQL).bind(date).all();
+  const current = new Map(results.map((r) => [r.id, assertInteger(r.balance)]));
+  const mismatches = [];
+  for (const s of snapshot) {
+    if (current.get(s.id) !== s.balance) {
+      mismatches.push({ accountId: s.id, name: s.name, snapshot: s.balance, current: current.get(s.id) ?? null });
+    }
+    current.delete(s.id);
+  }
+  for (const [id, balance] of current) {
+    if (balance !== 0) mismatches.push({ accountId: id, name: results.find((r) => r.id === id).name, snapshot: null, current: balance });
+  }
+  return { ok: mismatches.length === 0, mismatches };
+}

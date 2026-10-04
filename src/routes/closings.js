@@ -3,7 +3,7 @@
 // 순서 규칙(날짜순 마감, 역순 마감취소)은 DB 트리거가 최종적으로 강제한다.
 import { ApiError, json, readJson } from '../lib/http.js';
 import { BALANCES_SQL } from '../lib/db.js';
-import { assertInteger } from '../../public/js/shared/money.js';
+import { verifySnapshot } from '../lib/ledger.js';
 import { addDays, isValidDate, todayKST } from '../../public/js/shared/dates.js';
 import { bad, date as parseDate, text } from '../lib/validate.js';
 
@@ -84,23 +84,7 @@ export async function detail({ env, params }) {
     db.prepare('SELECT id, action, reason, at, actor FROM closing_events WHERE close_date = ? ORDER BY id').bind(d).all(),
     closingState(db),
   ]);
-  let verification = null;
-  if (closing?.status === 'CLOSED') {
-    const snapshot = JSON.parse(closing.balance_snapshot);
-    const { results } = await db.prepare(BALANCES_SQL).bind(d).all();
-    const current = new Map(results.map((r) => [r.id, assertInteger(r.balance)]));
-    const mismatches = [];
-    for (const s of snapshot) {
-      if (current.get(s.id) !== s.balance) {
-        mismatches.push({ accountId: s.id, name: s.name, snapshot: s.balance, current: current.get(s.id) ?? null });
-      }
-      current.delete(s.id);
-    }
-    for (const [id, balance] of current) {
-      if (balance !== 0) mismatches.push({ accountId: id, name: results.find((r) => r.id === id).name, snapshot: null, current: balance });
-    }
-    verification = { ok: mismatches.length === 0, mismatches };
-  }
+  const verification = closing?.status === 'CLOSED' ? await verifySnapshot(db, d, closing.balance_snapshot) : null;
   return json({
     date: d,
     closing: closing && {

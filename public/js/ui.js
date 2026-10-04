@@ -7,6 +7,7 @@ const NAV = [
   { href: '/entry', label: '거래 입력', key: 'entry' },
   { href: '/ledger', label: '거래 조회', key: 'ledger' },
   { href: '/closing', label: '일 마감', key: 'closing' },
+  { href: '/report', label: '결산서', key: 'report' },
   { href: '/settings', label: '설정', key: 'settings' },
 ];
 
@@ -22,7 +23,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
   }
   const bar = document.getElementById('topbar');
   if (bar) {
-    bar.className = 'topbar';
+    bar.classList.add('topbar');
     bar.innerHTML = `
       <h1>본당살림</h1>
       <span class="parish">${esc(settings.parish?.parishName ?? '')}</span>

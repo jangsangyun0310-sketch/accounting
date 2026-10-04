@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>일일 결산서 - 본당살림</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/report.css">
+</head>
+<body class="report-page">
+  <header id="topbar" class="topbar no-print"><h1>본당살림</h1></header>
+  <div class="report-toolbar no-print">
+    <div class="date-nav">
+      <button type="button" class="secondary small" id="prev-day" title="전날">◀</button>
+      <input type="date" id="date" aria-label="결산일">
+      <button type="button" class="secondary small" id="next-day" title="다음날">▶</button>
+      <button type="button" class="secondary small" id="today">오늘</button>
+    </div>
+    <span id="state"></span>
+    <button type="button" id="print">인쇄 <kbd>Ctrl+P</kbd></button>
+  </div>
+  <div id="warning" class="no-print"></div>
+  <div class="paper" id="paper"><p class="muted">불러오는 중…</p></div>
+  <script type="module" src="/js/report.js"></script>
+</body>
+</html>

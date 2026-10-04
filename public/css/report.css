@@ -1,0 +1,86 @@
+/* 일일 결산서: 화면에서는 A4 용지 미리보기, 인쇄 시 A4 한 장(넘치면 여러 장) */
+
+@page {
+  size: A4;
+  margin: 12mm 12mm 14mm;
+  @bottom-center { content: counter(page) " / " counter(pages); font-size: 8pt; color: #555; }
+}
+
+body.report-page { background: #e9ecf0; }
+.report-toolbar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  max-width: 210mm; margin: 16px auto 0; padding: 0 4px;
+}
+.report-toolbar #print { margin-left: auto; padding: 8px 22px; }
+#warning { max-width: 210mm; margin: 8px auto 0; }
+
+.paper {
+  width: 210mm; min-height: 297mm; margin: 12px auto 32px; padding: 12mm;
+  background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .15); color: #000;
+}
+
+.report { position: relative; font-size: 9pt; line-height: 1.3; }
+.report .watermark {
+  position: absolute; top: 90mm; left: 0; right: 0; text-align: center;
+  font-size: 80pt; font-weight: 700; color: rgba(180, 35, 24, .09); transform: rotate(-24deg);
+  pointer-events: none; z-index: 0;
+}
+
+/* 머리: 제목·성당 정보 (왼쪽) + 결재란 (오른쪽) */
+.r-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; margin-bottom: 4mm; }
+.r-head.stacked { flex-direction: column; }
+.r-title h1 { font-size: 18pt; margin: 0 0 2mm; letter-spacing: 1px; }
+.r-title h1 small { font-size: 11pt; color: #b42318; letter-spacing: 0; }
+.r-meta { border-collapse: collapse; font-size: 10pt; }
+.r-meta th { text-align: left; font-weight: normal; color: #333; padding: 0.6mm 4mm 0.6mm 0; white-space: nowrap; }
+.r-meta td { font-weight: 600; padding: 0.6mm 0; min-width: 45mm; border-bottom: 1px solid #999; }
+.r-meta .seal { float: right; font-weight: normal; color: #555; margin-left: 6mm; }
+
+.report table.approval-box th { font-size: 9pt; min-width: 17mm; padding: 1mm 2mm; background: #f2f2f2; }
+.report table.approval-box th.vertical { min-width: 0; width: 6mm; }
+.report table.approval-box td { height: 15mm; }
+.report table.approval-box th, .report table.approval-box td { border-color: #000; }
+
+.report h2 { font-size: 10.5pt; margin: 3.5mm 0 1mm; break-after: avoid; }
+
+/* 표 */
+.r-table { width: 100%; border-collapse: collapse; position: relative; z-index: 1; }
+.r-table th, .r-table td { border: 1px solid #555; padding: 0.6mm 1.6mm; vertical-align: middle; }
+.r-table thead th { background: #eceef1; font-weight: 600; text-align: center; white-space: nowrap; }
+.r-table tfoot td { background: #eceef1; font-weight: 700; }
+.r-table tr { break-inside: avoid; }
+.r-table .amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.r-table .amt.strong { font-weight: 700; }
+.r-table .no { width: 8mm; text-align: center; }
+.r-table .fund-col { width: 10mm; text-align: center; }
+.r-table .fund-cell { text-align: center; font-weight: 600; width: 18mm; }
+.r-table .label { font-weight: 600; white-space: nowrap; }
+.r-table tr.sub td { background: #f6f7f9; font-weight: 600; }
+.r-table .empty { text-align: center; color: #666; }
+.r-table .fund { font-size: 8pt; color: #555; }
+
+.r-foot {
+  display: flex; justify-content: space-between; gap: 4mm; flex-wrap: wrap;
+  margin-top: 4mm; padding-top: 1.5mm; border-top: 1px solid #999; font-size: 8pt; color: #444;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body.report-page { background: #fff; }
+  .paper { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+  .report .watermark { position: fixed; top: 110mm; }
+  .r-table thead { display: table-header-group; }
+  .r-table tfoot { display: table-row-group; }
+  #toast { display: none; }
+}
+
+@media screen and (max-width: 840px) {
+  .paper { width: auto; min-height: 0; margin: 12px; padding: 16px; }
+}
+
+/* 통장별 현재잔액: 회계별 표를 나란히 */
+.r-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; }
+.r-grand { margin-top: 2mm; }
+.r-grand td { background: #eceef1; font-weight: 700; }
+.r-table.fixed { table-layout: fixed; }
+.r-table.fixed td { overflow-wrap: anywhere; }

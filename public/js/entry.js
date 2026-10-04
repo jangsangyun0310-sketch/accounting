@@ -81,6 +81,7 @@ function renderLock() {
   const locked = day.locked;
   $('lock-banner').hidden = !locked;
   $('lock-link').href = `/closing?date=${day.date}`;
+  $('report-link').href = `/report?date=${day.date}`;
   $('fields').querySelectorAll('input, select, button').forEach((el) => { el.disabled = locked; });
   document.querySelectorAll('.kind-toggle button').forEach((b) => { b.disabled = locked || isKindLocked(b.dataset.kind); });
 }

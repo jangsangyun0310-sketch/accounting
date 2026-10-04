@@ -102,6 +102,7 @@ async function loadDetail(date) {
       ${approvalBoxHtml(c.approvalSteps)}` : ''}
 
     <div class="detail-actions">
+      <a class="button secondary" href="/report?date=${date}">결산서 보기·인쇄</a>
       ${info.canClose ? `<button type="button" data-close-date="${date}">이 날짜 마감하기</button>` : ''}
       ${info.canReopen ? `<button type="button" class="danger" data-reopen="${date}">마감취소</button>` : ''}
       ${!info.canClose && !closed && !covered && date <= info.today && date >= info.startDate
