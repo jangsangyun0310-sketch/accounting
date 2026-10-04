@@ -85,7 +85,7 @@ function accountViewRow(a, i, count) {
       <td class="status">${a.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
       <td class="actions">
         <button type="button" class="secondary small" data-action="edit" data-key="account:${a.id}">수정</button>
-        ${a.txCount === 0 ? `<button type="button" class="danger small" data-action="account-delete" data-id="${a.id}">삭제</button>` : ''}
+        ${deleteControl(accountDeleteBlocker(a), `data-action="account-delete" data-id="${a.id}"`)}
       </td>
     </tr>`;
 }
@@ -148,7 +148,8 @@ function subjectViewRow(s, i, count) {
       <td class="status">${s.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
       <td class="actions">
         <button type="button" class="secondary small" data-action="edit" data-key="subject:${s.id}">수정</button>
-        ${s.txCount === 0 ? `<button type="button" class="danger small" data-action="subject-delete" data-id="${s.id}">삭제</button>` : ''}
+        ${deleteControl(s.txCount > 0 ? '이 과목으로 입력된 거래가 있어 삭제할 수 없습니다. [수정]에서 "사용"을 해제하세요.' : null,
+          `data-action="subject-delete" data-id="${s.id}"`)}
       </td>
     </tr>`;
 }
@@ -164,6 +165,22 @@ function subjectEditRow(s) {
         <button type="button" class="secondary small" data-action="cancel">취소</button>
       </td>
     </tr>`;
+}
+
+/** 통장을 삭제할 수 없는 이유 (삭제 가능하면 null). 실제 차단은 DB 트리거와 같은 규칙 */
+function accountDeleteBlocker(a) {
+  if (a.txCount > 0) return '이 통장에 입력된 거래가 있어 삭제할 수 없습니다. [수정]에서 "사용"을 해제하세요.';
+  if (settings.locks.openingBalance && a.openingBalance !== 0) {
+    return '마감된 날짜가 있어 초기잔액이 있는 통장은 삭제할 수 없습니다. [수정]에서 "사용"을 해제하세요.';
+  }
+  return null;
+}
+
+/** 삭제 버튼, 또는 삭제할 수 없으면 이유를 담은 흐린 표시 */
+function deleteControl(blocker, attrs) {
+  return blocker
+    ? `<span class="delete-blocked" title="${esc(blocker)}">삭제 불가</span>`
+    : `<button type="button" class="danger small" ${attrs}>삭제</button>`;
 }
 
 function orderButtons(type, id, i, count) {

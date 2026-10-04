@@ -272,3 +272,4 @@ textarea { font: inherit; padding: 6px 8px; border: 1px solid #b9c0ca; border-ra
 .restore-box summary { color: var(--accent); }
 .restore-body { padding: 8px 0 4px; }
 .restore-body input[type="file"] { width: auto; }
+.delete-blocked { display: inline-block; min-width: 50px; font-size: 12px; color: #9ca3af; cursor: help; text-align: center; border-bottom: 1px dotted #c5c9d0; }
