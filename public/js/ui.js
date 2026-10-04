@@ -25,7 +25,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
   if (bar) {
     bar.classList.add('topbar');
     bar.innerHTML = `
-      <h1>본당살림</h1>
+      <a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="142" height="40"></a>
       <span class="parish">${esc(settings.parish?.parishName ?? '')}</span>
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${n.href}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>

@@ -19,15 +19,17 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 /* ---- 상단 메뉴 ---- */
 .topbar {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 10px 20px; background: var(--accent); color: #fff;
+  padding: 6px 20px; background: #fff; color: var(--text);
+  border-bottom: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
 }
-.topbar h1 { margin: 0; font-size: 18px; }
-.topbar .parish { color: #dbe5f3; }
-.topbar nav { display: flex; gap: 4px; margin-left: 12px; }
-.topbar nav a { color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 4px; }
-.topbar nav a:hover { background: rgba(255, 255, 255, .15); }
-.topbar nav a.active { background: rgba(255, 255, 255, .25); font-weight: 600; }
-.topbar .user { margin-left: auto; color: #dbe5f3; font-size: 13px; }
+.topbar .brand { display: flex; align-items: center; line-height: 0; }
+.topbar .brand img { height: 40px; width: auto; }
+.topbar .parish { color: var(--muted); font-weight: 600; }
+.topbar nav { display: flex; gap: 4px; margin-left: 12px; flex-wrap: wrap; }
+.topbar nav a { color: var(--accent); text-decoration: none; padding: 6px 12px; border-radius: 4px; font-weight: 500; }
+.topbar nav a:hover { background: var(--accent-soft); }
+.topbar nav a.active { background: var(--accent); color: #fff; font-weight: 600; }
+.topbar .user { margin-left: auto; color: var(--muted); font-size: 13px; }
 
 /* ---- 레이아웃 ---- */
 .container { max-width: 1040px; margin: 0 auto; padding: 16px; }
