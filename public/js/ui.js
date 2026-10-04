@@ -8,7 +8,6 @@ const NAV = [
   { href: '/ledger', label: '거래 조회', key: 'ledger' },
   { href: '/closing', label: '일 마감', key: 'closing' },
   { href: '/report', label: '결산서', key: 'report' },
-  { href: '/settings', label: '설정', key: 'settings' },
 ];
 
 /**
@@ -25,8 +24,12 @@ export async function initPage(active, { requireSetup = true } = {}) {
   if (bar) {
     bar.classList.add('topbar');
     bar.innerHTML = `
-      <a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="142" height="40"></a>
-      <span class="parish">${esc(settings.parish?.parishName ?? '')}</span>
+      <a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
+      <div class="parish-box">
+        <span class="parish">${esc(settings.parish?.parishName ?? '')}</span>
+        ${settings.setupCompleted
+          ? `<a href="/settings" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
+      </div>
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${n.href}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
       <span class="user">${esc(me.email)}</span>`;
