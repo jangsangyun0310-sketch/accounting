@@ -36,7 +36,8 @@ function transferInput(body) {
   return input;
 }
 
-const reasonInput = (body) => text(body?.reason, '사유', { max: 200 });
+// 사유는 선택 (성당마다 사무장 한 명이 쓰고 외부 검토가 없으므로). 비우면 내부 기록에 '사유 없음'
+const reasonInput = (body) => text(body?.reason, '사유', { max: 200, required: false });
 
 // ---------------------------------------------------------------- SQL 문 생성
 
@@ -153,7 +154,7 @@ export async function createTransfer({ request, env, actor }) {
 /** POST /api/transactions/:id/void {reason} : 거래 취소 (이체는 한 쌍 모두) */
 export async function voidTx({ request, env, actor, params }) {
   const id = parseId(params.id, '거래 번호');
-  const reason = reasonInput(await readJson(request));
+  const reason = reasonInput(await readJson(request)) || '사유 없음';
   const db = env.DB;
   const target = await loadForChange(db, id);
   await db.batch(await voidStatements(db, target, reason, actor.email, new Date().toISOString()));
@@ -169,7 +170,7 @@ export async function replace({ request, env, actor, params }) {
   const target = await loadForChange(db, id);
   const now = new Date().toISOString();
   const by = actor.email;
-  const statements = await voidStatements(db, target, `수정: ${reason}`, by, now);
+  const statements = await voidStatements(db, target, reason ? `수정: ${reason}` : '수정', by, now);
 
   if (target.kind === 'NORMAL') {
     statements.push(

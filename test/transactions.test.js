@@ -88,12 +88,11 @@ test('통장 간 이체: 회계 간 이동은 회계별 잔액만 바뀌고 전�
   assert.equal(same.status, 400);
 });
 
-test('취소: 사유 필수, 잔액에서 제외, 두 번 취소 불가, 이체는 한 쌍 모두 취소', async () => {
+test('취소: 사유 선택, 잔액에서 제외, 두 번 취소 불가, 이체는 한 쌍 모두 취소', async () => {
   const { api, acc, sub, db } = setup();
   const { body: { id } } = await api('POST', '/api/transactions', {
     date: '2026-10-04', direction: 'IN', accountId: acc('교무금'), subjectId: sub('INCOME', '교무금'), amount: '5000',
   });
-  assert.equal((await api('POST', `/api/transactions/${id}/void`, { reason: ' ' })).status, 400);
   assert.equal((await api('POST', `/api/transactions/${id}/void`, { reason: '중복 입력' })).status, 200);
   const again = await api('POST', `/api/transactions/${id}/void`, { reason: '다시' });
   assert.equal(again.body.error.code, 'ALREADY_VOIDED');
@@ -105,7 +104,8 @@ test('취소: 사유 필수, 잔액에서 제외, 두 번 취소 불가, 이체�
   const tr = await api('POST', '/api/transfers', {
     date: '2026-10-04', fromAccountId: acc('경상비'), toAccountId: acc('교무금'), amount: '700',
   });
-  await api('POST', `/api/transactions/${tr.body.ids[1]}/void`, { reason: '잘못 이체' }); // 입금 쪽만 지정
+  await api('POST', `/api/transactions/${tr.body.ids[1]}/void`, {}); // 입금 쪽만 지정, 사유 없이
+  assert.equal(db.prepare('SELECT void_reason FROM transactions WHERE id = ?').get(tr.body.ids[0]).void_reason, '사유 없음');
   const statuses = db.prepare("SELECT status FROM transactions WHERE kind = 'TRANSFER'").all().map((r) => r.status);
   assert.deepEqual(statuses, ['VOIDED', 'VOIDED']);
   const audits = db.prepare("SELECT entity_id FROM audit_log WHERE action = 'VOID' ORDER BY id").all().map((r) => Number(r.entity_id));
@@ -219,4 +219,13 @@ test('증빙번호 자동 제안', () => {
   assert.equal(nextVoucher('12번'), '13번');
   assert.equal(nextVoucher('영수증'), '');
   assert.equal(nextVoucher(''), '');
+});
+
+test('수정도 사유 없이 가능 (내부 기록은 "수정")', async () => {
+  const { api, acc, sub, db } = setup();
+  const base = { date: '2026-10-04', direction: 'IN', accountId: acc('교무금'), subjectId: sub('INCOME', '교무금') };
+  const { body: { id } } = await api('POST', '/api/transactions', { ...base, amount: '1000' });
+  const r = await api('POST', `/api/transactions/${id}/replace`, { ...base, amount: '2000' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(db.prepare('SELECT void_reason FROM transactions WHERE id = ?').get(id).void_reason, '수정');
 });

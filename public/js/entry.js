@@ -211,7 +211,6 @@ function visibleFields() {
 function resetForNext(voucher = nextVoucher($('voucher').value)) {
   $('amount').value = '';
   $('memo').value = '';
-  $('reason').value = '';
   $('voucher').value = voucher;
   $('amount').focus();
 }
@@ -251,15 +250,6 @@ async function save() {
     }
     pref = { accountId: body.accountId, subjectId: body.subjectId };
   }
-  if (editing) {
-    body.reason = $('reason').value.trim();
-    if (!body.reason) {
-      toast('수정 사유를 입력하세요.', 'error');
-      $('reason').focus();
-      return;
-    }
-  }
-
   saving = true;
   $('save').disabled = true;
   try {
@@ -295,10 +285,8 @@ function startEdit(row) {
   $('amount').value = formatWon(row.amount);
   $('memo').value = row.memo;
   $('voucher').value = row.voucherNo;
-  $('reason').value = '';
   $('edit-label').textContent = `#${row.id} ${{ IN: '수입', OUT: '지출', TRANSFER: '이체' }[row.type]} 거래를`;
   $('edit-banner').hidden = false;
-  document.querySelector('.f-reason').hidden = false;
   $('entry').classList.add('editing');
   renderLock();
   renderList();
@@ -309,7 +297,6 @@ function startEdit(row) {
 function endEdit(restore = true) {
   editing = null;
   $('edit-banner').hidden = true;
-  document.querySelector('.f-reason').hidden = true;
   $('entry').classList.remove('editing');
   if (restore) {
     setKind(beforeEdit?.kind ?? kind);
@@ -326,14 +313,9 @@ async function voidRow(row) {
   const what = row.type === 'TRANSFER'
     ? `이체 ${row.fromName} → ${row.toName} ${formatWon(row.amount)}원`
     : `${row.accountName} ${formatWon(row.amount)}원 (${row.memo || row.subjectName})`;
-  const reason = prompt(`#${row.id} ${what}\n\n이 거래를 취소합니다. 취소 사유를 입력하세요.`);
-  if (reason == null) return;
-  if (!reason.trim()) {
-    toast('취소 사유를 입력해야 합니다.', 'error');
-    return;
-  }
+  if (!confirm(`#${row.id} ${what}\n\n이 거래를 취소할까요? (취소한 거래는 '취소된 거래도 보기'로 확인할 수 있습니다)`)) return;
   try {
-    await api(`/api/transactions/${row.id}/void`, { method: 'POST', body: { reason } });
+    await api(`/api/transactions/${row.id}/void`, { method: 'POST', body: {} });
     toast(`#${row.id} 거래를 취소했습니다.`);
     if (editing?.id === row.id) endEdit();
     await loadDay();

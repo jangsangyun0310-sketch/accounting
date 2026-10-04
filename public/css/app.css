@@ -108,8 +108,9 @@ dl.summary dt { color: var(--muted); }
 dl.summary dd { margin: 0; font-weight: 600; }
 
 /* ---- 결재란 ---- */
-/* "결/재" 칸을 포함한 모든 칸이 같은 너비: 고정 레이아웃으로 (결재 단계 수 + 1) 등분 */
-table.approval-box { border-collapse: collapse; table-layout: fixed; width: calc((var(--steps) + 1) * 84px); }
+/* "결/재" 칸은 좁게, 결재 칸들은 모두 같은 너비 (고정 레이아웃 + 칸 수로 전체 너비 계산) */
+table.approval-box { border-collapse: collapse; table-layout: fixed; width: calc(26px + var(--steps) * 84px); }
+table.approval-box col.vertical { width: 26px; }
 table.approval-box th, table.approval-box td {
   border: 1px solid #333; text-align: center; font-size: 13px; font-weight: normal;
 }
