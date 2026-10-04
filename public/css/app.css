@@ -14,10 +14,13 @@
 }
 
 * { box-sizing: border-box; }
+html { scroll-padding-top: 90px; } /* #backup 같은 바로가기가 메뉴 줄에 가리지 않게 */
 body { margin: 0; background: var(--bg); color: var(--text); }
 
 /* ---- 상단 메뉴 ---- */
+/* 스크롤해도 맨 위 메뉴 줄은 화면 위에 붙어 있다 */
 .topbar {
+  position: sticky; top: 0; z-index: 20;
   padding: 12px 0; background: #fff; color: var(--text);
   border-bottom: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
 }
@@ -316,3 +319,4 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 .parish-address { background: #f0f7f2; border-color: #b9dcc4; font-size: 14px; }
 .parish-address .copy-row { margin-top: 8px; max-width: 640px; }
 .parish-address .install-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+@media print { .topbar { position: static; } }
