@@ -87,11 +87,6 @@ function render(r) {
           <td class="amt strong">현재잔액 ${formatWon(r.total.end)}</td></tr>
       </table>
 
-      <footer class="r-foot">
-        <span>${closed ? `마감 ${formatDateTimeKST(r.closedAt)} (${esc(r.closedBy)})` : '미마감 상태에서 출력한 가결산입니다.'}</span>
-        ${r.voidedCount ? `<span>취소된 거래 ${r.voidedCount}건은 제외</span>` : ''}
-        <span>출력 ${formatDateTimeKST(new Date().toISOString())}</span>
-      </footer>
     </article>`;
 }
 
