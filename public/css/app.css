@@ -27,14 +27,14 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .topbar .parish-box { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1.3; }
 .topbar .parish { color: var(--text); font-weight: 700; font-size: 15px; }
 .topbar .settings-link {
-  display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px;
-  font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: none;
+  display: inline-flex; align-items: center; gap: 4px; padding: 6.5px 12.5px;
+  font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--accent); text-decoration: none;
   border: 1.5px solid var(--accent); border-radius: 4px; background: #fff;
 }
 .topbar .settings-link:hover { background: var(--accent-soft); }
 .topbar .settings-link.active { background: var(--accent); color: #fff; }
 .topbar nav { display: flex; gap: 4px; margin-left: 12px; flex-wrap: wrap; }
-.topbar nav a { color: var(--accent); text-decoration: none; padding: 8px 14px; border-radius: 4px; font-weight: 500; }
+.topbar nav a { color: var(--accent); text-decoration: none; padding: 8px 14px; line-height: 1.5; border-radius: 4px; font-weight: 500; }
 .topbar nav a:hover { background: var(--accent-soft); }
 .topbar nav a.active { background: var(--accent); color: #fff; font-weight: 600; }
 .topbar .user { margin-left: auto; color: var(--muted); font-size: 13px; }
