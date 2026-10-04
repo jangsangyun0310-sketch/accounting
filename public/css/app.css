@@ -225,6 +225,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .35); }
 ul.audit { font-size: 13px; color: #374151; padding-left: 18px; }
 
 /* ---- 일 마감 ---- */
+/* 홈: 마감일과 백업 상태를 한 줄에 (화면이 좁으면 줄바꿈) */
+.home-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 28px; }
 .closing-status { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
 .closing-status .status-item { display: flex; flex-direction: column; gap: 2px; }
 .closing-status .status-item b { font-size: 16px; }
