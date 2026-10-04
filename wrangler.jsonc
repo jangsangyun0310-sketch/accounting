@@ -20,13 +20,13 @@
     }
   ],
 
-  // 인증: 운영에서는 Cloudflare Access 필수.
-  // 아래 두 값은 배포 후 Access 를 켠 다음 "비밀값(secret)"으로 등록한다 (배포해도 지워지지 않음).
-  //   ACCESS_TEAM_DOMAIN 예) https://myparish.cloudflareaccess.com
-  //   ACCESS_AUD        : Access 애플리케이션의 Application Audience (AUD) 태그
-  // 등록 전에는 모든 API 가 "Access 설정 필요" 오류를 내므로 데이터가 노출되지 않는다.
+  // 인증 방식
+  //   "open"   : 로그인 없이 사용 (기본). 처리자는 '사무실'로 기록된다.
+  //   "access" : Cloudflare Access 로그인 (선택). 이 경우 아래 두 값을 "비밀값(secret)"으로 등록한다.
+  //              ACCESS_TEAM_DOMAIN 예) https://myparish.cloudflareaccess.com
+  //              ACCESS_AUD        : Access 애플리케이션의 Application Audience (AUD) 태그
   "vars": {
-    "AUTH_MODE": "access"
+    "AUTH_MODE": "open"
   },
 
   // 버전별 미리보기 주소를 만들지 않는다 (접속 주소는 하나만)

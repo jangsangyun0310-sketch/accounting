@@ -5,7 +5,7 @@
 - 화면: HTML / CSS / JavaScript (빌드 과정 없음)
 - 서버: Cloudflare Workers (정적 파일 + `/api/*`)
 - 데이터: Cloudflare D1
-- 로그인: Cloudflare Access
+- 로그인: 기본은 로그인 없음, 선택적으로 Cloudflare Access
 
 ## 우리 성당에 설치하기
 
@@ -19,27 +19,25 @@ Cloudflare 계정(무료)만 있으면 됩니다. 성당마다 프로그램과 �
 2. GitHub 계정을 연결하고, 프로젝트 이름(예: `bondang-ourparish`)을 정한 뒤 **배포**를 누릅니다.
    - 데이터베이스(D1)는 자동으로 만들어지고 표 구조도 자동으로 적용됩니다.
 3. 완료되면 `https://프로젝트이름.계정이름.workers.dev` 주소가 생깁니다.
-   - 이 단계에서는 화면만 열리고 데이터는 "Access 설정 필요" 오류로 막혀 있습니다. **정상입니다.**
 
-### 2. 로그인(Cloudflare Access) 켜기 — 필수
+### 2. 최초 설정
 
-허용한 이메일을 가진 사람만 프로그램을 쓸 수 있게 합니다.
-
-1. Cloudflare 대시보드 → **Workers & Pages** → 내 프로젝트 → **Settings** → **Domains & Routes**
-2. `workers.dev` 줄의 메뉴(⋯)에서 **Enable Cloudflare Access** 를 누릅니다.
-   - Zero Trust 를 처음 쓰는 경우 팀 이름을 정하고 **Free** 요금제를 고르라는 안내가 나옵니다.
-3. 나오는 창에서 두 값을 복사해 둡니다.
-   - **Team domain** (예: `https://ourparish.cloudflareaccess.com`)
-   - **AUD** (긴 영문·숫자)
-4. 같은 화면의 **Manage Cloudflare Access** 에서 정책(Policy)의 **Include → Emails** 에 프로그램을 쓸 사람의 이메일(사무장, 재정부회장 등)을 추가합니다.
-5. 내 프로젝트 → **Settings** → **Variables and Secrets** 에서 **Secret** 두 개를 추가합니다.
-   - `ACCESS_TEAM_DOMAIN` = 3번의 Team domain
-   - `ACCESS_AUD` = 3번의 AUD
-
-### 3. 최초 설정
-
-주소로 접속하면 이메일로 받은 인증 코드로 로그인한 뒤 **최초 설정** 화면이 열립니다.
+주소로 접속하면 **최초 설정** 화면이 열립니다.
 성당명, 통장과 초기잔액, 예산과목, 결재선을 입력하면 바로 사용할 수 있습니다.
+
+- 기본 설정은 **로그인 없이** 사용하는 방식입니다. 주소를 아는 사람은 누구나 접속할 수 있으므로 주소는 성당 사무실 안에서만 공유하세요.
+- 검색엔진(구글 등)에는 노출되지 않도록 설정되어 있습니다.
+- 입력·수정·마감 기록의 처리자는 "사무실"로 남습니다.
+
+### (선택) 로그인 켜기 — Cloudflare Access
+
+허용한 이메일을 가진 사람만 쓰게 하고, 처리자를 이메일로 기록하고 싶을 때 사용합니다. (무료, 50명까지)
+
+1. Cloudflare 대시보드 → **Workers & Pages** → 내 프로젝트 → **Access** 탭 → Zero Trust 설정(Free 요금제) 후 Access 켜기
+2. 허용할 사용자 이메일을 정책(Policy)에 추가
+3. 내 프로젝트 → **Settings** → **Variables and Secrets**
+   - 변수 `AUTH_MODE` 를 `access` 로 변경
+   - Secret 추가: `ACCESS_TEAM_DOMAIN` (예: `https://ourparish.cloudflareaccess.com`), `ACCESS_AUD` (Access 화면의 AUD 값)
 
 ## 폴더 구조
 
@@ -103,12 +101,13 @@ npm run deploy     # Worker 배포(첫 배포 때 D1 자동 생성) → D1 스�
 ```
 
 - `wrangler.jsonc` 에는 `database_id` 를 넣지 않습니다. 배포 계정에서 `database_name` 으로 찾거나 새로 만듭니다.
-- Access 값은 설정 파일이 아니라 비밀값으로 등록합니다 (배포해도 유지).
+- (Access 사용 시) Access 값은 설정 파일이 아니라 비밀값으로 등록합니다 (배포해도 유지).
   ```bash
   npx wrangler secret put ACCESS_TEAM_DOMAIN
   npx wrangler secret put ACCESS_AUD
   ```
 - GitHub `main` 에 올릴 때 자동 배포하려면: 대시보드 → 프로젝트 → **Settings** → **Build** → 저장소 연결,
   배포 명령(Deploy command)을 `npm run deploy` 로 지정합니다.
-- 운영 환경에서는 `AUTH_MODE` 가 항상 `access` 입니다. Access 토큰(JWT)의 서명·대상(AUD)·만료를 API 가 직접 검증하므로
-  Access 를 거치지 않은 주소로 접근해도 데이터를 읽거나 쓸 수 없습니다.
+- `AUTH_MODE`: `open`(기본, 로그인 없음) / `access`(Cloudflare Access). `access` 일 때는 Access 토큰(JWT)의 서명·대상(AUD)·만료를
+  API 가 직접 검증하므로 Access 를 거치지 않은 주소로 접근해도 데이터를 읽거나 쓸 수 없습니다.
+- 변경 요청은 `application/json` 만 받으므로 다른 사이트에서 몰래 보내는 요청(CSRF)은 막힙니다.

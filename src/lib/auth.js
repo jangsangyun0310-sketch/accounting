@@ -1,14 +1,19 @@
-// 사용자 식별: Cloudflare Access JWT 검증
-// AUTH_MODE = 'access' (기본, 운영) : Cf-Access-Jwt-Assertion 서명·대상·만료를 검증한다.
-// AUTH_MODE = 'dev'    (로컬 개발)  : 검증 없이 DEV_USER 로 동작한다.
+// 사용자 식별
+// AUTH_MODE = 'open'   (기본 배포) : 로그인 없이 사용. 처리자는 '사무실'로 기록한다.
+// AUTH_MODE = 'access' (선택)      : Cloudflare Access 로그인. Cf-Access-Jwt-Assertion 서명·대상·만료를 검증한다.
+// AUTH_MODE = 'dev'    (로컬 개발) : 검증 없이 DEV_USER 로 동작한다.
+// 값이 없으면 안전하게 'access' 로 취급한다.
 import { ApiError } from './http.js';
 
 const CERT_TTL_MS = 60 * 60 * 1000;
 let certCache = { url: '', fetchedAt: 0, keys: [] };
 
+export const OPEN_ACTOR = '사무실';
+
 /** @returns {Promise<{ email: string }>} */
 export async function getActor(request, env) {
   const mode = env.AUTH_MODE || 'access';
+  if (mode === 'open') return { email: OPEN_ACTOR };
   if (mode === 'dev') return { email: env.DEV_USER || 'dev@local' };
   if (mode !== 'access') throw new ApiError(500, 'AUTH_MODE_INVALID', '인증 설정(AUTH_MODE)이 올바르지 않습니다.');
 

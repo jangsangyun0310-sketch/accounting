@@ -182,7 +182,22 @@ test('라우팅: JSON 이 아닌 변경 요청 거부, 없는 경로 404, 잘못
   assert.equal(res.status, 405);
 });
 
-test('운영 모드: Access 설정 없이는 거부', async () => {
+test('open 모드: 로그인 없이 사용, 처리자는 사무실', async () => {
+  const db = createDb();
+  const env = { DB: d1Adapter(db), AUTH_MODE: 'open' };
+  const me = await (await worker.fetch(new Request('http://local/api/me'), env)).json();
+  assert.equal(me.email, '사무실');
+  const res = await worker.fetch(new Request('http://local/api/subjects', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'INCOME', name: '바자회' }),
+  }), env);
+  assert.equal(res.status, 201);
+  assert.equal(db.prepare('SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1').get().actor, '사무실');
+});
+
+test('AUTH_MODE 미설정은 access 로 취급, Access 설정 없이는 거부', async () => {
+  const noMode = await worker.fetch(new Request('http://local/api/settings'), { DB: d1Adapter(createDb()) });
+  assert.equal((await noMode.json()).error.code, 'ACCESS_NOT_CONFIGURED');
+
   const env = { DB: d1Adapter(createDb()), AUTH_MODE: 'access' };
   const res = await worker.fetch(new Request('http://local/api/settings'), env);
   assert.equal(res.status, 500);
