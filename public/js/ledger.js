@@ -1,7 +1,6 @@
 // 거래 조회 화면: 기간·통장·과목·구분·검색어로 거래를 찾고, 통장 선택 시 잔액 흐름을 보여준다.
 import { api, esc } from './api.js';
-import { initPage, toast, FUND_LABEL } from './ui.js';
-import { openHistory, typeLabel } from './history.js';
+import { initPage, toast, typeLabel, FUND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, monthStart, todayKST } from './shared/dates.js';
 
@@ -35,7 +34,6 @@ async function search() {
   for (const [key, id] of [['accountId', 'account'], ['subjectId', 'subject'], ['kind', 'kind'], ['q', 'q']]) {
     if ($(id).value.trim()) params.set(key, $(id).value.trim());
   }
-  if ($('include-voided').checked) params.set('includeVoided', '1');
   history.replaceState(null, '', `?${params}`);
   try {
     render(await api(`/api/transactions?${params}`), params.has('accountId'));
@@ -46,19 +44,17 @@ async function search() {
 
 function render(data, byAccount) {
   const showBalance = byAccount && data.rows.some((r) => r.balanceAfter != null);
-  const cols = showBalance ? 11 : 10;
+  const cols = showBalance ? 10 : 9;
   const rows = data.rows.map((r) => {
-    const voided = r.status !== 'POSTED';
     const isIn = r.direction === 'IN';
     const target = r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${esc(r.counterpartName ?? '')}` : esc(r.subjectName ?? '');
     return `
-      <tr class="${voided ? 'voided' : ''}" data-history="${r.id}">
+      <tr>
         <td>${esc(r.date)}</td>
-        <td><button type="button" class="link" data-history="${r.id}">#${r.id}</button></td>
         <td><span class="badge ${r.kind === 'TRANSFER' ? 'transfer' : isIn ? 'in' : 'out'}">${typeLabel(r)}</span></td>
         <td>${esc(r.accountName)} <span class="muted small">${FUND_LABEL[r.fundCode]}</span></td>
         <td>${target}</td>
-        <td>${esc(r.memo)}${voided ? ` <span class="muted small">취소: ${esc(r.voidReason)}</span>` : ''}</td>
+        <td>${esc(r.memo)}</td>
         <td>${esc(r.voucherNo)}</td>
         <td class="num">${isIn ? formatWon(r.amount) : ''}</td>
         <td class="num">${!isIn ? formatWon(r.amount) : ''}</td>
@@ -74,14 +70,14 @@ function render(data, byAccount) {
       지출 <b class="out">${formatWon(t.expense)}</b> ·
       이체입금 <b>${formatWon(t.transferIn)}</b> ·
       이체출금 <b>${formatWon(t.transferOut)}</b>
-      <span class="muted">(유효 거래 기준, ${data.rows.filter((r) => r.status === 'POSTED').length}건)</span>
+      <span class="muted">(${data.rows.length}건)</span>
     </p>
     <table class="grid tx-list">
-      <thead><tr><th>날짜</th><th>번호</th><th>구분</th><th>통장</th><th>과목·상대통장</th><th>적요</th><th>증빙</th>
+      <thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>과목·상대통장</th><th>적요</th><th>증빙</th>
         <th class="num">입금</th><th class="num">출금</th>${showBalance ? '<th class="num">잔액</th>' : ''}<th>입력자</th></tr></thead>
       <tbody>
         ${data.openingBalance == null ? '' : showBalance
-          ? `<tr class="subtotal"><td colspan="9">이월 잔액 (${esc($('from').value)} 이전)</td>
+          ? `<tr class="subtotal"><td colspan="8">이월 잔액 (${esc($('from').value)} 이전)</td>
               <td class="num">${formatWon(data.openingBalance)}</td><td></td></tr>`
           : `<tr class="subtotal"><td colspan="${cols}">이월 잔액 (${esc($('from').value)} 이전): ${formatWon(data.openingBalance)}원</td></tr>`}
         ${rows || `<tr><td colspan="${cols}" class="muted">조건에 맞는 거래가 없습니다.</td></tr>`}
@@ -97,10 +93,6 @@ $('search').addEventListener('click', search);
 $('filters').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); search(); }
 });
-$('result').addEventListener('click', (e) => {
-  const tr = e.target.closest('[data-history]');
-  if (tr) openHistory(Number(tr.dataset.history));
-});
 
 initPage('ledger').then(({ settings: s }) => {
   settings = s;
@@ -113,7 +105,6 @@ initPage('ledger').then(({ settings: s }) => {
   $('subject').value = p.get('subjectId') ?? '';
   $('kind').value = p.get('kind') ?? '';
   $('q').value = p.get('q') ?? '';
-  $('include-voided').checked = p.get('includeVoided') === '1';
   search();
 }).catch((err) => {
   $('result').innerHTML = `<p class="error">${esc(err.message)}</p>`;

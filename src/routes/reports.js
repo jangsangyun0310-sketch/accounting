@@ -63,6 +63,5 @@ export async function daily({ env, url }) {
     income: { rows: income, total: sumAmounts(income.map((r) => r.amount)) },
     expense: { rows: expense, total: sumAmounts(expense.map((r) => r.amount)) },
     transfers: { rows: transfers, total: sumAmounts(transfers.map((r) => r.amount)) },
-    voidedCount: day.transactions.length - posted.length,
   });
 }

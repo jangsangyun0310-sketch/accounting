@@ -16,7 +16,7 @@ function client(db) {
   };
 }
 
-/** 취소·수정·이체·사용중지·마감·마감취소·감사기록이 모두 있는 DB */
+/** 삭제·수정·이체·사용중지·마감·마감취소·내부기록이 모두 있는 DB */
 async function richDb() {
   const db = createDb();
   const api = client(db);
@@ -26,12 +26,12 @@ async function richDb() {
   });
   await tx('2026-10-01', 'IN', '교무금', '교무금', 300000, '홍길동');
   const { body: wrong } = await tx('2026-10-01', 'OUT', '경상비', '관리운영비', 12000, '오기');
-  await api('POST', `/api/transactions/${wrong.id}/replace`, {
-    reason: '금액 오기', date: '2026-10-01', direction: 'OUT', accountId: accountId(db, '경상비'),
+  await api('PUT', `/api/transactions/${wrong.id}`, {
+    date: '2026-10-01', direction: 'OUT', accountId: accountId(db, '경상비'),
     subjectId: subjectId(db, 'EXPENSE', '관리운영비'), amount: '120000', memo: '전기요금',
   });
   const { body: tr } = await api('POST', '/api/transfers', { date: '2026-10-01', fromAccountId: 1, toAccountId: 7, amount: '500000' });
-  await api('POST', `/api/transactions/${tr.ids[0]}/void`, { reason: '이체 취소' });
+  await api('DELETE', `/api/transactions/${tr.ids[0]}`);
   await api('POST', '/api/transfers', { date: '2026-10-01', fromAccountId: 1, toAccountId: 7, amount: '400000', memo: '적립' });
   await api('POST', '/api/closings/2026-10-01/close', {});
   await tx('2026-10-02', 'IN', '제대 후원금', '후원금', 50000);
@@ -60,7 +60,7 @@ test('백업 → 빈 DB 에 복구: 모든 표가 원본과 같고, 잔액·마�
   assert.equal(backup.format, 'bondang-salim-backup');
   assert.equal(backup.parishName, '예시성당');
   assert.equal(backup.checksum, await sha256Hex(JSON.stringify(backup.tables)));
-  assert.equal(backup.counts.transactions, 8);
+  assert.equal(backup.counts.transactions, 5); // 수정된 1건 + 삭제된 이체 제외
 
   const status = (await api('GET', '/api/backup/status')).body;
   assert.ok(status.lastBackupAt);
@@ -142,4 +142,20 @@ test('복구 세션은 데이터가 있으면 열 수 없다 (트리거 우회 �
 test('최초 설정 전에는 백업 불가', async () => {
   const r = await client(createDb({ seed: false }))('GET', '/api/backup');
   assert.equal(r.body.error.code, 'SETUP_REQUIRED');
+});
+
+test('예전 백업(취소된 거래 포함)을 복구하면 취소된 거래는 빼고 복구', async () => {
+  const { api } = await richDb();
+  const backup = (await api('GET', '/api/backup')).body;
+  const old = structuredClone(backup);
+  const t0 = old.tables.transactions.find((t) => t.kind === 'NORMAL');
+  old.tables.transactions.push({ ...t0, id: 900, status: 'VOIDED', void_reason: '예전 취소', voided_at: 'x', voided_by: 'y', memo: '예전' });
+  old.tables.transactions.push({ ...t0, id: 901, replaces_id: 900, memo: '예전 수정본', amount: 1 });
+  old.tables.transactions = old.tables.transactions.filter((t) => t.id !== 901); // 잔액 검증을 맞추기 위해 수정본은 제외
+  old.checksum = await sha256Hex(JSON.stringify(old.tables));
+  const target = createDb({ seed: false });
+  const r = await client(target)('POST', '/api/restore', old);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(target.prepare("SELECT COUNT(*) n FROM transactions WHERE status <> 'POSTED'").get().n, 0);
+  assert.equal(target.prepare('SELECT COUNT(*) n FROM transactions').get().n, backup.counts.transactions);
 });

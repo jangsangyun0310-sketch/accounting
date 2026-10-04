@@ -166,7 +166,11 @@ export function restoreStatements(db, tables) {
   for (const t of TABLES) {
     const select = t.columns.map((c) => `json_extract(value, '$.${c}')`).join(', ');
     const sql = `INSERT INTO ${t.name} (${t.columns.join(', ')}) SELECT ${select} FROM json_each(?1) ORDER BY key`;
-    for (const chunk of chunkRows(tables[t.name])) statements.push(db.prepare(sql).bind(JSON.stringify(chunk)));
+    // 이전 버전 백업의 취소된 거래는 복구하지 않는다 (지금은 취소 = 삭제)
+    const rows = t.name === 'transactions'
+      ? tables.transactions.filter((x) => x.status === 'POSTED').map((x) => ({ ...x, replaces_id: null }))
+      : tables[t.name];
+    for (const chunk of chunkRows(rows)) statements.push(db.prepare(sql).bind(JSON.stringify(chunk)));
   }
   statements.push(db.prepare('DELETE FROM restore_session'));
   return statements;

@@ -66,10 +66,8 @@ export function insertTx(db, { date, direction, account, subject, amount, memo =
     .run(date, direction, accountId(db, account), subjectId(db, kind, subject), amount, memo, NOW).lastInsertRowid;
 }
 
-export function voidTx(db, id, reason = '테스트 취소') {
-  db.prepare(
-    `UPDATE transactions SET status = 'VOIDED', void_reason = ?, voided_at = ?, voided_by = 'test' WHERE id = ?`
-  ).run(reason, NOW, id);
+export function deleteTx(db, id) {
+  db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
 }
 
 export function closeDate(db, date) {

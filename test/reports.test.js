@@ -21,13 +21,13 @@ function setup() {
   return { db, api, tx };
 }
 
-test('일일 결산서: 요약·수입·지출·이체·통장별 잔액, 취소 거래 제외', async () => {
+test('일일 결산서: 요약·수입·지출·이체·통장별 잔액, 삭제한 거래 제외', async () => {
   const { api, tx } = setup();
   await tx('IN', '주일학교 예치금', '후원금', 70000, '주일학교 후원');
   await tx('IN', '교무금', '교무금', 300000, '홍길동');
   await tx('OUT', '경상비', '관리운영비', 50000, '소모품');
   const { body: { id } } = await tx('OUT', '경상비', '전례비', 9999, '중복');
-  await api('POST', `/api/transactions/${id}/void`, { reason: '중복 입력' });
+  await api('DELETE', `/api/transactions/${id}`);
   await api('POST', '/api/transfers', {
     date: '2026-10-02', fromAccountId: 1, toAccountId: 7, amount: '1000000', memo: '적립', voucherNo: 'T-1',
   });
@@ -45,7 +45,6 @@ test('일일 결산서: 요약·수입·지출·이체·통장별 잔액, 취소
   assert.equal(r.expense.total, 50000);
   assert.deepEqual(r.transfers.rows.map((x) => [x.fromName, x.toName, x.amount, x.voucherNo]),
     [['경상비', '장기수선 예치금', 1000000, 'T-1']]);
-  assert.equal(r.voidedCount, 1);
 
   const g = r.funds.find((f) => f.code === 'GENERAL');
   assert.deepEqual([g.prev, g.income, g.expense, g.transferIn, g.transferOut, g.end],

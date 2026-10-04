@@ -1,7 +1,6 @@
-// 거래 입력 화면: 수입·지출·이체 입력, 수정(취소 후 재입력), 취소, 하루 현황
+// 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제, 하루 현황
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, toast, signedWon, FUND_LABEL } from './ui.js';
-import { openHistory } from './history.js';
 import { formatWon, parseAmount, sumAmounts } from './shared/money.js';
 import { addDays, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 import { nextVoucher } from './shared/voucher.js';
@@ -150,54 +149,45 @@ function mergedRows(txs) {
 }
 
 function renderList() {
-  const showVoided = $('show-voided').checked;
-  const rows = mergedRows(day.transactions).filter((r) => showVoided || r.status === 'POSTED');
-  const posted = rows.filter((r) => r.status === 'POSTED');
-  const sum = (type) => sumAmounts(posted.filter((r) => r.type === type).map((r) => r.amount));
-  const voidedCount = mergedRows(day.transactions).filter((r) => r.status !== 'POSTED').length;
-
+  const rows = mergedRows(day.transactions);
+  const sum = (type) => sumAmounts(rows.filter((r) => r.type === type).map((r) => r.amount));
   if (!rows.length) {
-    $('list').innerHTML = `<p class="muted">거래가 없습니다.${voidedCount && !showVoided ? ` (취소된 거래 ${voidedCount}건)` : ''}</p>`;
+    $('list').innerHTML = '<p class="muted">거래가 없습니다.</p>';
     return;
   }
   $('list').innerHTML = `
     <table class="grid tx-list">
-      <thead><tr><th>번호</th><th>구분</th><th>회계</th><th>통장</th><th>과목</th><th>적요</th><th>증빙</th>
+      <thead><tr><th class="no">No</th><th>구분</th><th>회계</th><th>통장</th><th>과목</th><th>적요</th><th>증빙</th>
         <th class="num">수입</th><th class="num">지출</th><th class="num">이체</th><th class="actions"></th></tr></thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody>
-      <tfoot><tr class="total"><td colspan="7">합계 (유효 ${posted.length}건${voidedCount ? `, 취소 ${voidedCount}건` : ''})</td>
+      <tfoot><tr class="total"><td colspan="7">합계 (${rows.length}건)</td>
         <td class="num">${formatWon(sum('IN'))}</td><td class="num">${formatWon(sum('OUT'))}</td>
         <td class="num">${formatWon(sum('TRANSFER'))}</td><td></td></tr></tfoot>
     </table>`;
 }
 
-function rowHtml(r) {
-  const voided = r.status !== 'POSTED';
+function rowHtml(r, index) {
   const isTransfer = r.type === 'TRANSFER';
   const badge = { IN: '<span class="badge in">수입</span>', OUT: '<span class="badge out">지출</span>', TRANSFER: '<span class="badge transfer">이체</span>' }[r.type];
   const fund = isTransfer
     ? (r.fromFund === r.toFund ? FUND_LABEL[r.fromFund] : `${FUND_LABEL[r.fromFund]}→${FUND_LABEL[r.toFund] ?? ''}`)
     : FUND_LABEL[r.fundCode];
-  const note = [
-    r.replacesId ? `<span class="muted small">#${r.replacesId} 수정본</span>` : '',
-    voided ? `<span class="muted small">취소: ${esc(r.voidReason)}</span>` : '',
-  ].filter(Boolean).join(' ');
   const editingNow = editing && editing.id === r.id;
   return `
-    <tr class="${voided ? 'voided' : ''} ${editingNow ? 'editing' : ''}">
-      <td><button type="button" class="link" data-history="${r.id}" title="이력 보기">#${r.id}</button></td>
+    <tr class="${editingNow ? 'editing' : ''}">
+      <td class="no">${index + 1}</td>
       <td>${badge}</td>
       <td class="small">${fund}</td>
       <td>${isTransfer ? `${esc(r.fromName)} → ${esc(r.toName ?? '')}` : esc(r.accountName)}</td>
       <td>${esc(r.subjectName ?? '')}</td>
-      <td>${esc(r.memo)} ${note}</td>
+      <td>${esc(r.memo)}</td>
       <td>${esc(r.voucherNo)}</td>
       <td class="num">${r.type === 'IN' ? formatWon(r.amount) : ''}</td>
       <td class="num">${r.type === 'OUT' ? formatWon(r.amount) : ''}</td>
       <td class="num">${isTransfer ? formatWon(r.amount) : ''}</td>
-      <td class="actions">${voided || day.locked ? '' : `
+      <td class="actions">${day.locked ? '' : `
         <button type="button" class="secondary small" data-edit="${r.id}">수정</button>
-        <button type="button" class="danger small" data-void="${r.id}">취소</button>`}</td>
+        <button type="button" class="danger small" data-delete="${r.id}">삭제</button>`}</td>
     </tr>`;
 }
 
@@ -254,8 +244,8 @@ async function save() {
   $('save').disabled = true;
   try {
     if (editing) {
-      await api(`/api/transactions/${editing.id}/replace`, { method: 'POST', body });
-      toast(`#${editing.id} 거래를 수정했습니다.`);
+      await api(`/api/transactions/${editing.id}`, { method: 'PUT', body });
+      toast('수정했습니다.');
       const restore = beforeEdit;
       endEdit(false);
       setKind(restore.kind);
@@ -309,14 +299,16 @@ function endEdit(restore = true) {
   beforeEdit = null;
 }
 
-async function voidRow(row) {
+async function deleteRow(row) {
   const what = row.type === 'TRANSFER'
     ? `이체 ${row.fromName} → ${row.toName} ${formatWon(row.amount)}원`
     : `${row.accountName} ${formatWon(row.amount)}원 (${row.memo || row.subjectName})`;
-  if (!confirm(`#${row.id} ${what}\n\n이 거래를 취소할까요? (취소한 거래는 '취소된 거래도 보기'로 확인할 수 있습니다)`)) return;
+  if (!confirm(`${what}
+
+이 거래를 삭제할까요?`)) return;
   try {
-    await api(`/api/transactions/${row.id}/void`, { method: 'POST', body: {} });
-    toast(`#${row.id} 거래를 취소했습니다.`);
+    await api(`/api/transactions/${row.id}`, { method: 'DELETE' });
+    toast('삭제했습니다.');
     if (editing?.id === row.id) endEdit();
     await loadDay();
   } catch (err) {
@@ -337,11 +329,6 @@ $('date').addEventListener('change', () => changeDate($('date').value));
 $('prev-day').addEventListener('click', () => changeDate(addDays($('date').value, -1)));
 $('next-day').addEventListener('click', () => changeDate(addDays($('date').value, 1)));
 $('today').addEventListener('click', () => changeDate(todayKST()));
-$('show-voided').addEventListener('change', () => {
-  prefs.showVoided = $('show-voided').checked;
-  savePrefs();
-  renderList();
-});
 
 document.querySelector('.kind-toggle').addEventListener('click', (e) => {
   const b = e.target.closest('[data-kind]');
@@ -378,12 +365,10 @@ document.addEventListener('keydown', (e) => {
 
 $('list').addEventListener('click', (e) => {
   const find = (id) => mergedRows(day.transactions).find((r) => r.id === Number(id));
-  const h = e.target.closest('[data-history]');
-  if (h) openHistory(Number(h.dataset.history));
   const ed = e.target.closest('[data-edit]');
   if (ed) startEdit(find(ed.dataset.edit));
-  const vd = e.target.closest('[data-void]');
-  if (vd) voidRow(find(vd.dataset.void));
+  const del = e.target.closest('[data-delete]');
+  if (del) deleteRow(find(del.dataset.delete));
 });
 
 // ---------------------------------------------------------------- 시작
@@ -391,7 +376,6 @@ $('list').addEventListener('click', (e) => {
 initPage('entry').then(async (ctx) => {
   settings = ctx.settings;
   bindAmountInput($('amount'));
-  $('show-voided').checked = !!prefs.showVoided;
   let start = todayKST();
   try { start = sessionStorage.getItem('bondang.entryDate') || start; } catch { /* 무시 */ }
   const param = new URLSearchParams(location.search).get('date');

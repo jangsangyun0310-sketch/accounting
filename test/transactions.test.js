@@ -88,78 +88,63 @@ test('통장 간 이체: 회계 간 이동은 회계별 잔액만 바뀌고 전�
   assert.equal(same.status, 400);
 });
 
-test('취소: 사유 선택, 잔액에서 제외, 두 번 취소 불가, 이체는 한 쌍 모두 취소', async () => {
+test('삭제: 흔적 없이 지워지고 잔액에서 제외, 이체는 한 쌍 모두 삭제', async () => {
   const { api, acc, sub, db } = setup();
   const { body: { id } } = await api('POST', '/api/transactions', {
     date: '2026-10-04', direction: 'IN', accountId: acc('교무금'), subjectId: sub('INCOME', '교무금'), amount: '5000',
   });
-  assert.equal((await api('POST', `/api/transactions/${id}/void`, { reason: '중복 입력' })).status, 200);
-  const again = await api('POST', `/api/transactions/${id}/void`, { reason: '다시' });
-  assert.equal(again.body.error.code, 'ALREADY_VOIDED');
+  assert.equal((await api('DELETE', `/api/transactions/${id}`)).status, 200);
+  const again = await api('DELETE', `/api/transactions/${id}`);
+  assert.equal(again.body.error.code, 'NOT_FOUND');
   let day = (await api('GET', '/api/day?date=2026-10-04')).body;
   assert.equal(day.total.end, 28800000);
-  assert.equal(day.transactions[0].status, 'VOIDED');
-  assert.equal(day.transactions[0].voidReason, '중복 입력');
+  assert.equal(day.transactions.length, 0);
 
   const tr = await api('POST', '/api/transfers', {
     date: '2026-10-04', fromAccountId: acc('경상비'), toAccountId: acc('교무금'), amount: '700',
   });
-  await api('POST', `/api/transactions/${tr.body.ids[1]}/void`, {}); // 입금 쪽만 지정, 사유 없이
-  assert.equal(db.prepare('SELECT void_reason FROM transactions WHERE id = ?').get(tr.body.ids[0]).void_reason, '사유 없음');
-  const statuses = db.prepare("SELECT status FROM transactions WHERE kind = 'TRANSFER'").all().map((r) => r.status);
-  assert.deepEqual(statuses, ['VOIDED', 'VOIDED']);
-  const audits = db.prepare("SELECT entity_id FROM audit_log WHERE action = 'VOID' ORDER BY id").all().map((r) => Number(r.entity_id));
+  await api('DELETE', `/api/transactions/${tr.body.ids[1]}`); // 입금 쪽만 지정
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n, 0);
+  // 화면에는 없지만 내부 기록은 남는다
+  const audits = db.prepare("SELECT entity_id FROM audit_log WHERE action = 'DELETE' ORDER BY id").all().map((r) => Number(r.entity_id));
   assert.deepEqual(audits, [id, ...tr.body.ids]);
   day = (await api('GET', '/api/day?date=2026-10-04')).body;
   assert.equal(day.total.end, 28800000);
 });
 
-test('수정: 원본 취소 + 새 거래, 이력 조회, 같은 원본 재수정 불가', async () => {
-  const { api, acc, sub } = setup();
+test('수정: 내용만 바뀌고 이전 내용은 남지 않음, 사유 불필요', async () => {
+  const { api, acc, sub, db } = setup();
   const { body: { id } } = await api('POST', '/api/transactions', {
     date: '2026-10-04', direction: 'IN', accountId: acc('교무금'), subjectId: sub('INCOME', '교무금'), amount: '30000',
   });
   const edit = {
-    reason: '금액 오기', date: '2026-10-04', direction: 'IN', accountId: acc('교무금'),
-    subjectId: sub('INCOME', '교무금'), amount: '300000', memo: '정정',
+    date: '2026-10-04', direction: 'IN', accountId: acc('교무금'), subjectId: sub('INCOME', '교무금'), amount: '300000', memo: '정정',
   };
-  let r = await api('POST', `/api/transactions/${id}/replace`, edit);
+  const r = await api('PUT', `/api/transactions/${id}`, edit);
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  r = await api('POST', `/api/transactions/${id}/replace`, edit);
-  assert.equal(r.body.error.code, 'ALREADY_VOIDED');
-
   const day = (await api('GET', '/api/day?date=2026-10-04')).body;
   assert.equal(fund(day, 'GENERAL').income, 300000);
-  const latest = day.transactions.find((t) => t.status === 'POSTED');
-  assert.equal(latest.replacesId, id);
-  assert.equal(day.transactions.find((t) => t.id === id).replacedById, latest.id);
-  assert.equal(day.transactions.find((t) => t.id === id).voidReason, '수정: 금액 오기');
-
-  // 두 번째 수정 → 이력은 3개 버전, 어느 버전에서 조회해도 같은 이력
-  await api('POST', `/api/transactions/${latest.id}/replace`, { ...edit, amount: '310000', reason: '재정정' });
-  for (const anyId of [id, latest.id]) {
-    const h = (await api('GET', `/api/transactions/${anyId}`)).body;
-    assert.deepEqual(h.versions.map((v) => v.amount), [30000, 300000, 310000]);
-    assert.deepEqual(h.versions.map((v) => v.status), ['VOIDED', 'VOIDED', 'POSTED']);
-    assert.deepEqual(h.audit.map((a) => a.action), ['CREATE', 'VOID', 'CREATE', 'VOID', 'CREATE']);
-  }
+  assert.deepEqual(day.transactions.map((t) => [t.id, t.amount, t.memo]), [[id, 300000, '정정']]); // 번호 유지
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n, 1);
+  // 한 번 더 수정해도 그대로 한 건 (번호는 바뀔 수 있으므로 화면은 목록을 새로 불러온다)
+  const again = day.transactions[0].id;
+  assert.equal((await api('PUT', `/api/transactions/${again}`, { ...edit, amount: '310000' })).status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n, 1);
 });
 
-test('이체 수정: 새 이체 한 쌍이 각각 원본을 가리킴', async () => {
+test('이체 수정: 한 쌍이 통째로 새 내용으로', async () => {
   const { api, acc, db } = setup();
   const tr = await api('POST', '/api/transfers', {
     date: '2026-10-04', fromAccountId: acc('경상비'), toAccountId: acc('교무금'), amount: '700',
   });
-  const r = await api('POST', `/api/transactions/${tr.body.ids[0]}/replace`, {
-    reason: '통장 오기', date: '2026-10-04', fromAccountId: acc('경상비'), toAccountId: acc('기타 후원금'), amount: '700',
+  const r = await api('PUT', `/api/transactions/${tr.body.ids[0]}`, {
+    date: '2026-10-04', fromAccountId: acc('경상비'), toAccountId: acc('기타 후원금'), amount: '800',
   });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  const rows = db.prepare("SELECT direction, status, replaces_id FROM transactions ORDER BY id").all().map((x) => ({ ...x }));
+  const rows = db.prepare('SELECT direction, account_id, amount FROM transactions ORDER BY id').all().map((x) => ({ ...x }));
   assert.deepEqual(rows, [
-    { direction: 'OUT', status: 'VOIDED', replaces_id: null },
-    { direction: 'IN', status: 'VOIDED', replaces_id: null },
-    { direction: 'OUT', status: 'POSTED', replaces_id: tr.body.ids[0] },
-    { direction: 'IN', status: 'POSTED', replaces_id: tr.body.ids[1] },
+    { direction: 'OUT', account_id: acc('경상비'), amount: 800 },
+    { direction: 'IN', account_id: acc('기타 후원금'), amount: 800 },
   ]);
 });
 
@@ -174,15 +159,17 @@ test('마감된 날짜 통제', async () => {
   assert.equal((await api('GET', '/api/day?date=2026-10-06')).body.locked, false);
   let r = await api('POST', '/api/transactions', { ...base, date: '2026-10-04' });
   assert.equal(r.body.error.code, 'DATE_CLOSED');
-  r = await api('POST', `/api/transactions/${id}/void`, { reason: 'x' });
+  r = await api('DELETE', `/api/transactions/${id}`);
   assert.equal(r.body.error.code, 'DATE_CLOSED');
-  r = await api('POST', `/api/transactions/${later}/replace`, { ...base, date: '2026-10-03', reason: '날짜 오기' });
+  r = await api('PUT', `/api/transactions/${id}`, { ...base, date: '2026-10-04', amount: '2' });
   assert.equal(r.body.error.code, 'DATE_CLOSED');
-  // 실패한 수정은 원본도 그대로 (batch 전체 취소)
-  assert.equal(db.prepare('SELECT status FROM transactions WHERE id = ?').get(later).status, 'POSTED');
+  // 열린 날짜의 거래를 마감된 날짜로 옮기는 수정도 거부, 실패하면 원래 거래 그대로 (한 번에 처리)
+  r = await api('PUT', `/api/transactions/${later}`, { ...base, date: '2026-10-03' });
+  assert.equal(r.body.error.code, 'DATE_CLOSED');
+  assert.equal(db.prepare('SELECT tx_date FROM transactions WHERE id = ?').get(later).tx_date, '2026-10-06');
 });
 
-test('거래 조회: 기간·통장별 잔액 흐름, 검색어, 취소 포함 여부', async () => {
+test('거래 조회: 기간·통장별 잔액 흐름, 검색어, 삭제한 거래 제외', async () => {
   const { api, acc, sub } = setup();
   const post = (date, direction, account, subject, amount, memo = '') => api('POST', '/api/transactions', {
     date, direction, accountId: acc(account), subjectId: sub(direction === 'IN' ? 'INCOME' : 'EXPENSE', subject), amount, memo,
@@ -190,7 +177,7 @@ test('거래 조회: 기간·통장별 잔액 흐름, 검색어, 취소 포함 �
   await post('2026-10-02', 'IN', '경상비', '주일헌금', '100000', '10/2 헌금');
   await post('2026-10-04', 'OUT', '경상비', '관리운영비', '30000', '50%_할인 물품');
   const { body: { id } } = await post('2026-10-04', 'IN', '경상비', '감사헌금', '5000');
-  await api('POST', `/api/transactions/${id}/void`, { reason: '중복' });
+  await api('DELETE', `/api/transactions/${id}`);
   await api('POST', '/api/transfers', { date: '2026-10-05', fromAccountId: acc('경상비'), toAccountId: acc('교무금'), amount: '1000' });
 
   let r = (await api('GET', `/api/transactions?from=2026-10-03&to=2026-10-31&accountId=${acc('경상비')}`)).body;
@@ -198,8 +185,8 @@ test('거래 조회: 기간·통장별 잔액 흐름, 검색어, 취소 포함 �
   assert.deepEqual(r.rows.map((x) => x.balanceAfter), [10070000, 10069000]);
   assert.deepEqual(r.totals, { income: 0, expense: 30000, transferIn: 0, transferOut: 1000 });
 
-  r = (await api('GET', `/api/transactions?from=2026-10-01&to=2026-10-31&accountId=${acc('경상비')}&includeVoided=1`)).body;
-  assert.deepEqual(r.rows.map((x) => x.balanceAfter), [10100000, 10070000, null, 10069000]);
+  r = (await api('GET', `/api/transactions?from=2026-10-01&to=2026-10-31&accountId=${acc('경상비')}`)).body;
+  assert.deepEqual(r.rows.map((x) => x.balanceAfter), [10100000, 10070000, 10069000]);
 
   r = (await api('GET', '/api/transactions?from=2026-10-01&to=2026-10-31&q=' + encodeURIComponent('50%_'))).body;
   assert.deepEqual(r.rows.map((x) => x.memo), ['50%_할인 물품']);
@@ -221,11 +208,14 @@ test('증빙번호 자동 제안', () => {
   assert.equal(nextVoucher(''), '');
 });
 
-test('수정도 사유 없이 가능 (내부 기록은 "수정")', async () => {
-  const { api, acc, sub, db } = setup();
+test('수정해도 목록 순서(번호)가 그대로', async () => {
+  const { api, acc, sub } = setup();
   const base = { date: '2026-10-04', direction: 'IN', accountId: acc('교무금'), subjectId: sub('INCOME', '교무금') };
-  const { body: { id } } = await api('POST', '/api/transactions', { ...base, amount: '1000' });
-  const r = await api('POST', `/api/transactions/${id}/replace`, { ...base, amount: '2000' });
-  assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal(db.prepare('SELECT void_reason FROM transactions WHERE id = ?').get(id).void_reason, '수정');
+  const a = (await api('POST', '/api/transactions', { ...base, amount: '1', memo: '첫째' })).body.id;
+  const b = (await api('POST', '/api/transactions', { ...base, amount: '2', memo: '둘째' })).body.id;
+  const tr = (await api('POST', '/api/transfers', { date: '2026-10-04', fromAccountId: acc('경상비'), toAccountId: acc('교무금'), amount: '3' })).body.ids;
+  await api('PUT', `/api/transactions/${a}`, { ...base, amount: '10', memo: '첫째 수정' });
+  await api('PUT', `/api/transactions/${tr[1]}`, { date: '2026-10-04', fromAccountId: acc('경상비'), toAccountId: acc('기타 후원금'), amount: '30' });
+  const day = (await api('GET', '/api/day?date=2026-10-04')).body;
+  assert.deepEqual(day.transactions.map((t) => [t.id, t.amount]), [[a, 10], [b, 2], [tr[0], 30], [tr[1], 30]]);
 });

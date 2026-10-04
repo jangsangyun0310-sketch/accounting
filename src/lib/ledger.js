@@ -71,7 +71,7 @@ export async function computeDay(db, date) {
        WHERE t.tx_date = ? AND t.status = 'POSTED'
        GROUP BY t.account_id`
     ).bind(date),
-    db.prepare(`${TX_SELECT} WHERE t.tx_date = ? ORDER BY t.id`).bind(date),
+    db.prepare(`${TX_SELECT} WHERE t.tx_date = ? AND t.status = 'POSTED' ORDER BY t.id`).bind(date),
     db.prepare(LOCKED_SQL).bind(date),
   ]);
 
@@ -127,7 +127,7 @@ function checkEquation(r, label) {
 
 /**
  * 거래 검색. accountId 를 지정하면 기간 시작 전 잔액(openingBalance)과 거래별 잔액(balanceAfter)을 함께 준다.
- * @param {{from:string,to:string,accountId?:number,subjectId?:number,kind?:string,q?:string,includeVoided?:boolean}} f
+ * @param {{from:string,to:string,accountId?:number,subjectId?:number,kind?:string,q?:string}} f
  */
 export async function searchTransactions(db, f, limit = 2000) {
   const where = ['t.tx_date BETWEEN ? AND ?'];
@@ -136,7 +136,7 @@ export async function searchTransactions(db, f, limit = 2000) {
   if (f.subjectId) { where.push('t.subject_id = ?'); binds.push(f.subjectId); }
   if (f.kind === 'IN' || f.kind === 'OUT') { where.push("t.kind = 'NORMAL' AND t.direction = ?"); binds.push(f.kind); }
   if (f.kind === 'TRANSFER') where.push("t.kind = 'TRANSFER'");
-  if (!f.includeVoided) where.push("t.status = 'POSTED'");
+  where.push("t.status = 'POSTED'");
   if (f.q) {
     const like = `%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     where.push("(t.memo LIKE ? ESCAPE '\\' OR t.voucher_no LIKE ? ESCAPE '\\')");
@@ -177,41 +177,6 @@ export async function searchTransactions(db, f, limit = 2000) {
       transferIn: sumAmounts(posted.filter((r) => r.kind === 'TRANSFER' && r.direction === 'IN').map((r) => r.amount)),
       transferOut: sumAmounts(posted.filter((r) => r.kind === 'TRANSFER' && r.direction === 'OUT').map((r) => r.amount)),
     },
-  };
-}
-
-/** 거래 한 건의 수정 이력(원본 → … → 최신)과 감사 로그 */
-export async function transactionHistory(db, id) {
-  const { results: chainRows } = await db.prepare(
-    `WITH RECURSIVE
-       up(id, replaces_id) AS (
-         SELECT id, replaces_id FROM transactions WHERE id = ?1
-         UNION ALL
-         SELECT t.id, t.replaces_id FROM transactions t JOIN up ON t.id = up.replaces_id
-       ),
-       root(id) AS (SELECT id FROM up WHERE replaces_id IS NULL),
-       down(id, depth) AS (
-         SELECT id, 0 FROM root
-         UNION ALL
-         SELECT t.id, down.depth + 1 FROM transactions t JOIN down ON t.replaces_id = down.id
-       )
-     SELECT down.depth, x.* FROM down JOIN (${TX_SELECT}) x ON x.id = down.id ORDER BY down.depth`
-  ).bind(id).all();
-  if (!chainRows.length) throw new ApiError(404, 'NOT_FOUND', '거래를 찾을 수 없습니다.');
-
-  const ids = chainRows.map((r) => String(r.id));
-  const { results: audit } = await db.prepare(
-    `SELECT id, at, actor, entity_id, action, before_json, after_json FROM audit_log
-     WHERE entity = 'transactions' AND entity_id IN (${ids.map(() => '?').join(',')}) ORDER BY id`
-  ).bind(...ids).all();
-
-  return {
-    versions: chainRows.map(mapTx),
-    audit: audit.map((a) => ({
-      id: a.id, at: a.at, actor: a.actor, transactionId: Number(a.entity_id), action: a.action,
-      before: a.before_json ? JSON.parse(a.before_json) : null,
-      after: a.after_json ? JSON.parse(a.after_json) : null,
-    })),
   };
 }
 

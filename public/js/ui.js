@@ -100,5 +100,11 @@ export function approvalBoxHtml(titles) {
 /** 이체 순액처럼 부호가 의미 있는 금액: +1,000 / -1,000 / 0 */
 export const signedWon = (n) => (n > 0 ? `+${formatWon(n)}` : formatWon(n));
 
+/** 거래 구분 이름 (통장 기준: 이체는 들어온 쪽/나간 쪽 구분) */
+export function typeLabel(t) {
+  if (t.kind === 'TRANSFER') return t.direction === 'OUT' ? '이체출금' : '이체입금';
+  return t.direction === 'IN' ? '수입' : '지출';
+}
+
 export const FUND_LABEL = { GENERAL: '일반회계', SPECIAL: '특별회계' };
 export const KIND_LABEL = { INCOME: '수입', EXPENSE: '지출' };
