@@ -10,6 +10,7 @@ import * as settings from './routes/settings.js';
 import * as transactions from './routes/transactions.js';
 import * as closings from './routes/closings.js';
 import * as reports from './routes/reports.js';
+import * as backup from './routes/backup.js';
 
 const routes = [
   ['GET', '/api/health', system.health],
@@ -40,6 +41,9 @@ const routes = [
   ['POST', '/api/closings/:date/close', closings.close],
   ['POST', '/api/closings/:date/reopen', closings.reopen],
   ['GET', '/api/reports/daily', reports.daily],
+  ['GET', '/api/backup', backup.download],
+  ['GET', '/api/backup/status', backup.status],
+  ['POST', '/api/restore', backup.restore],
 ].map(([method, path, handler]) => {
   const keys = [];
   const pattern = new RegExp(`^${path.replace(/:(\w+)/g, (_, k) => (keys.push(k), '([^/]+)'))}$`);

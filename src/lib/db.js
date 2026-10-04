@@ -26,6 +26,7 @@ const DB_ERRORS = {
   START_DATE_LOCKED: [409, '거래가 있어 운영 개시일을 변경할 수 없습니다.'],
   TRANSFER_MISMATCH: [400, '이체의 출금·입금 내역이 맞지 않습니다.'],
   ALREADY_REPLACED: [409, '이미 수정된 거래입니다. 화면을 새로고침하세요.'],
+  RESTORE_NOT_EMPTY: [409, '이미 데이터가 있는 곳에는 복구할 수 없습니다.'],
   SETUP_DONE: [409, '최초 설정이 이미 완료되었습니다. 변경은 설정 화면에서 하세요.'],
 };
 

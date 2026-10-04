@@ -4,6 +4,7 @@ import { api, esc } from './api.js';
 import { initPage, bindAmountInput, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
 import { parseAmount, sumAmounts, formatWon } from './shared/money.js';
 import { isValidDate, todayKST, formatKoreanDate } from './shared/dates.js';
+import { initRestore } from './restore.js';
 
 const DRAFT_KEY = 'bondang.setupDraft.v1';
 const STEPS = ['성당 정보', '일반회계 통장', '특별회계 통장', '예산과목', '결재선', '확인'];
@@ -372,6 +373,9 @@ initPage('setup', { requireSetup: false }).then(({ settings }) => {
     location.replace('/settings');
     return;
   }
+  initRestore(document.getElementById('restore-box'), {
+    onRestored: () => { clearDraft(); location.replace('/'); },
+  });
   render();
 }).catch((err) => {
   panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;

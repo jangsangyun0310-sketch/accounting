@@ -3,13 +3,15 @@
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
+import { formatDateTimeKST } from './shared/dates.js';
+import { backupStatusHtml, downloadBackup } from './backup.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값
 
@@ -20,7 +22,7 @@ async function reload() {
 
 function render() {
   tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -201,11 +203,43 @@ panel.addEventListener('input', (e) => {
   document.getElementById('approval-preview').innerHTML = approvalBoxHtml(approvalDraft.map((t) => t.trim() || '　'));
 });
 
+// ---------------------------------------------------------------- 백업
+
+async function renderBackup() {
+  panel.innerHTML = '<p class="muted">불러오는 중…</p>';
+  let s;
+  try {
+    s = await api('/api/backup/status');
+  } catch (err) {
+    panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
+    return;
+  }
+  if (tab !== 'backup') return;
+  const { html } = backupStatusHtml(s);
+  panel.innerHTML = `
+    <p>${html}</p>
+    <button type="button" data-action="backup-download">백업 파일 내려받기</button>
+    <div class="help">
+      <p>성당의 모든 회계 자료(설정, 거래, 마감 기록, 변경 기록)를 파일 하나로 PC 에 저장합니다.
+        <b>매주 한 번</b>, 그리고 월말에 저장해 두고, USB 등 다른 곳에도 복사해 두세요.</p>
+      <p>복구는 새로 설치한(비어 있는) 본당살림의 <b>최초 설정 화면</b>에서 "백업 파일로 복구하기"로 합니다.
+        이미 자료가 있는 곳에는 덮어쓰지 않습니다.</p>
+    </div>
+    ${s.history.length ? `
+      <h4>최근 기록</h4>
+      <ul class="audit">${s.history.map((h) => `<li>${formatDateTimeKST(h.at)} · ${esc(h.actor)} ·
+        ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
+}
+
 // ---------------------------------------------------------------- 동작
 
 const field = (row, name) => row.querySelector(`[name="${name}"]`);
 
 const actions = {
+  'backup-download': async () => {
+    if (await downloadBackup()) render();
+  },
+
   'parish-save': async () => {
     const form = panel.querySelector('[data-form="parish"]');
     const body = {

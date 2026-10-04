@@ -254,3 +254,9 @@ dialog#action-dialog { width: min(640px, 95vw); border: 1px solid var(--line); b
 dialog#action-dialog h3 { margin-top: 0; }
 textarea { font: inherit; padding: 6px 8px; border: 1px solid #b9c0ca; border-radius: 4px; width: 100%; resize: vertical; }
 .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---- 복구 ---- */
+.restore-box { background: #fff; border: 1px dashed #b9c0ca; border-radius: 6px; padding: 8px 14px; margin-bottom: 12px; }
+.restore-box summary { color: var(--accent); }
+.restore-body { padding: 8px 0 4px; }
+.restore-body input[type="file"] { width: auto; }

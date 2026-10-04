@@ -2,7 +2,8 @@
 
 @page {
   size: A4;
-  margin: 12mm 12mm 14mm;
+  /* 대부분의 프린터가 인쇄하지 못하는 가장자리(3~6mm)보다 넉넉하게 */
+  margin: 15mm 15mm 17mm;
   @bottom-center { content: counter(page) " / " counter(pages); font-size: 8pt; color: #555; }
 }
 
@@ -15,7 +16,7 @@ body.report-page { background: #e9ecf0; }
 #warning { max-width: 210mm; margin: 8px auto 0; }
 
 .paper {
-  width: 210mm; min-height: 297mm; margin: 12px auto 32px; padding: 12mm;
+  width: 210mm; min-height: 297mm; margin: 12px auto 32px; padding: 15mm;
   background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .15); color: #000;
 }
 
@@ -74,9 +75,12 @@ body.report-page { background: #e9ecf0; }
   #toast { display: none; }
 }
 
+/* 화면이 좁으면 용지를 줄이지 않고 가로 스크롤 (표가 잘려 보이지 않게) */
 @media screen and (max-width: 840px) {
-  .paper { width: auto; min-height: 0; margin: 12px; padding: 16px; }
+  .paper-scroll { overflow-x: auto; }
+  .paper { margin: 12px; }
 }
+.print-guide { font-size: 12px; color: var(--muted); max-width: 210mm; margin: 4px auto 0; padding: 0 4px; }
 
 /* 통장별 현재잔액: 회계별 표를 나란히 */
 .r-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; }
