@@ -34,13 +34,8 @@ export async function initPage(active, { requireSetup = true } = {}) {
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
-      ${isLocalMode ? '<button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>' : ''}
-      ${isLocalMode ? '<button type="button" class="lock-btn" id="lock-btn" title="장부를 잠그고 비밀번호 화면으로">🔒 잠금</button>' : ''}</div>`;
+      ${isLocalMode ? '<button type="button" class="share-btn" id="share-btn">🔗 공유하기</button>' : ''}</div>`;
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
-    bar.querySelector('#lock-btn')?.addEventListener('click', async () => {
-      const { lock } = await import('./local/session.js');
-      lock();
-    });
   }
   return { me, settings };
 }

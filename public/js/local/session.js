@@ -1,7 +1,7 @@
 // 성당별 모드의 "열린 장부"
 //   비밀번호 → 열쇠 → 서버에서 암호문 받기 → 브라우저 안에서 풀기 → 엔진.
 //   자료가 바뀔 때마다 다시 암호화해서 서버에 저장한다 (서버는 암호문만 받는다).
-//   열쇠는 이 탭이 열려 있는 동안만 sessionStorage 에 둔다 (탭을 닫거나 [잠금]을 누르면 사라짐).
+//   열쇠는 이 탭이 열려 있는 동안만 sessionStorage 에 둔다 (탭·창을 닫으면 사라짐).
 import { PARISH_ID } from '../base.js';
 import { openEngine } from './engine.js';
 import { decodeKey, deriveKeys, encodeKey, importEncKey, newKdf, seal, unseal } from './crypto.js';
@@ -21,12 +21,6 @@ function loadKeys() {
   } catch {
     return null;
   }
-}
-
-/** 장부 잠그기: 열쇠를 지우고 비밀번호 화면으로 */
-export function lock() {
-  try { sessionStorage.removeItem(keyStoreName(PARISH_ID)); } catch { /* 무시 */ }
-  location.href = `/p/${PARISH_ID}/`;
 }
 
 async function errorFrom(res) {
