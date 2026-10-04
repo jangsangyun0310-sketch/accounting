@@ -80,7 +80,7 @@ test('마감 순서: 앞 날짜 미마감 거래가 있으면 거부, 미래 날
   assert.equal(cal.days.length, 31);
 });
 
-test('마감취소: 마지막 마감일만, 사유 필수, 재마감 시 새 스냅샷', async () => {
+test('마감취소: 마지막 마감일만, 메모 선택, 재마감 시 새 스냅샷', async () => {
   const { api, income } = setup();
   await income('2026-10-02', 1000);
   await api('POST', '/api/closings/2026-10-02/close', {});
@@ -89,9 +89,8 @@ test('마감취소: 마지막 마감일만, 사유 필수, 재마감 시 새 스
 
   let r = await api('POST', '/api/closings/2026-10-02/reopen', { reason: '정정' });
   assert.equal(r.body.error.code, 'REOPEN_NOT_LATEST');
-  r = await api('POST', '/api/closings/2026-10-03/reopen', { reason: '' });
-  assert.equal(r.status, 400);
-  r = await api('POST', '/api/closings/2026-10-03/reopen', { reason: '금액 정정' });
+  // 메모는 선택: 비워도 마감취소되고, 내부 기록에는 '메모 없음'
+  r = await api('POST', '/api/closings/2026-10-03/reopen', {});
   assert.equal(r.status, 200);
   r = await api('POST', '/api/closings/2026-10-03/reopen', { reason: '또' });
   assert.equal(r.body.error.code, 'NOT_CLOSED');
@@ -109,7 +108,7 @@ test('마감취소: 마지막 마감일만, 사유 필수, 재마감 시 새 스
   assert.equal(d.closing.balances.find((b) => b.name === '교무금').balance, 1003500);
   assert.equal(d.closing.writerName, '사무장'); // 재마감은 기본 작성자
   assert.deepEqual(d.events.map((e) => e.action), ['CLOSE', 'REOPEN', 'CLOSE']);
-  assert.equal(d.events[1].reason, '금액 정정');
+  assert.equal(d.events[1].reason, '메모 없음');
 
   const log = (await api('GET', '/api/closing-events')).body.events;
   assert.deepEqual(log.map((e) => `${e.close_date} ${e.action}`),

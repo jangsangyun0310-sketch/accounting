@@ -110,28 +110,7 @@ async function loadDetail(date) {
       ${closed && !info.canReopen ? '<p class="help">마감취소는 가장 마지막 마감일부터 순서대로만 할 수 있습니다.</p>' : ''}
       ${date > info.today ? '<p class="help">미래 날짜는 마감할 수 없습니다.</p>' : ''}
     </div>
-
-    ${info.events.length ? `
-      <h4>이 날짜의 기록</h4>
-      <ul class="audit">${info.events.map(eventLine).join('')}</ul>` : ''}`;
-}
-
-function eventLine(e) {
-  return `<li>${formatDateTimeKST(e.at)} · ${esc(e.actor)} · <b>${e.action === 'CLOSE' ? '마감' : '마감취소'}</b>
-    ${e.reason ? `— ${esc(e.reason)}` : ''}</li>`;
-}
-
-async function loadEvents() {
-  const { events } = await api('/api/closing-events?limit=30');
-  $('events').innerHTML = events.length ? `
-    <table class="grid">
-      <thead><tr><th>처리 일시</th><th>대상 날짜</th><th>구분</th><th>사유</th><th>처리자</th></tr></thead>
-      <tbody>${events.map((e) => `<tr>
-        <td>${formatDateTimeKST(e.at)}</td>
-        <td><button type="button" class="link" data-goto="${e.close_date}">${formatKoreanDate(e.close_date)}</button></td>
-        <td>${e.action === 'CLOSE' ? '<span class="pill closed">마감</span>' : '<span class="pill reopened">마감취소</span>'}</td>
-        <td>${esc(e.reason)}</td><td>${esc(e.actor)}</td></tr>`).join('')}</tbody>
-    </table>` : '<p class="muted">기록이 없습니다.</p>';
+`;
 }
 
 // ---------------------------------------------------------------- 마감 / 마감취소
@@ -142,7 +121,7 @@ async function openCloseDialog(date) {
   dlg.innerHTML = `
     <h3>${formatKoreanDate(date)} 마감</h3>
     <p>마감하면 이 날짜와 그 이전 날짜의 거래를 <b>입력·수정·취소할 수 없습니다.</b><br>
-      고쳐야 할 때는 마감취소(사유 필수)를 먼저 해야 합니다.</p>
+      고쳐야 할 때는 마감취소를 먼저 하면 됩니다.</p>
     <table class="grid summary">
       <thead><tr><th>구분</th><th class="num">전일잔액</th><th class="num">수입</th><th class="num">지출</th>
         <th class="num">이체</th><th class="num">당일잔액</th></tr></thead>
@@ -176,8 +155,8 @@ function openReopenDialog(date) {
   const dlg = $('action-dialog');
   dlg.innerHTML = `
     <h3>${formatKoreanDate(date)} 마감취소</h3>
-    <p>마감을 취소하면 이 날짜의 거래를 다시 수정할 수 있습니다. 취소 기록은 지워지지 않고 남습니다.</p>
-    <label>마감취소 사유 (필수) <textarea id="reopen-reason" rows="3" maxlength="200" placeholder="예) 교무금 금액 오기 정정"></textarea></label>
+    <p>마감을 취소하면 이 날짜의 거래를 다시 수정할 수 있습니다.</p>
+    <label>메모 (선택) <textarea id="reopen-reason" rows="3" maxlength="200" placeholder="예) 교무금 금액 오기 정정"></textarea></label>
     <div class="dialog-foot">
       <button type="button" class="secondary" data-cancel>닫기</button>
       <button type="button" class="danger" id="confirm-reopen">마감취소</button>
@@ -186,11 +165,6 @@ function openReopenDialog(date) {
   $('reopen-reason').focus();
   $('confirm-reopen').addEventListener('click', async () => {
     const reason = $('reopen-reason').value.trim();
-    if (!reason) {
-      toast('마감취소 사유를 입력하세요.', 'error');
-      $('reopen-reason').focus();
-      return;
-    }
     $('confirm-reopen').disabled = true;
     try {
       await api(`/api/closings/${date}/reopen`, { method: 'POST', body: { reason } });
@@ -206,7 +180,7 @@ function openReopenDialog(date) {
 
 async function refresh(date = selected) {
   await loadCalendar();
-  await Promise.all([date ? loadDetail(date) : null, loadEvents()]);
+  if (date) await loadDetail(date);
 }
 
 // ---------------------------------------------------------------- 이벤트
@@ -238,8 +212,6 @@ document.addEventListener('click', (e) => {
   if (close) { run(goto(close.dataset.date ?? close.dataset.closeDate).then(() => openCloseDialog(close.dataset.date ?? close.dataset.closeDate))); return; }
   const reopen = e.target.closest('[data-reopen]');
   if (reopen) { openReopenDialog(reopen.dataset.reopen); return; }
-  const g = e.target.closest('[data-goto]');
-  if (g) { run(goto(g.dataset.goto)); return; }
   if (e.target.closest('[data-cancel]') || e.target === $('action-dialog')) $('action-dialog').close();
 });
 
@@ -248,8 +220,8 @@ initPage('closing').then(async () => {
   const start = isValidDate(p) ? p : null;
   if (start) month = start.slice(0, 7);
   await loadCalendar();
-  await Promise.all([loadEvents(), loadDetail(start ?? (calendar.nextRequired && calendar.nextRequired <= calendar.today
-    ? calendar.nextRequired : calendar.today))]);
+  await loadDetail(start ?? (calendar.nextRequired && calendar.nextRequired <= calendar.today
+    ? calendar.nextRequired : calendar.today));
   if (selected && selected.slice(0, 7) !== month) { month = selected.slice(0, 7); await loadCalendar(); }
 }).catch((err) => {
   $('status').innerHTML = `<p class="error">${esc(err.message)}</p>`;

@@ -150,10 +150,10 @@ export async function close({ request, env, actor, params }) {
   return json({ ok: true });
 }
 
-/** POST /api/closings/:date/reopen {reason} */
+/** POST /api/closings/:date/reopen {reason?} : 메모는 선택. 비우면 내부 기록에는 '메모 없음'으로 남긴다. */
 export async function reopen({ request, env, actor, params }) {
   const d = parseDate(params.date, '마감일');
-  const reason = text((await readJson(request))?.reason, '마감취소 사유', { max: 200 });
+  const reason = text((await readJson(request))?.reason, '메모', { max: 200, required: false }) || '메모 없음';
   const db = env.DB;
   const existing = await db.prepare('SELECT status FROM daily_closings WHERE close_date = ?').bind(d).first('status');
   if (existing !== 'CLOSED') throw new ApiError(409, 'NOT_CLOSED', '마감되지 않은 날짜입니다.');
