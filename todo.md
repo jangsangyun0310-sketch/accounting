@@ -43,7 +43,7 @@
 ## 다음 할 일
 
 - [ ] 실제 PC 에서 새 장부 만들기 → 최초 설정 → 거래 입력 → 백업 사본 저장 확인 (크롬·엣지)
-- [ ] Cloudflare 의 예전 데이터베이스 `bondang-salim-ledger`, `bondang-salim-db` 지울지 결정 (지금은 프로그램과 연결 끊김)
+- [x] Cloudflare 의 예전 데이터베이스 `bondang-salim-ledger`, `bondang-salim-db` 삭제 (2026-10-05)
 - [ ] Cloudflare 에서 bondang-salim 을 GitHub 저장소와 연결할지 (Deploy command `npm run deploy`)
 - [ ] 예전 커밋에 남은 용머리 시드 자료 정리 여부 결정 (기록 다시 쓰기 · 강제 푸시)
 
