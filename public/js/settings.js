@@ -1,4 +1,4 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 계정(장부 비우기·탈퇴)
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 초기화·탈퇴
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
@@ -248,7 +248,7 @@ async function renderBackup() {
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
 }
 
-// ---------------------------------------------------------------- 계정 (장부 비우기 · 탈퇴)
+// ---------------------------------------------------------------- 초기화·탈퇴 (장부 초기화 · 탈퇴)
 
 async function renderAccount() {
   panel.innerHTML = '<p class="muted">불러오는 중…</p>';
@@ -268,15 +268,15 @@ async function renderAccount() {
       <dt>성당</dt><dd>${esc(name)}</dd>
     </dl>
 
-    <h3>장부 비우기</h3>
+    <h3>장부 초기화</h3>
     <div class="danger-zone">
       <p>지금 장부의 <b>모든 거래·마감·통장·과목·설정</b>을 지우고 <b>최초 설정부터 다시</b> 시작합니다. 로그인 계정과 성당 등록은 그대로입니다.</p>
-      <p>지운 장부는 되살릴 수 없습니다. 그래서 <b>먼저 백업 파일을 내려받아야</b> 비울 수 있습니다.
+      <p>지운 장부는 되살릴 수 없습니다. 그래서 <b>먼저 백업 파일을 내려받아야</b> 초기화할 수 있습니다.
         (나중에 필요하면 최초 설정 화면의 [예전 장부 가져오기]로 되돌릴 수 있습니다.)</p>
       <p>${backupStatusHtml(backup).html}</p>
       <p><button type="button" class="secondary" data-action="backup-download">① 백업 파일 내려받기</button></p>
       <label><span>② 확인을 위해 성당 이름 <b>${esc(name)}</b> 을(를) 그대로 적으세요</span> <input id="reset-name" autocomplete="off"></label>
-      <p><button type="button" class="danger" data-action="ledger-reset">③ 장부 비우기</button></p>
+      <p><button type="button" class="danger" data-action="ledger-reset">③ 장부 초기화</button></p>
     </div>
 
     <h3>탈퇴</h3>
@@ -310,7 +310,7 @@ const actions = {
   'ledger-reset': async () => {
     const parishName = document.getElementById('reset-name').value;
     if (!confirm('장부를 모두 지우고 최초 설정부터 다시 시작합니다. 계속할까요?')) return;
-    if (await attempt(() => accountPost('/account/reset-ledger', { parishName }), '장부를 비웠습니다.')) {
+    if (await attempt(() => accountPost('/account/reset-ledger', { parishName }), '장부를 초기화했습니다.')) {
       location.href = '/setup';
     }
   },
