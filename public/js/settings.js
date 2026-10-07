@@ -1,17 +1,18 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 계정(장부 비우기·탈퇴)
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
-import { initPage, bindAmountInput, attempt, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
+import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { formatDateTimeKST } from './shared/dates.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
+import { currentAccount } from './account.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값
 
@@ -22,7 +23,7 @@ async function reload() {
 
 function render() {
   tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -247,6 +248,56 @@ async function renderBackup() {
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
 }
 
+// ---------------------------------------------------------------- 계정 (장부 비우기 · 탈퇴)
+
+async function renderAccount() {
+  panel.innerHTML = '<p class="muted">불러오는 중…</p>';
+  let account;
+  let backup;
+  try {
+    [account, backup] = await Promise.all([currentAccount(), api('/api/backup/status')]);
+  } catch (err) {
+    panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
+    return;
+  }
+  if (tab !== 'account') return;
+  const name = account.parish.name;
+  panel.innerHTML = `
+    <dl class="summary">
+      <dt>로그인 계정</dt><dd>${esc(account.user.email)}</dd>
+      <dt>성당</dt><dd>${esc(name)}</dd>
+    </dl>
+
+    <h3>장부 비우기</h3>
+    <div class="danger-zone">
+      <p>지금 장부의 <b>모든 거래·마감·통장·과목·설정</b>을 지우고 <b>최초 설정부터 다시</b> 시작합니다. 로그인 계정과 성당 등록은 그대로입니다.</p>
+      <p>지운 장부는 되살릴 수 없습니다. 그래서 <b>먼저 백업 파일을 내려받아야</b> 비울 수 있습니다.
+        (나중에 필요하면 최초 설정 화면의 [예전 장부 가져오기]로 되돌릴 수 있습니다.)</p>
+      <p>${backupStatusHtml(backup).html}</p>
+      <p><button type="button" class="secondary" data-action="backup-download">① 백업 파일 내려받기</button></p>
+      <label><span>② 확인을 위해 성당 이름 <b>${esc(name)}</b> 을(를) 그대로 적으세요</span> <input id="reset-name" autocomplete="off"></label>
+      <p><button type="button" class="danger" data-action="ledger-reset">③ 장부 비우기</button></p>
+    </div>
+
+    <h3>탈퇴</h3>
+    <div class="danger-zone">
+      <p>이 성당의 <b>장부 전체</b>와 <b>성당 등록</b>, <b>로그인 정보</b>를 서버에서 모두 지웁니다. 지운 뒤에는 되살릴 수 없습니다.</p>
+      <p>장부가 필요하면 먼저 [백업] 탭에서 백업 파일을 내려받아 두세요. 다시 가입하면 그 파일로 장부를 가져올 수 있습니다.</p>
+      <p class="help">구글 계정의 "본당살림" 접근 권한은 구글 계정 관리 → 보안 → 타사 앱 연결에서 지울 수 있습니다.</p>
+      <label><span>확인을 위해 성당 이름 <b>${esc(name)}</b> 을(를) 그대로 적으세요</span> <input id="withdraw-name" autocomplete="off"></label>
+      <label class="check"><input type="checkbox" id="withdraw-ack"> 장부와 계정이 모두 지워지고 되살릴 수 없다는 것을 이해했습니다.</label>
+      <p><button type="button" class="danger" data-action="withdraw">탈퇴하기</button></p>
+    </div>`;
+}
+
+/** 계정 화면의 POST 요청. 오류는 메시지를 담은 Error 로 */
+async function accountPost(path, body) {
+  const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error?.message || `처리하지 못했습니다 (${res.status})`);
+  return data;
+}
+
 // ---------------------------------------------------------------- 동작
 
 const field = (row, name) => row.querySelector(`[name="${name}"]`);
@@ -254,6 +305,24 @@ const field = (row, name) => row.querySelector(`[name="${name}"]`);
 const actions = {
   'backup-download': async () => {
     if (await downloadBackup()) render();
+  },
+
+  'ledger-reset': async () => {
+    const parishName = document.getElementById('reset-name').value;
+    if (!confirm('장부를 모두 지우고 최초 설정부터 다시 시작합니다. 계속할까요?')) return;
+    if (await attempt(() => accountPost('/account/reset-ledger', { parishName }), '장부를 비웠습니다.')) {
+      location.href = '/setup';
+    }
+  },
+
+  withdraw: async () => {
+    if (!document.getElementById('withdraw-ack').checked) return toast('안내를 확인하고 체크해 주세요.', 'error');
+    const parishName = document.getElementById('withdraw-name').value;
+    if (!confirm('탈퇴하면 장부와 계정이 모두 지워집니다. 정말 탈퇴할까요?')) return;
+    if (await attempt(() => accountPost('/account/withdraw', { parishName }))) {
+      try { sessionStorage.clear(); } catch { /* 무시 */ }
+      location.replace('/login?bye=1');
+    }
   },
 
   'parish-save': async () => {

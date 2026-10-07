@@ -336,3 +336,5 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 .google-btn:hover { background: #f5f7fa; }
 .topbar .account { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .topbar .account + .share-btn { margin-left: 0; }
+.danger-zone { border: 1px solid #f5b5b5; background: #fffafa; border-radius: 6px; padding: 4px 14px 2px; max-width: 760px; }
+.danger-zone label { max-width: 440px; margin-bottom: 8px; }

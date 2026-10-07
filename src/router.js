@@ -1,11 +1,13 @@
 // 본당살림 요청 처리 (Worker 진입점 src/index.js 가 내보낸다. 테스트도 이 파일을 쓴다)
 //   /auth/*   : 구글 로그인 · 세션 · 성당 등록 (src/auth.js)
 //   /api/*    : 장부. 로그인한 사용자의 성당 저장소(src/ledger.js)로만 보낸다
+//   /account/*: 장부 비우기 · 탈퇴 (src/account.js)
 //   /login    : 로그인 화면 (누구나)
 //   /signup   : 성당 등록 화면 (로그인했지만 아직 성당이 없는 사용자)
 //   그 밖 화면 : 로그인하고 성당이 등록된 사용자만. 아니면 로그인·성당 등록 화면으로 보낸다.
 // css·js·그림 같은 프로그램 파일은 wrangler.jsonc 의 run_worker_first 에서 빼서 Worker 를 거치지 않는다.
 import { getSession, handleAuth, redirect } from './auth.js';
+import { handleAccount } from './account.js';
 
 const PUBLIC_PAGES = new Set(['/login', '/login.html']);
 // 로그인과 관계없이 누구나 보는 화면 (구글 로그인 설정·스토어 등록에 주소가 필요)
@@ -20,6 +22,7 @@ export default {
 
     const session = await getSession(request, env);
     if (url.pathname.startsWith('/api/')) return ledgerApi(request, env, url, session);
+    if (url.pathname.startsWith('/account/')) return handleAccount(request, env, url, session);
 
     if (PUBLIC_PAGES.has(url.pathname)) {
       return session?.parish ? redirect('/') : env.ASSETS.fetch(request);

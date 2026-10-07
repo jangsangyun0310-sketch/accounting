@@ -12,9 +12,11 @@ const MESSAGES = {
 const next = params.get('next');
 if (next) document.getElementById('google').href = `/auth/google?next=${encodeURIComponent(next)}`;
 
-const error = MESSAGES[params.get('error')];
+const error = MESSAGES[params.get('error')]
+  ?? (params.has('bye') ? '탈퇴했습니다. 장부와 계정을 모두 지웠습니다. 그동안 본당살림을 써 주셔서 감사합니다.' : null);
 if (error) {
   const box = document.getElementById('error');
   box.textContent = error;
+  if (!MESSAGES[params.get('error')]) box.className = 'notice'; // 탈퇴 안내는 오류가 아니므로 빨간 글씨 대신
   box.hidden = false;
 }

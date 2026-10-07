@@ -4,7 +4,7 @@
 //   거래·마감·결산 규칙은 브라우저 때와 같은 장부 엔진(public/core)이 처리한다.
 import { DurableObject } from 'cloudflare:workers';
 import { handleApi } from '../public/core/engine.js';
-import { applyMigrations, storageD1 } from './ledger-core.js';
+import { applyMigrations, backupIsCurrent, resetLedger, storageD1 } from './ledger-core.js';
 // 장부 표 구조 (public/core/migrations.js 와 같은 순서. 테스트가 확인한다)
 import m0001 from '../public/migrations/0001_init.sql';
 import m0002 from '../public/migrations/0002_integrity_triggers.sql';
@@ -31,8 +31,26 @@ export class Ledger extends DurableObject {
     ctx.blockConcurrencyWhile(async () => applyMigrations(ctx.storage, MIGRATION_FILES));
   }
 
-  /** Worker 가 넘긴 /api/* 요청. 처리자(이메일)는 Worker 가 x-bondang-actor 머리글에 넣는다 */
+  /**
+   * Worker 가 넘긴 요청
+   *   /api/*         : 장부 엔진. 처리자(이메일)는 Worker 가 x-bondang-actor 머리글에 넣는다
+   *   /__admin/reset : 장부 비우기 (최신 백업이 있어야 함)
+   *   /__admin/wipe  : 탈퇴 — 이 성당 장부를 모두 지운다
+   * /__admin/* 는 Worker 가 계정 화면(src/account.js)에서만 부른다. 바깥 요청은 /api/* 만 이곳으로 온다.
+   */
   async fetch(request) {
+    const { pathname } = new URL(request.url);
+    if (pathname === '/__admin/reset') {
+      if (!backupIsCurrent(this.ctx.storage)) {
+        return Response.json({ error: { code: 'BACKUP_REQUIRED', message: '먼저 지금 장부의 백업 파일을 내려받으세요. (마지막 백업 이후 바뀐 내용이 있습니다)' } }, { status: 409 });
+      }
+      await resetLedger(this.ctx.storage, MIGRATION_FILES);
+      return Response.json({ ok: true });
+    }
+    if (pathname === '/__admin/wipe') {
+      await this.ctx.storage.deleteAll();
+      return Response.json({ ok: true });
+    }
     const actor = request.headers.get('x-bondang-actor') || '사무실';
     return handleApi(request, { DB: this.db, AUTH_MODE: 'server', ACTOR: actor });
   }

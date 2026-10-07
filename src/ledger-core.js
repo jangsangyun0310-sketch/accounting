@@ -49,3 +49,24 @@ export function applyMigrations(storage, files) {
     });
   }
 }
+
+/**
+ * 장부를 비워도 되는지: 최초 설정 전(빈 장부)이거나, 마지막 백업 이후 바뀐 것이 없어야 한다.
+ * (비우기 전에 반드시 최신 백업 파일을 받게 하려는 것)
+ */
+export function backupIsCurrent(storage) {
+  const { sql } = storage;
+  if (sql.exec('SELECT COUNT(*) AS n FROM setup_lock').one().n === 0) return true;
+  const last = sql.exec("SELECT at FROM backup_log WHERE action = 'BACKUP' ORDER BY id DESC LIMIT 1").toArray()[0];
+  if (!last) return false;
+  const changed = sql.exec(
+    'SELECT (SELECT COUNT(*) FROM audit_log WHERE at > ?1) + (SELECT COUNT(*) FROM closing_events WHERE at > ?1) AS n', last.at,
+  ).one().n;
+  return changed === 0;
+}
+
+/** 장부 비우기: 저장소의 모든 자료를 지우고 빈 표 구조를 다시 만든다 */
+export async function resetLedger(storage, files) {
+  await storage.deleteAll();
+  applyMigrations(storage, files);
+}

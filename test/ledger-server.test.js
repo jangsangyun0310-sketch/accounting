@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { handleApi } from '../public/core/engine.js';
 import { MIGRATIONS } from '../public/core/migrations.js';
-import { applyMigrations, storageD1 } from '../src/ledger-core.js';
+import { applyMigrations, backupIsCurrent, resetLedger, storageD1 } from '../src/ledger-core.js';
 import { d1Adapter } from './helpers.js';
 import router from '../src/router.js';
 
@@ -26,6 +26,14 @@ function fakeStorage() {
         }
         return cursor(db.prepare(query).all(...params).map((r) => ({ ...r })));
       },
+    },
+    // Durable Object 의 deleteAll: SQL 자료까지 모두 지운다
+    async deleteAll() {
+      db.exec('PRAGMA foreign_keys = OFF');
+      for (const { type, name } of db.prepare("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND type IN ('table', 'view')").all()) {
+        db.exec(`DROP ${type.toUpperCase()} IF EXISTS "${name}"`);
+      }
+      db.exec('PRAGMA foreign_keys = ON');
     },
     transactionSync(fn) {
       db.exec('BEGIN');
@@ -202,4 +210,64 @@ test('다른 사이트에서 보낸 장부 변경 요청은 거부', async () =>
   }), env);
   assert.equal(res.status, 403);
   assert.equal(calls.length, 0);
+});
+
+test('장부 비우기: 최신 백업이 있어야 하고, 비우면 최초 설정부터 다시', async () => {
+  const { storage, api } = ledger();
+  assert.equal(backupIsCurrent(storage), true); // 빈 장부는 백업 없이 비울 수 있다
+  await api('POST', '/api/setup', setupPayload());
+  assert.equal(backupIsCurrent(storage), false); // 백업한 적 없음
+
+  const env = { DB: storageD1(storage), AUTH_MODE: 'server', ACTOR: 'x' };
+  await handleApi(new Request('http://local/api/backup'), env);
+  assert.equal(backupIsCurrent(storage), true);
+
+  const s = (await api('GET', '/api/settings')).body;
+  await new Promise((r) => setTimeout(r, 5)); // 백업 시각 이후의 변경
+  await api('POST', '/api/transactions', {
+    date: '2026-10-01', direction: 'IN', accountId: s.accounts[0].id, subjectId: s.subjects[0].id, amount: '1000',
+  });
+  assert.equal(backupIsCurrent(storage), false); // 백업 이후 바뀜
+
+  await resetLedger(storage, FILES);
+  assert.equal((await api('GET', '/api/settings')).body.setupCompleted, false);
+  assert.equal(storage.db.prepare('SELECT COUNT(*) AS n FROM transactions').get().n, 0);
+  assert.deepEqual(storage.db.prepare('SELECT name FROM d1_migrations ORDER BY id').all().map((r) => r.name), MIGRATIONS);
+  assert.equal((await api('POST', '/api/setup', setupPayload())).status, 200); // 다시 시작할 수 있다
+});
+
+test('계정: 장부 비우기·탈퇴는 성당 이름을 그대로 적어야 하고, 다른 사이트 요청·GET 은 거부', async () => {
+  const { env, calls } = routerEnv();
+  const cookie = await devSession(env, 'a@example.com', '가성당');
+  const post = (path, body, origin = 'http://localhost:8787') => router.fetch(new Request(`http://localhost:8787${path}`, {
+    method: 'POST', headers: { cookie, origin, 'content-type': 'application/json' }, body: JSON.stringify(body),
+  }), env);
+
+  assert.equal((await post('/account/reset-ledger', { parishName: '나성당' })).status, 400);
+  assert.equal((await post('/account/reset-ledger', { parishName: '가성당' }, 'https://evil.test')).status, 403);
+  assert.equal((await router.fetch(new Request('http://localhost:8787/account/withdraw', { headers: { cookie } }), env)).status, 405);
+  assert.equal(calls.length, 0);
+
+  const reset = await post('/account/reset-ledger', { parishName: ' 가성당 ' });
+  assert.equal(reset.status, 200);
+  assert.equal(new URL(calls[0].url).pathname, '/__admin/reset');
+});
+
+test('탈퇴: 장부를 지우고 성당·사용자·로그인 정보를 지운다 (다른 성당은 그대로)', async () => {
+  const { db, env, calls } = routerEnv();
+  const a = await devSession(env, 'a@example.com', '가성당');
+  await devSession(env, 'b@example.com', '나성당');
+  const parishA = db.prepare("SELECT parish_id FROM users WHERE email = 'a@example.com'").get().parish_id;
+
+  const res = await router.fetch(new Request('http://localhost:8787/account/withdraw', {
+    method: 'POST', headers: { cookie: a, origin: 'http://localhost:8787', 'content-type': 'application/json' },
+    body: JSON.stringify({ parishName: '가성당' }),
+  }), env);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.getSetCookie()[0], /^__Host-bs_session=; .*Max-Age=0/);
+  assert.deepEqual(calls.map((c) => [c.parish, new URL(c.url).pathname]), [[parishA, '/__admin/wipe']]);
+
+  assert.deepEqual(db.prepare('SELECT name FROM parishes').all().map((r) => r.name), ['나성당']);
+  assert.deepEqual(db.prepare('SELECT email FROM users').all().map((r) => r.email), ['b@example.com']);
+  assert.equal((await router.fetch(new Request('http://localhost:8787/api/settings', { headers: { cookie: a } }), env)).status, 401);
 });
