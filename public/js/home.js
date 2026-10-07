@@ -9,8 +9,8 @@ const $ = (id) => document.getElementById(id);
 
 async function main() {
   const { settings } = await initPage('home');
-  const [balances, health, closings, backup] = await Promise.all([
-    api('/api/balances'), api('/api/health'), api('/api/closings'), api('/api/backup/status')]);
+  const [balances, closings, backup] = await Promise.all([
+    api('/api/balances'), api('/api/closings'), api('/api/backup/status')]);
 
   // 바탕화면 아이콘 안내 (이미 설치한 앱 창에서는 숨김)
   if (!isInstalledApp) {
@@ -55,7 +55,6 @@ async function main() {
     <tbody>${rows.join('')}</tbody></table>`;
 
   $('approval').innerHTML = approvalBoxHtml(settings.approvalSteps.map((s) => s.title));
-  $('status').textContent = `DB 연결 정상 · 스키마 ${health.migration ?? '-'}`;
 }
 
 main().catch((err) => {

@@ -121,7 +121,7 @@ async function openCloseDialog(date) {
   const dlg = $('action-dialog');
   dlg.innerHTML = `
     <h3>${formatKoreanDate(date)} 마감</h3>
-    <p>마감하면 이 날짜와 그 이전 날짜의 거래를 <b>입력·수정·취소할 수 없습니다.</b><br>
+    <p>마감하면 이 날짜와 그 이전 날짜의 거래를 <b>입력·수정·삭제할 수 없습니다.</b><br>
       고쳐야 할 때는 마감취소를 먼저 하면 됩니다.</p>
     <table class="grid summary">
       <thead><tr><th>구분</th><th class="num">전일잔액</th><th class="num">수입</th><th class="num">지출</th>

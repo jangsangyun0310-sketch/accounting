@@ -42,7 +42,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
       <span class="account"><a class="help-link ${active === 'help' ? 'active' : ''}" href="${href(HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : '/help')}">도움말</a>
         <button type="button" class="secondary small" id="logout-btn"
         title="${esc(account.user.email)} 계정으로 로그인되어 있습니다">로그아웃</button></span>
-      <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button></div>`;
+      <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">🔗<span class="label"> 공유하기</span></button></div>`;
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
     bar.querySelector('#logout-btn')?.addEventListener('click', logout);
   }

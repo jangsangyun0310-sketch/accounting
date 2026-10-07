@@ -29,7 +29,7 @@
     <main class="help-main" id="help">
       <section>
         <h1>본당살림 사용 설명서</h1>
-        <p class="muted">처음 쓰시는 분은 1번부터 차례로 읽어 보세요. 궁금한 것만 찾으려면 아래에 단어를 넣으세요.</p>
+        <p class="muted">처음 쓰시는 분은 1번부터 차례로 읽어 보세요. 궁금한 것만 찾으려면 아래에 단어를 넣으세요.<br>어느 화면에서든 오른쪽 위 <b>[도움말]</b>을 누르면 그 화면의 설명이 바로 열립니다.</p>
         <div class="help-search">
           <input id="help-q" type="search" placeholder="예) 마감취소, 이체, 백업, 결재선">
           <button type="button" class="secondary" id="help-clear" hidden>모두 보기</button>
@@ -47,6 +47,7 @@
         <figure><img src="/img/help/setup.png" alt="최초 설정 화면: 성당명, 운영 개시일, 결산서 작성자" loading="lazy" width="1100" height="400"></figure>
         <div class="tip">💡 <b>운영 개시일</b>은 잔액을 확실히 아는 날로 정하세요. 예를 들어 11월 1일로 정하면, 각 통장의 초기잔액은 <b>10월 31일 마감 잔액</b>입니다. 운영 개시일 이전 날짜로는 거래를 넣을 수 없습니다.</div>
         <p>설정을 마치면 홈 화면의 <b>[바탕화면에 아이콘 만들기]</b>를 눌러 두세요. 다음부터는 아이콘만 누르면 열립니다.</p>
+        <p class="help">다른 사람이 [설정 → 함께 사용]에 내 구글 이메일을 등록해 두었다면, 로그인하는 순간 2·3단계 없이 그 성당 장부가 바로 열립니다.</p>
       </section>
 
       <section id="entry" data-keywords="거래 입력 수입 지출 저장 단축키 F2 F3 F4 Enter 수정 삭제 고치기 지우기 적요 증빙">
@@ -82,9 +83,10 @@
         <p>그날 입력을 다 했으면 <b>[일 마감]</b>에서 그날을 마감합니다. 마감한 날은 잠겨서 실수로 바뀌지 않고, 결산서의 "가결산" 표시가 없어집니다.</p>
         <figure><img src="/img/help/closing.png" alt="일 마감 화면: 달력(초록 마감, 주황 미마감)과 선택한 날의 현황, 마감하기 버튼" loading="lazy" width="1100" height="640"></figure>
         <ul>
-          <li>달력 색: <b class="in">초록</b> 마감 · <b style="color:#9ca3af">회색</b> 거래 없는 날(함께 잠김) · <b style="color:#c27803">주황</b> 마감 안 한 거래 있음</li>
+          <li>달력 색: <b class="in">초록</b> 마감 · <b style="color:#9ca3af">회색</b> 거래 없는 날(함께 잠김) · <b style="color:#c27803">주황</b> 마감 안 한 거래 있음 · <b class="out">빨강</b> 마감취소됨</li>
+          <li>[이 날짜 마감하기]를 누르면 그날의 잔액과 <b>결산서 작성자</b>가 나옵니다. 확인하고 [마감]을 누릅니다.</li>
           <li>마감은 <b>날짜 순서대로</b>만 됩니다. 앞 날짜에 마감 안 한 거래가 있으면 뒤 날짜를 마감할 수 없습니다.</li>
-          <li><b>마감취소</b>는 가장 마지막에 마감한 날부터 거꾸로만 됩니다. 마감취소한 뒤 고치고 다시 마감하세요.</li>
+          <li><b>마감취소</b>는 가장 마지막에 마감한 날부터 거꾸로만 됩니다. 달력에서 그날을 고르고 [마감취소]를 누릅니다(메모는 적지 않아도 됩니다). 고친 뒤 다시 마감하세요.</li>
         </ul>
       </section>
 
@@ -95,15 +97,15 @@
         <div class="tip">🖨 인쇄 창에서 <b>용지 A4 · 여백 기본값 · 배율 100 · 머리글과 바닥글 해제</b>로 맞추면 깔끔하게 나옵니다. 종이 오른쪽 아래에 출력 일시가 찍힙니다.</div>
       </section>
 
-      <section id="ledger" data-keywords="거래 조회 검색 기간 통장 잔액 대조 은행">
+      <section id="ledger" data-keywords="거래 조회 검색 기간 오늘 이번 달 지난 달 통장 잔액 대조 은행 증빙">
         <h2><span class="hn">6</span>거래 조회</h2>
-        <p>기간 · 통장 · 과목 · 구분 · 검색어로 거래를 찾습니다. 시작일을 고르면 종료일도 같은 날로 맞춰집니다.</p>
+        <p>기간 · 통장 · 예산과목 · 구분 · 적요(증빙) 검색어로 거래를 찾습니다. <b>[오늘] [이번 달] [지난 달]</b>을 누르면 기간이 바로 정해지고, 시작일을 고르면 종료일도 같은 날로 맞춰집니다.</p>
         <div class="tip">💡 통장을 하나 고르면 거래마다 잔액이 나와서 <b>은행 통장 사본과 한 줄씩 맞춰 볼</b> 수 있습니다.</div>
       </section>
 
       <section id="backup" data-keywords="백업 내려받기 파일 json 보관 USB">
         <h2><span class="hn">7</span>백업</h2>
-        <p>장부는 본당살림 서버에 저장되지만, 만일에 대비해 <b>한 달에 한 번</b>쯤 <b>[설정 → 백업 → 백업 파일 내려받기]</b>로 장부 전체를 파일로 받아 USB나 OneDrive에 두세요.</p>
+        <p>장부는 본당살림 서버에 저장되지만, 만일에 대비해 <b>한 달에 한 번</b>쯤 <b>[설정 → 백업 → 백업 파일 내려받기]</b>로 장부 전체를 파일로 받아 USB나 OneDrive에 두세요. 백업한 지 오래되면 홈 화면에 빨간 글씨로 알려 주고, 거기서 <b>[지금 백업]</b>을 눌러도 됩니다.</p>
         <div class="warn">⚠ 백업 파일에는 신자 이름과 금액이 들어 있습니다. 다른 사람에게 보내지 마세요.</div>
       </section>
 
@@ -135,7 +137,7 @@
         <table class="grid">
           <thead><tr><th>탭</th><th>바꿀 수 있는 것</th></tr></thead>
           <tbody>
-            <tr><td>성당 정보</td><td>성당명, 결산서 작성자</td></tr>
+            <tr><td>성당 정보</td><td>성당명, 결산서 작성자 (운영 개시일은 거래를 입력한 뒤에는 바꿀 수 없음)</td></tr>
             <tr><td>통장 · 예산과목</td><td>추가 · 이름 바꾸기 · 순서 · 사용 중지 (거래가 있으면 지울 수 없고 사용 중지)</td></tr>
             <tr><td>결재선</td><td>결산서 결재란의 직함</td></tr>
             <tr><td>백업</td><td>백업 파일 내려받기</td></tr>
@@ -145,12 +147,13 @@
         </table>
       </section>
 
-      <section id="faq" class="help-faq" data-keywords="질문 문의 집 창 닫기 실수 통장 사무장">
+      <section id="faq" class="help-faq" data-keywords="질문 문의 집 창 닫기 실수 통장 사무장 공유 알리기 다른 성당">
         <h2><span class="hn">?</span>자주 묻는 질문</h2>
         <details><summary>집에서도 쓸 수 있나요?</summary><p>네. 어느 컴퓨터에서든 같은 구글 계정으로 로그인하면 같은 장부가 열립니다.</p></details>
         <details><summary>입력하다 실수로 창을 닫으면 어떻게 되나요?</summary><p>저장 버튼을 누른 거래는 이미 서버에 저장되어 있습니다. 다시 열면 그대로 있습니다.</p></details>
         <details><summary>마감한 날의 거래를 고치고 싶어요.</summary><p>[일 마감]에서 그날까지 마감취소를 한 뒤 고치고, 다시 마감하세요.</p></details>
         <details><summary>통장이 더 이상 필요 없어요.</summary><p>거래가 있는 통장은 지울 수 없고 [사용 중지]로 바꿉니다. 지난 결산서는 그대로 남습니다.</p></details>
+        <details><summary>다른 성당에도 알려 주고 싶어요.</summary><p>오른쪽 위 <b>[공유하기]</b>를 누르면 사이트 주소를 복사할 수 있습니다. 카카오톡이나 문자로 보내 주세요. 각 성당 장부는 따로 만들어져서 우리 성당 자료는 전달되지 않습니다.</p></details>
         <details><summary>사무장이 바뀌면요?</summary><p><a href="#members">9. 사무장이 바뀌었을 때</a>를 보세요.</p></details>
         <details><summary>문의는 어디로 하나요?</summary><p><a href="mailto:jangsangyun0310@gmail.com">jangsangyun0310@gmail.com</a> 으로 보내 주세요.</p></details>
       </section>

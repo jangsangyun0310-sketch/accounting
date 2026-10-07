@@ -16,6 +16,10 @@
 * { box-sizing: border-box; }
 html { scroll-padding-top: 90px; } /* #backup 같은 바로가기가 메뉴 줄에 가리지 않게 */
 body { margin: 0; background: var(--bg); color: var(--text); }
+/* 글 속 링크는 사이트 색(남색)으로. 방문한 링크도 같은 색 */
+a { color: var(--accent); text-underline-offset: 3px; }
+a:visited { color: var(--accent); }
+a:hover { color: #163a6b; }
 
 /* ---- 상단 메뉴 ---- */
 /* 스크롤해도 맨 위 메뉴 줄은 화면 위에 붙어 있다 */
@@ -33,12 +37,12 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .topbar-inner.wide { max-width: 1280px; }
 .topbar-inner.a4 { max-width: 210mm; padding: 0 4px; } /* 결산서: A4 용지 폭 */
 /* 화면이 넉넉하면 로고는 본문 줄 바깥 왼쪽에 두고, [설정] 버튼부터 본문 왼쪽 줄에 맞춘다.
-   로고 폭 171px + 간격 16px. 화면이 좁으면 로고가 화면 밖으로 나가지 않게 이 배치를 쓰지 않는다. */
-@media (min-width: 1390px) { .topbar-inner:not(.narrow):not(.wide):not(.a4) .brand { margin-left: -187px; } }
-@media (min-width: 1210px) { .topbar-inner.narrow .brand { margin-left: -187px; } }
-@media (min-width: 1630px) { .topbar-inner.wide .brand { margin-left: -187px; } }
-@media (min-width: 1170px) { .topbar-inner.a4 .brand { margin-left: -187px; } }
-.topbar .brand { display: flex; align-items: center; line-height: 0; }
+   로고 폭 171px + 로고 오른쪽 여백 22px + 간격 10px. 화면이 좁으면 로고가 화면 밖으로 나가지 않게 이 배치를 쓰지 않는다. */
+@media (min-width: 1450px) { .topbar-inner:not(.narrow):not(.wide):not(.a4) .brand { margin-left: -203px; } }
+@media (min-width: 1270px) { .topbar-inner.narrow .brand { margin-left: -203px; } }
+@media (min-width: 1690px) { .topbar-inner.wide .brand { margin-left: -203px; } }
+@media (min-width: 1210px) { .topbar-inner.a4 .brand { margin-left: -203px; } }
+.topbar .brand { display: flex; align-items: center; line-height: 0; margin-right: 22px; } /* 로고와 [설정] 사이 여유 */
 .topbar .brand img { height: 48px; width: auto; }
 .topbar .parish-box { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; line-height: 1.3; }
 .topbar .parish { color: var(--text); font-weight: 700; font-size: 15px; }
@@ -349,7 +353,8 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 .danger-zone label { max-width: 440px; margin-bottom: 8px; }
 
 /* 한글 문장은 단어(어절) 중간에서 줄을 바꾸지 않는다 (예: "등록은" 이 "등 / 록은" 으로 끊기지 않게) */
-p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
+body { word-break: keep-all; overflow-wrap: break-word; }
+td, th { overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 적요도 칸 안에서 줄바꿈 */
 /* 설정의 [함께 사용] [초기화 / 탈퇴] 탭: 다른 탭과 떨어진 오른쪽 끝. 초기화 / 탈퇴는 빨간색 */
 .tabs button.tab-right { margin-left: auto; }
 .tabs button.tab-danger { background: #fff; color: var(--danger); border: 2px solid var(--danger); font-weight: 600;
@@ -416,3 +421,8 @@ p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
 .tabs button.tab-danger { min-width: 128px; } /* 오른쪽 두 탭은 같은 너비 */
 .tabs button.tab-danger:hover:not(.active) { background: #fdf0f0; }
 .tabs button small { font-size: 11px; font-weight: 500; }
+/* 화면이 좁으면 [공유하기]는 아이콘만 (메뉴 줄이 두 줄이 되지 않게) */
+@media (max-width: 1180px) {
+  .topbar .share-btn .label { display: none; }
+  .topbar .brand { margin-right: 12px; }
+}
