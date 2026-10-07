@@ -422,10 +422,90 @@ td, th { overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 적요도 칸 안
 .tabs button.tab-danger + button.tab-danger { margin-left: 6px; }
 .tabs button.tab-danger:hover:not(.active) { background: #fdf0f0; }
 .tabs button small { font-size: 11px; font-weight: 500; }
-/* 화면이 좁으면 [공유하기]는 아이콘만 (메뉴 줄이 두 줄이 되지 않게) */
+/* 화면이 좁으면 로고 오른쪽 여백을 줄인다 (메뉴 줄이 두 줄이 되지 않게) */
 @media (max-width: 1180px) {
-  .topbar .share-btn .label { display: none; }
   .topbar .brand { margin-right: 12px; }
 }
 #inapp { font-size: 14px; line-height: 1.6; }
 #inapp .button { margin-top: 8px; display: block; text-align: center; }
+
+/* ======================================================================
+   휴대폰 화면 (폭 720px 이하)
+   - 위: 로고 · [설정] · [도움말] · [⋯](로그아웃·공유하기) 한 줄
+   - 아래: 홈 · 거래 입력 · 거래 조회 · 일 마감 · 결산 고정 메뉴 바
+   - 표: 숫자는 한 줄로, 넓은 표는 옆으로 밀어서 본다
+   ====================================================================== */
+.topbar nav .ni, .topbar .more-btn { display: none; }
+td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .topbar { padding: 8px 0; }
+  .topbar-inner { gap: 8px; padding: 0 12px; }
+  .topbar .brand { margin-right: auto; }
+  .topbar .brand img { height: 36px; }
+  .topbar .settings-link, .topbar .help-link, .topbar .more-btn, .topbar .account button, .topbar .share-btn { height: 36px; padding: 0 10px; font-size: 14px; }
+  .topbar .account { margin-left: 0; order: 3; }
+  .topbar .more-btn { order: 4; }
+  .topbar .account button, .topbar .share-btn { display: none; }
+  .topbar .more-btn { display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #4b5563; border: 1.5px solid #b9c0ca; border-radius: 4px; font-size: 18px; width: 40px; padding: 0; }
+  /* [⋯]를 누르면 버튼 아래에 작은 창으로 로그아웃·공유하기 */
+  .topbar-inner { position: relative; }
+  .topbar.menu-open .account button, .topbar.menu-open .share-btn {
+    display: inline-flex; position: absolute; right: 12px; width: 150px; justify-content: center; z-index: 40;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .15);
+  }
+  .topbar.menu-open .account button { top: 46px; }
+  .topbar.menu-open .share-btn { top: 88px; }
+  .topbar.menu-open .more-btn { background: var(--accent-soft); }
+
+  /* 아래 고정 메뉴 바 */
+  .topbar nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; gap: 0;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(0, 0, 0, .06);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .topbar nav a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0 6px; border-radius: 0; font-size: 12px; color: #6b7280; }
+  .topbar nav a .ni { display: block; line-height: 0; }
+  .topbar nav a.active { background: none; color: var(--accent); font-weight: 700; }
+  .topbar nav a.active .ni { color: var(--accent); }
+  body.has-bottom-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+  .container { padding: 10px; }
+  section { padding: 12px; }
+
+  /* 표: 옆으로 밀어서 보기 (글자를 억지로 줄바꿈하지 않는다) */
+  table.grid { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.grid th, table.grid td { white-space: nowrap; overflow-wrap: normal; }
+
+  /* 설정 탭: 옆으로 밀기 */
+  .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: none; padding: 0 14px; }
+
+  /* 결재란: 휴대폰에서는 칸을 좁게 (4명도 한 화면에) */
+  table.approval-box { width: calc(24px + var(--steps) * 72px); }
+  table.approval-box col.vertical { width: 24px; }
+
+  /* 도움말: 본문이 화면 밖으로 나가지 않게, 차례는 두 줄로 */
+  .help-layout { grid-template-columns: minmax(0, 1fr); padding: 10px; gap: 12px; }
+  .help-toc { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+  .help-toc b { grid-column: 1 / -1; }
+  .help-toc a { padding: 6px 8px; font-size: 13px; }
+  .help-main section { padding: 14px; }
+  .help-main { padding-bottom: 40vh; }
+
+  /* 입력칸: 아이폰이 눌렀을 때 화면을 확대하지 않도록 16px, 표 안 입력칸은 너무 좁아지지 않게 */
+  input, select, textarea { font-size: 16px; }
+  table.grid.edit input, table.grid.edit select { min-width: 96px; }
+
+  /* 키보드 단축키 안내는 휴대폰에서 의미가 없다 */
+  kbd, .entry-help-keys { display: none; }
+
+  /* 거래 입력: 날짜 줄 */
+  .date-nav { flex-wrap: wrap; }
+  .date-nav #date-label { width: 100%; font-size: 13px; }
+  .kind-toggle { width: 100%; }
+  .kind-toggle button { flex: 1; padding: 8px 0; }
+  .entry-fields .save { width: 100%; }
+}

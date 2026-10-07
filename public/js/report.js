@@ -42,7 +42,19 @@ async function load(nextType, value) {
     const r = await api(`/api/reports/period?type=${type}&${type}=${value}`);
     if (r.type === type && value === currentValue()) renderPeriod(r);
   }
+  fitPaper();
 }
+
+// 휴대폰: A4 용지를 화면 폭에 맞춰 줄여 한눈에 보이게 (손가락으로 벌리면 확대). 인쇄할 때는 원래 크기
+function fitPaper() {
+  const paper = $('paper');
+  paper.style.zoom = '';
+  const room = document.documentElement.clientWidth - 16;
+  if (room < 720 && paper.offsetWidth > room) paper.style.zoom = String(room / paper.offsetWidth);
+}
+addEventListener('resize', fitPaper);
+addEventListener('beforeprint', () => { $('paper').style.zoom = ''; });
+addEventListener('afterprint', fitPaper);
 
 /** 이전·다음 (하루 / 한 달 / 한 해) */
 function shift(dir) {

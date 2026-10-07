@@ -75,10 +75,16 @@ body.report-page { background: #e9ecf0; }
   #toast { display: none; }
 }
 
-/* 화면이 좁으면 용지를 줄이지 않고 가로 스크롤 (표가 잘려 보이지 않게) */
+/* 화면이 좁으면 가로 스크롤. 휴대폰(720px 이하)에서는 report.js 가 용지를 화면 폭에 맞춰 줄인다 */
 @media screen and (max-width: 840px) {
   .paper-scroll { overflow-x: auto; }
   .paper { margin: 12px; }
+}
+@media screen and (max-width: 720px) {
+  .paper { margin: 8px; }
+  .report-toolbar { margin-top: 10px; padding: 0 8px; gap: 8px; }
+  .report-toolbar #print { margin-left: 0; }
+  .print-guide { display: none; }
 }
 .print-guide { font-size: 12px; color: var(--muted); max-width: 210mm; margin: 4px auto 0; padding: 0 4px; }
 

@@ -4,12 +4,13 @@ import { api, esc } from './api.js';
 import { formatWon } from './shared/money.js';
 import { currentAccount, logout } from './account.js';
 
+// icon: 휴대폰 화면 아래 메뉴 바에서만 보이는 그림
 const NAV = [
-  { href: '/', label: '홈', key: 'home' },
-  { href: '/entry', label: '거래 입력', key: 'entry' },
-  { href: '/ledger', label: '거래 조회', key: 'ledger' },
-  { href: '/closing', label: '일 마감', key: 'closing' },
-  { href: '/report', label: '결산', key: 'report' },
+  { href: '/', label: '홈', key: 'home', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>' },
+  { href: '/entry', label: '거래 입력', key: 'entry', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>' },
+  { href: '/ledger', label: '거래 조회', key: 'ledger', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>' },
+  { href: '/closing', label: '일 마감', key: 'closing', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M9 15l2 2 4-4"/></svg>' },
+  { href: '/report', label: '결산', key: 'report', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h7"/></svg>' },
 ];
 
 // [도움말]은 업무 메뉴와 떨어진 오른쪽(로그아웃 옆)에 두고, 지금 보고 있는 화면의 설명으로 바로 연다
@@ -38,13 +39,20 @@ export async function initPage(active, { requireSetup = true } = {}) {
       ${settings.setupCompleted
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
-        `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
+        `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}"><span class="ni">${n.icon}</span><span class="nl">${n.label}</span></a>`).join('') : ''}</nav>
+      <button type="button" class="more-btn" id="more-btn" aria-expanded="false" aria-label="메뉴 더 보기">⋯</button>
       <span class="account"><a class="help-link ${active === 'help' ? 'active' : ''}" href="${href(HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : '/help')}">도움말</a>
         <button type="button" class="secondary small" id="logout-btn"
         title="${esc(account.user.email)} 계정으로 로그인되어 있습니다">로그아웃</button></span>
-      <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">🔗<span class="label"> 공유하기</span></button></div>`;
+      <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button></div>`;
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
     bar.querySelector('#logout-btn')?.addEventListener('click', logout);
+    // 휴대폰: [⋯]를 누르면 로그아웃·공유하기가 펼쳐진다
+    bar.querySelector('#more-btn')?.addEventListener('click', (e) => {
+      const open = bar.classList.toggle('menu-open');
+      e.currentTarget.setAttribute('aria-expanded', String(open));
+    });
+    document.body.classList.toggle('has-bottom-nav', Boolean(settings.setupCompleted));
   }
   return { me, settings, account };
 }
