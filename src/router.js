@@ -5,9 +5,11 @@
 //   /login    : 로그인 화면 (누구나)
 //   /signup   : 성당 등록 화면 (로그인했지만 아직 성당이 없는 사용자)
 //   그 밖 화면 : 로그인하고 성당이 등록된 사용자만. 아니면 로그인·성당 등록 화면으로 보낸다.
+//   (예약 작업) : 매일 새벽 서버 자동 백업 (src/server-backup.js)
 // css·js·그림 같은 프로그램 파일은 wrangler.jsonc 의 run_worker_first 에서 빼서 Worker 를 거치지 않는다.
 import { getSession, handleAuth, redirect } from './auth.js';
 import { handleAccount } from './account.js';
+import { runServerBackups } from './server-backup.js';
 
 const PUBLIC_PAGES = new Set(['/login', '/login.html']);
 // 로그인과 관계없이 누구나 보는 화면 (구글 로그인 설정·스토어 등록에 주소가 필요)
@@ -15,6 +17,11 @@ const OPEN_PAGES = new Set(['/privacy', '/privacy.html']);
 const SIGNUP_PAGES = new Set(['/signup', '/signup.html']);
 
 export default {
+  // 매일 새벽 서버 자동 백업 (src/server-backup.js)
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runServerBackups(env));
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/auth/')) return handleAuth(request, env, url);

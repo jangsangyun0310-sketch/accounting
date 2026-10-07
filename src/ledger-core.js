@@ -70,3 +70,45 @@ export async function resetLedger(storage, files) {
   await storage.deleteAll();
   applyMigrations(storage, files);
 }
+
+// ---------------------------------------------------------------- 서버 자동 백업
+
+export const BACKUP_CHUNK_BYTES = 1_000_000; // D1 한 값 2MB 제한 안쪽
+
+/** 글자 → gzip 바이트 */
+export async function gzipText(text) {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** gzip 바이트 → 글자 */
+export async function gunzipText(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).text();
+}
+
+export function chunkBytes(bytes, size = BACKUP_CHUNK_BYTES) {
+  const out = [];
+  for (let i = 0; i < bytes.length; i += size) out.push(bytes.slice(i, i + size));
+  return out.length ? out : [new Uint8Array(0)];
+}
+
+/**
+ * 백업 자료 한 벌을 백업 DB 에 넣는 SQL 문 (같은 날짜 것이 있으면 바꾼다).
+ * @param db 백업 DB (env.BACKUPS)
+ */
+export async function serverBackupStatements(db, { parishId, date, backup }) {
+  const json = JSON.stringify(backup);
+  const chunks = chunkBytes(await gzipText(json));
+  return [
+    db.prepare('DELETE FROM ledger_backup_chunks WHERE parish_id = ? AND backup_date = ?').bind(parishId, date),
+    db.prepare('DELETE FROM ledger_backups WHERE parish_id = ? AND backup_date = ?').bind(parishId, date),
+    db.prepare(`INSERT INTO ledger_backups (parish_id, backup_date, created_at, json_size, checksum, counts, chunks)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(parishId, date, new Date().toISOString(), new TextEncoder().encode(json).length,
+        backup.checksum, JSON.stringify(backup.counts), chunks.length),
+    ...chunks.map((data, seq) => db.prepare(
+      'INSERT INTO ledger_backup_chunks (parish_id, backup_date, seq, data) VALUES (?, ?, ?, ?)',
+    ).bind(parishId, date, seq, data)),
+  ];
+}

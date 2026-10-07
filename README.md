@@ -80,6 +80,14 @@ npm test        # 금액 처리·장부 규칙·장부 파일 암호화·로그�
 - **예전 JSON 백업 파일:** 새 장부의 최초 설정 화면 → "백업 파일로 복구하기".
   형식·검사값(SHA-256)·이체 쌍·예산과목 구분·마감 당시 잔액 재계산을 검사한 뒤, 한 번에 전부 저장하거나 전혀 저장하지 않습니다.
 
+## 서버 자동 백업 (운영자용)
+
+- 매일 새벽 3시(한국)에 모든 성당 장부를 백업 DB `bondang-salim-backups` 에 gzip 으로 저장하고 **30일치**를 보관합니다 (`src/server-backup.js`).
+- 성당 화면의 "마지막 백업" 기록과는 따로입니다. 계정 DB(D1)와 장부 저장소(Durable Object)는 Cloudflare 가 30일 시점 복구도 제공합니다.
+- 꺼내기: `node scripts/server-backup.mjs list` → `node scripts/server-backup.mjs get <성당ID> <YYYY-MM-DD>` 로 .json 파일 저장.
+  성당 화면에서 설정 → 초기화 / 탈퇴 → 장부 초기화 후 최초 설정의 [예전 장부 가져오기]로 되살립니다.
+- 내 컴퓨터 시험: `npx wrangler dev --test-scheduled` 후 `POST /cdn-cgi/local/explorer/api/local/scheduled?worker=bondang-salim&cron=0+18+*+*+*`, 스크립트는 `--local`.
+
 ## 회계 데이터 원칙
 
 - 금액은 원 단위 정수만 저장합니다 (DB `CHECK` 로 강제).

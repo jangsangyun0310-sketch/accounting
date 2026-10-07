@@ -23,8 +23,18 @@
       "database_name": "bondang-salim-main",
       "database_id": "19e59564-19b7-41e4-a1f4-6901c5afba44",
       "migrations_dir": "src/migrations"
+    },
+    // 서버 자동 백업 보관 (성당별 장부 전체, 30일). 아시아·태평양(apac)
+    {
+      "binding": "BACKUPS",
+      "database_name": "bondang-salim-backups",
+      "database_id": "25707e9a-ecf9-4180-b42f-da5fc5ec7103",
+      "migrations_dir": "src/backup-migrations"
     }
   ],
+
+  // 매일 새벽 3시(한국) = UTC 18:00 서버 자동 백업
+  "triggers": { "crons": ["0 18 * * *"] },
 
   // 성당별 장부 저장소: 성당 하나에 Durable Object 하나 (각자 SQLite 데이터베이스를 가진다)
   "durable_objects": {
