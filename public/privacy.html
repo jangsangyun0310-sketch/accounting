@@ -12,6 +12,12 @@
     .policy h2 { font-size: 16px; margin: 22px 0 6px; }
     .policy table.grid td, .policy table.grid th { vertical-align: top; }
     .policy table.grid td:first-child { white-space: nowrap; }
+    /* 휴대폰: 이 표는 옆으로 밀지 않고 글자를 줄바꿈 */
+    @media (max-width: 720px) {
+      .policy table.grid { display: table; }
+      .policy table.grid td, .policy table.grid th { white-space: normal; }
+      .policy table.grid td:first-child { white-space: nowrap; }
+    }
   </style>
 </head>
 <body>
@@ -44,6 +50,7 @@
       <ul>
         <li>로그인 정보·성당 정보·장부 내용: 이용자가 탈퇴(삭제)를 요청할 때까지. 요청을 받으면 지체 없이 복구할 수 없는 방법으로 지웁니다.</li>
         <li>로그인 유지 정보: 30일이 지나거나 로그아웃하면 지웁니다.</li>
+        <li>서버 자동 백업: 장애에 대비해 매일 장부 전체를 백업하고 <b>30일 동안</b> 보관합니다. 탈퇴하면 장부는 바로 지우며, 탈퇴 전에 만들어진 백업은 30일이 지나면 자동으로 지워집니다.</li>
         <li>법령에서 보관을 정한 경우에는 그 기간 동안 보관합니다.</li>
       </ul>
 
@@ -63,6 +70,7 @@
       <h2>6. 안전성 확보 조치</h2>
       <ul>
         <li>모든 통신은 암호화(HTTPS)합니다.</li>
+        <li>장애에 대비해 매일 자동 백업을 하고, 백업은 운영자만 꺼낼 수 있습니다.</li>
         <li>성당마다 장부 저장소를 따로 두고, 로그인한 사용자의 성당 장부에만 접근할 수 있게 합니다.</li>
         <li>비밀번호를 저장하지 않습니다(구글 로그인). 로그인 유지 정보는 원문 대신 해시값만 저장합니다.</li>
       </ul>

@@ -478,10 +478,14 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   table.grid { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table.grid th, table.grid td { white-space: nowrap; overflow-wrap: normal; }
 
-  /* 설정 탭: 옆으로 밀기 */
-  .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tabs button { flex: none; padding: 0 14px; }
+  /* 설정 탭: 두 줄(4개씩)로 모두 보이게 */
+  .tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding-bottom: 6px; }
+  .tabs button { height: 42px; padding: 0 4px; border-radius: 6px; font-size: 13px; }
+  .tabs button.tab-right, .tabs button.tab-danger + button.tab-danger { margin-left: 0; }
+  .tabs button.tab-danger { min-width: 0; margin-bottom: 0; height: 42px; align-self: auto; }
+  .tabs button small { font-size: 10px; }
+  .tabs button.tab-danger { white-space: nowrap; font-size: 12px; letter-spacing: -0.3px; }
+  .tabs + section { border-top-left-radius: 6px; }
 
   /* 화면이 옆으로 밀리지 않게 (위·아래 메뉴가 늘 제자리에 있도록) */
   html, body { overflow-x: clip; }

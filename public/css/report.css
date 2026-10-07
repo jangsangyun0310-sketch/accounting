@@ -12,8 +12,10 @@ body.report-page { background: #e9ecf0; }
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   max-width: 210mm; margin: 16px auto 0; padding: 0 4px;
 }
-.report-toolbar #excel { margin-left: auto; padding: 8px 18px; }
+.report-toolbar .toolbar-actions { margin-left: auto; display: flex; gap: 8px; }
+.report-toolbar #excel { padding: 8px 18px; }
 .report-toolbar #print { padding: 8px 22px; }
+.report-toolbar #state { flex-basis: 100%; } /* 마감 상태 안내는 아래 줄에 */
 #warning { max-width: 210mm; margin: 8px auto 0; }
 
 .paper {
@@ -84,7 +86,7 @@ body.report-page { background: #e9ecf0; }
 @media screen and (max-width: 720px) {
   .paper { margin: 8px; }
   .report-toolbar { margin-top: 10px; padding: 0 8px; gap: 8px; }
-  .report-toolbar #excel { margin-left: 0; }
+  .report-toolbar .toolbar-actions { margin-left: 0; }
   .print-guide { display: none; }
 }
 .print-guide { font-size: 12px; color: var(--muted); max-width: 210mm; margin: 4px auto 0; padding: 0 4px; }
