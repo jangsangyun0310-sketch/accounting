@@ -1,0 +1,47 @@
+/* 스토어 홍보 이미지 (1080×1920, 9:16) 공통 틀 */
+html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; }
+body.shot {
+  position: relative;
+  background: linear-gradient(165deg, #2a62ad 0%, #1f4e8c 45%, #163a6b 100%);
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  color: #fff;
+}
+body.shot::before { /* 은은한 빛 */
+  content: ""; position: absolute; width: 900px; height: 900px; right: -320px; top: -360px;
+  background: radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,0) 65%);
+}
+.copy { position: absolute; left: 90px; right: 90px; top: 120px; }
+.step {
+  display: inline-block; padding: 10px 26px; border-radius: 40px; background: #6fbf73; color: #fff;
+  font-size: 30px; font-weight: 700; letter-spacing: 1px;
+}
+.copy h1 { font-size: 84px; line-height: 1.22; margin: 34px 0 26px; letter-spacing: -2px; font-weight: 800; }
+.copy h1 em { font-style: normal; color: #a8e0a0; }
+.copy p { font-size: 38px; line-height: 1.5; margin: 0; color: rgba(255,255,255,.86); letter-spacing: -.5px; }
+
+/* 휴대폰 모양 틀 (아래쪽은 화면 밖으로) */
+.phone {
+  position: absolute; left: 100px; width: 880px; top: 690px; height: 1330px;
+  background: #0f1d33; border-radius: 76px; padding: 22px;
+  box-shadow: 0 40px 80px rgba(0,0,0,.35), 0 0 0 3px rgba(255,255,255,.12) inset;
+}
+.screen { width: 836px; height: 100%; border-radius: 56px; overflow: hidden; background: #f6f7f9; position: relative; }
+/* 앱 화면은 폭 380px 기준으로 만들고 2.2배 확대 */
+.app { zoom: 2.2; width: 380px; color: #1d2330; }
+.app .topbar { position: static; padding: 8px 0; }
+.app .topbar-inner { padding: 0 12px; }
+.app .topbar .brand img { height: 34px; }
+.app .container { padding: 10px; }
+.app section { padding: 10px 12px; margin-bottom: 10px; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 200px; height: 30px;
+  background: #0f1d33; border-radius: 0 0 20px 20px; z-index: 5; }
+
+/* 앱스토어(iPhone 6.5″) 1284×2778: 같은 디자인을 1.1889배 키우고 세로를 늘림 (1080 기준 높이 2337) */
+@media (min-width: 1200px) {
+  html { zoom: 1.188889; }
+  html, body { width: 1080px; height: 2337px; }
+  .copy { top: 170px; }
+  .chips { top: 635px !important; }
+  .phone { top: 760px; height: auto; bottom: -110px; }
+  .stage { top: 720px !important; }
+}

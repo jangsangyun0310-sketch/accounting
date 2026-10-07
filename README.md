@@ -5,11 +5,13 @@
 - 화면: HTML / CSS / JavaScript (빌드 과정 없음)
 - 장부: **각 성당 컴퓨터의 파일 하나**(`.bondang`)에 비밀번호로 잠가 저장
 - 계산: 브라우저 안의 SQLite(sqlite-wasm)에서 실행
-- 서버: Cloudflare Workers 정적 파일만 (서버 코드·데이터베이스 없음)
+- 서버: Cloudflare Workers + D1. 구글 로그인, 성당·사용자 계정 (`src/`)
+
+> **전환 중 (2026-10-07):** 모든 성당이 쓰는 서비스 하나로 바꾸는 중입니다. 1단계(구글 로그인·성당 등록)가 들어갔고, 장부를 서버에 저장하는 것은 2단계입니다. 그때까지 장부는 아래처럼 각 컴퓨터의 파일에 저장됩니다.
 
 ## 시작하기
 
-**https://bondang-salim.jangsangyun0310.workers.dev** 를 **크롬** 또는 **엣지**로 열고 **[새 장부 만들기]** 를 누릅니다.
+**https://bondang-salim.jangsangyun0310.workers.dev** 를 **크롬** 또는 **엣지**로 열고 **Google 계정으로 로그인**합니다. 처음이면 성당 이름을 등록한 뒤 **[새 장부 만들기]** 를 누릅니다.
 
 1. 비밀번호를 정하고, 장부 파일을 저장할 곳을 고릅니다. (`OneDrive` 폴더를 권합니다)
 2. 최초 설정(성당명, 통장과 초기잔액, 예산과목, 결재선)을 입력하면 바로 쓸 수 있습니다.
@@ -26,16 +28,11 @@
 `'BDF1'`(4바이트) + 머리말 길이(4바이트) + 머리말 JSON `{ format, id, kdf }` + 암호문(`'BDS1'` + IV + AES-GCM(gzip(SQLite 파일)), 추가 인증값 = id).
 머리말에는 비밀이 아닌 값(파일 ID, 열쇠 만들기 설정)만 있습니다.
 
-## 직접 설치하기 (자기 Cloudflare 계정에 프로그램만 따로 올리기)
-
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jangsangyun0310-sketch/accounting)
-
-Cloudflare 계정(무료)만 있으면 됩니다. 정적 파일만 올라가며 데이터베이스는 만들지 않습니다.
-장부는 어느 주소에서 열든 각 성당 컴퓨터의 파일에 저장됩니다.
-
 ## 폴더 구조
 
 ```
+src/                 서버(Worker): 구글 로그인·세션·성당 등록, 화면 접근 제한
+  migrations/        서비스 계정 DB(D1) 표 구조
 public/              프로그램 파일 (정적 파일)
   core/              회계 엔진: 거래·마감·결산 규칙 (/api/* 를 브라우저 안에서 처리)
   migrations/        장부(SQLite) 표 구조 (순서대로 적용)
@@ -52,14 +49,20 @@ Node.js 22.13 이상이 필요합니다.
 
 ```bash
 npm install
+npx wrangler d1 migrations apply bondang-salim-main --local   # 처음 한 번
 npm run dev     # http://localhost:8787
-npm test        # 금액 처리·장부 규칙·장부 파일 암호화 테스트
+npm test        # 금액 처리·장부 규칙·장부 파일 암호화·로그인 테스트
 ```
+
+내 컴퓨터에서 구글 없이 시험하려면 `.dev.vars` 에 `DEV_LOGIN=1` 을 넣고
+`http://localhost:8787/auth/dev-login?email=test@example.com` 으로 들어갑니다 (localhost 에서만 동작).
 
 ## 화면
 
 | 주소 | 내용 |
 |---|---|
+| `/login` | 구글 로그인 (로그인 전에는 모든 화면이 이곳으로 이동) |
+| `/signup` | 성당 등록: 처음 로그인한 사용자가 성당 이름 등록·정보 보관 동의 |
 | `/setup` | 최초 설정 마법사 (설정 전에는 모든 화면이 이곳으로 이동). 예전 JSON 백업 파일로 복구도 여기서 |
 | `/` | 홈: 통장별 잔액, 결재선 |
 | `/entry` | 거래 입력: 수입·지출·이체 입력, 수정(취소 후 재입력), 취소, 하루 현황 |
@@ -93,7 +96,12 @@ npm test        # 금액 처리·장부 규칙·장부 파일 암호화 테스�
 
 ```bash
 npx wrangler login
-npm run deploy     # public/ 정적 파일만 올린다
+npx wrangler d1 migrations apply bondang-salim-main --remote   # 표 구조가 바뀌었을 때
+npm run deploy
 ```
 
-- 서버 코드·데이터베이스·비밀값이 없습니다. `wrangler.jsonc` 는 `assets` 만 지정합니다.
+구글 로그인 준비 (처음 한 번):
+
+1. Google Cloud 콘솔 → API 및 서비스 → OAuth 동의 화면을 만들고, 사용자 인증 정보 → **OAuth 클라이언트 ID**(웹 애플리케이션)를 만듭니다.
+2. 승인된 리디렉션 URI: `https://bondang-salim.jangsangyun0310.workers.dev/auth/google/callback` (내 컴퓨터 시험용은 `http://localhost:8787/auth/google/callback`)
+3. 클라이언트 ID 는 `wrangler.jsonc` 의 `GOOGLE_CLIENT_ID` 에, 보안 비밀은 `npx wrangler secret put GOOGLE_CLIENT_SECRET` 으로 넣습니다.

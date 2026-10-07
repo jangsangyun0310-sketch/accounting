@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../public/css/app.css">
+<link rel="stylesheet" href="shots.css">
+<style>
+  .app .calendar .cell { min-height: 50px; padding: 3px; }
+  .app .calendar .cell .tag { font-size: 10px; padding: 0 3px; }
+  .app .closing-status { gap: 16px; }
+  .app .closing-status button { margin-left: 0; width: 100%; }
+  .app ul.legend { gap: 8px; margin: 10px 0 2px; }
+  .app table.grid th, .app table.grid td { padding: 5px 6px; font-size: 13px; }
+</style>
+</head>
+<body class="shot">
+  <div class="copy">
+    <span class="step">일 마감</span>
+    <h1>하루 장부를<br><em>마감으로 단단하게</em></h1>
+    <p>달력에서 마감 상태를 한눈에 확인하세요.<br>마감한 날은 잠겨서 실수로 바뀌지 않습니다.</p>
+  </div>
+  <div class="phone"><div class="screen"><div class="notch"></div>
+    <div class="app">
+      <header class="topbar"><div class="topbar-inner"><span class="brand"><img src="../public/img/logo.png" alt=""></span></div></header>
+      <main class="container">
+        <section class="closing-status">
+          <div class="status-item"><span class="muted">마지막 마감일</span><b>10월 6일 (화)</b></div>
+          <div class="status-item"><span class="muted">미마감 거래</span><b>10월 7일 · 6건</b></div>
+          <button>10월 7일 마감하기</button>
+        </section>
+        <section>
+          <div class="cal-head">
+            <button class="secondary small">◀</button>
+            <h2>2026년 10월</h2>
+            <button class="secondary small">▶</button>
+          </div>
+          <div class="calendar" id="calendar"></div>
+          <ul class="legend">
+            <li><span class="dot closed"></span>마감</li>
+            <li><span class="dot locked"></span>거래 없는 날</li>
+            <li><span class="dot open"></span>미마감</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div></div>
+<script>
+  // 2026년 10월: 1일은 목요일. 1~6일 마감, 7일(오늘) 미마감
+  const counts = { 1: 4, 2: 3, 4: 12, 5: 2, 6: 5, 7: 6 };
+  const wd = ['일', '월', '화', '수', '목', '금', '토'];
+  let html = wd.map(d => `<div class="wd">${d}</div>`).join('');
+  for (let i = 0; i < 4; i++) html += '<div class="cell empty"></div>';
+  for (let d = 1; d <= 31; d++) {
+    let cls = 'future', tag = '';
+    if (d <= 6) { cls = counts[d] ? 'closed' : 'locked'; tag = `<span class="tag">${counts[d] ? '마감' : '잠김'}</span>`; }
+    if (d === 7) { cls = 'pending today selected'; tag = '<span class="tag">미마감</span>'; }
+    const count = counts[d] ? `<span class="count">${counts[d]}건</span>` : '';
+    html += `<div class="cell ${cls}"><span class="day">${d}</span>${tag}${count}</div>`;
+  }
+  document.getElementById('calendar').innerHTML = html;
+</script>
+</body>
+</html>

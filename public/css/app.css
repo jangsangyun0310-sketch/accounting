@@ -326,3 +326,13 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 .parish-address #close-ledger { margin-left: 8px; }
 .parish-address .install-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 @media print { .topbar { position: static; } }
+
+/* ---- 로그인 ---- */
+.google-btn {
+  display: flex; align-items: center; justify-content: center; gap: 12px; padding: 11px 16px;
+  border: 1px solid #747775; border-radius: 4px; background: #fff; color: #1f1f1f;
+  font-size: 16px; font-weight: 600; text-decoration: none;
+}
+.google-btn:hover { background: #f5f7fa; }
+.topbar .account { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.topbar .account + .share-btn { margin-left: 0; }

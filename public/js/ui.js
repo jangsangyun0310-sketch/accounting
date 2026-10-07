@@ -2,6 +2,7 @@
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { formatWon } from './shared/money.js';
+import { currentAccount, logout } from './account.js';
 
 const NAV = [
   { href: '/', label: '홈', key: 'home' },
@@ -16,6 +17,7 @@ const NAV = [
  * 최초 설정이 안 되어 있으면 설정 마법사로 이동한다.
  */
 export async function initPage(active, { requireSetup = true } = {}) {
+  const account = await currentAccount(); // 로그인이 풀렸으면 여기서 로그인 화면으로 간다
   const [me, settings] = await Promise.all([api('/api/me'), api('/api/settings')]);
   if (requireSetup && !settings.setupCompleted) {
     location.replace(href('/setup'));
@@ -34,13 +36,16 @@ export async function initPage(active, { requireSetup = true } = {}) {
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
+      <span class="account">${esc(account.user.email)}
+        <button type="button" class="secondary small" id="logout-btn">로그아웃</button></span>
       <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button></div>`;
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
+    bar.querySelector('#logout-btn')?.addEventListener('click', logout);
   }
-  return { me, settings };
+  return { me, settings, account };
 }
 
-// 다른 성당에 보낼 링크: 프로그램 주소만 보낸다. 장부는 각 성당 컴퓨터의 파일에 있으므로 우리 자료는 전혀 가지 않는다.
+// 다른 성당에 보낼 링크: 사이트 주소만 보낸다. 장부는 성당마다 따로라 우리 자료는 전혀 가지 않는다.
 function openShareDialog() {
   const link = `${location.origin}/`;
   let dlg = document.getElementById('share-dialog');
@@ -65,9 +70,8 @@ function openShareDialog() {
     <p>아래 링크를 다른 성당 사무장님께 보내 주세요.</p>
     <div class="copy-row big"><input readonly value="${esc(link)}"><button type="button" data-copy>링크 복사</button></div>
     <ul class="start-points">
-      <li>크롬이나 엣지로 링크를 열고 <b>[새 장부 만들기]</b>를 누르면 됩니다. 설치·가입은 필요 없습니다.</li>
-      <li>장부는 <b>그 성당 컴퓨터의 파일</b>에 따로 만들어집니다. <b>우리 성당 자료는 전혀 전달되지 않습니다.</b></li>
-      <li>장부 파일은 그 성당 비밀번호로 잠기고, 서버에는 아무것도 저장되지 않습니다.</li>
+      <li>링크를 열고 <b>Google 계정으로 로그인</b>한 뒤 성당 이름을 등록하면 됩니다.</li>
+      <li>장부는 성당마다 따로 만들어집니다. <b>우리 성당 자료는 전혀 전달되지 않습니다.</b></li>
     </ul>
     <div class="dialog-foot"><button type="button" class="secondary" data-close>닫기</button></div>`;
   dlg.showModal();

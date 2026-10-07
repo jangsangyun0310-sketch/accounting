@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../public/css/app.css">
+<link rel="stylesheet" href="shots.css">
+<style>
+  .app { zoom: 1.9; width: 440px; padding-top: 34px; }
+  .app .unlock-box { padding: 20px 24px 16px; }
+  .app .unlock-box { width: 380px; margin: 0 auto; }
+  .fake-input { padding: 10px; border: 1px solid #b9c0ca; border-radius: 4px; background: #fff; font-size: 17px; letter-spacing: 3px; outline: 2px solid var(--accent); outline-offset: -1px; }
+  .points { display: flex; flex-direction: column; gap: 14px; width: 380px; margin: 16px auto 0; gap: 10px; }
+  .point { display: flex; gap: 12px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.45; }
+  .point .ic { flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 19px; }
+  .point b { display: block; font-size: 15px; }
+</style>
+</head>
+<body class="shot">
+  <div class="copy">
+    <span class="step">안전한 보관</span>
+    <h1>장부는<br><em>우리 본당 컴퓨터에만</em></h1>
+    <p>비밀번호로 잠긴 장부 파일 하나에 저장합니다.<br>서버에는 아무것도 남지 않습니다.</p>
+  </div>
+  <div class="phone"><div class="screen"><div class="notch"></div>
+    <div class="app">
+      <div class="unlock-box">
+        <img src="../public/img/logo.png" alt="">
+        <h2>장부 열기</h2>
+        <div class="file-name">예시성당 장부.bondang</div>
+        <label>비밀번호 <span class="fake-input">●●●●●●●●●●</span></label>
+        <button>열기</button>
+        <p class="help" style="text-align:center">다른 장부 파일 열기 · 새 장부 만들기</p>
+      </div>
+      <div class="points">
+        <div class="point"><span class="ic">🔒</span><span><b>비밀번호 잠금</b>비밀번호 없이는 누구도 열 수 없습니다</span></div>
+        <div class="point"><span class="ic">💾</span><span><b>입력하는 즉시 저장</b>따로 저장 버튼을 누를 필요가 없습니다</span></div>
+        <div class="point"><span class="ic">📁</span><span><b>백업은 파일 복사 한 번</b>USB나 외장 디스크에 사본을 보관하세요</span></div>
+      </div>
+    </div>
+  </div></div>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../public/css/app.css">
+<link rel="stylesheet" href="../public/css/report.css">
+<link rel="stylesheet" href="shots.css">
+<style>
+  /* A4 용지를 비스듬히 띄워 보여 줌 */
+  .stage { position: absolute; left: 0; right: 0; top: 660px; bottom: 0; }
+  .paper {
+    position: absolute; left: 50%; top: 40px; margin: 0; zoom: 1.2;
+    transform: translateX(-50%);
+    box-shadow: 0 30px 60px rgba(0,0,0,.4); min-height: 0; height: 297mm;
+  }
+  .chips { position: absolute; left: 90px; top: 585px; display: flex; gap: 16px; }
+  .chip { padding: 12px 28px; border-radius: 40px; background: rgba(255,255,255,.14); border: 2px solid rgba(255,255,255,.35); font-size: 32px; font-weight: 700; }
+  .chip.on { background: #fff; color: #1f4e8c; border-color: #fff; }
+  .print-btn { position: absolute; right: 110px; bottom: 120px; padding: 26px 54px; border-radius: 16px; background: #1f4e8c; color: #fff; font-size: 40px; font-weight: 700; box-shadow: 0 16px 40px rgba(16,40,80,.45); }
+</style>
+</head>
+<body class="shot">
+  <div class="copy">
+    <span class="step">결산서 인쇄</span>
+    <h1>결재란까지 갖춘<br><em>A4 결산서</em></h1>
+    <p>버튼 하나로 일일·월말·연말 결산서를 인쇄해<br>결재란에 바로 서명받으세요.</p>
+  </div>
+  <div class="chips"><span class="chip on">일일결산</span><span class="chip">월말결산</span><span class="chip">연말결산</span></div>
+  <div class="stage">
+    <div class="paper"><div class="report">
+      <div class="r-head">
+        <div class="r-title">
+          <h1>일일 결산서</h1>
+          <table class="r-meta">
+            <tr><th>본당</th><td>예시성당</td></tr>
+            <tr><th>결산일</th><td>2026년 10월 4일 (일)</td></tr>
+            <tr><th>작성자</th><td>사무장 <span class="seal">(인)</span></td></tr>
+          </table>
+        </div>
+        <div class="r-approval">
+          <table class="approval-box" style="--steps:4">
+            <colgroup><col class="vertical"><col><col><col><col></colgroup>
+            <tr><th class="vertical" rowspan="2">결<br>재</th><th>기안</th><th>재정부회장</th><th>사목회장</th><th>주임신부</th></tr>
+            <tr><td></td><td></td><td></td><td></td></tr>
+          </table>
+        </div>
+      </div>
+      <h2>1. 수입</h2>
+      <table class="r-table">
+        <thead><tr><th class="no">No</th><th>예산과목</th><th>통장</th><th>적요</th><th>금액</th></tr></thead>
+        <tbody>
+          <tr><td class="no">1</td><td>주일헌금</td><td>경상비</td><td>교중미사</td><td class="amt">842,000</td></tr>
+          <tr><td class="no">2</td><td>주일헌금</td><td>경상비</td><td>어린이미사</td><td class="amt">96,000</td></tr>
+          <tr><td class="no">3</td><td>교무금</td><td>교무금</td><td>김베드로 10월</td><td class="amt">150,000</td></tr>
+          <tr><td class="no">4</td><td>교무금</td><td>교무금</td><td>이마리아 10월</td><td class="amt">100,000</td></tr>
+          <tr><td class="no">5</td><td>미사예물</td><td>미사 예물 예치금</td><td>연미사 3건</td><td class="amt">60,000</td></tr>
+          <tr><td class="no">6</td><td>감사헌금</td><td>경상비</td><td>무명</td><td class="amt">38,000</td></tr>
+        </tbody>
+        <tfoot><tr><td colspan="4">수입 합계</td><td class="amt strong">1,286,000</td></tr></tfoot>
+      </table>
+      <h2>2. 지출</h2>
+      <table class="r-table">
+        <thead><tr><th class="no">No</th><th>예산과목</th><th>통장</th><th>적요</th><th>금액</th></tr></thead>
+        <tbody>
+          <tr><td class="no">1</td><td>전례비</td><td>경상비</td><td>제대 꽃꽂이</td><td class="amt">120,000</td></tr>
+          <tr><td class="no">2</td><td>사목활동비</td><td>경상비</td><td>주일학교 간식</td><td class="amt">58,500</td></tr>
+          <tr><td class="no">3</td><td>관리운영비</td><td>경상비</td><td>사무용품</td><td class="amt">36,000</td></tr>
+        </tbody>
+        <tfoot><tr><td colspan="4">지출 합계</td><td class="amt strong">214,500</td></tr></tfoot>
+      </table>
+      <h2>3. 이체</h2>
+      <table class="r-table">
+        <thead><tr><th class="no">No</th><th>보내는 곳</th><th>받는 곳</th><th>적요</th><th>금액</th></tr></thead>
+        <tbody><tr><td class="no">1</td><td>기타 후원금</td><td>사회복지 예치금</td><td>이웃돕기 적립</td><td class="amt">500,000</td></tr></tbody>
+      </table>
+      <h2>4. 통장별 잔액</h2>
+      <table class="r-table">
+        <thead><tr><th>통장</th><th>전일 잔액</th><th>수입</th><th>지출</th><th>오늘 잔액</th></tr></thead>
+        <tbody>
+          <tr><td>경상비</td><td class="amt">10,412,000</td><td class="amt">976,000</td><td class="amt">214,500</td><td class="amt strong">11,173,500</td></tr>
+          <tr><td>교무금</td><td class="amt">1,350,000</td><td class="amt">250,000</td><td class="amt">0</td><td class="amt strong">1,600,000</td></tr>
+          <tr><td>미사 예물 예치금</td><td class="amt">330,000</td><td class="amt">60,000</td><td class="amt">0</td><td class="amt strong">390,000</td></tr>
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+  <div class="print-btn">🖨 인쇄하기</div>
+</body>
+</html>

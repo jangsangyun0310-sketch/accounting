@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>성당 등록 - 본당살림</title>
+  <link rel="icon" href="/img/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/icon-180.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="unlock-screen">
+    <div class="unlock-box">
+      <img src="/img/logo.png" alt="본당살림" width="200" height="56">
+      <h2>성당 등록</h2>
+      <p class="file-name" id="account">불러오는 중…</p>
+      <form id="form">
+        <label>성당 이름 <input id="name" maxlength="50" placeholder="예) 예시성당" required autofocus></label>
+        <ul class="start-points">
+          <li>구글 계정의 <b>이메일·이름</b>, <b>성당 이름</b>, 앞으로 입력하는 <b>장부 내용</b>(신자 이름·금액 등)이 본당살림 서버에 보관됩니다.</li>
+          <li>운영자는 문의 처리와 자료 복구를 위해 이 자료를 볼 수 있습니다.</li>
+        </ul>
+        <label class="check"><input type="checkbox" id="agree" required> 위 내용을 읽었고 정보 보관에 동의합니다.</label>
+        <p id="message" class="error" role="alert"></p>
+        <button type="submit">시작하기</button>
+      </form>
+      <p class="start-links"><button type="button" class="link" id="switch">다른 구글 계정으로 로그인</button></p>
+    </div>
+  </div>
+  <script type="module" src="/js/signup.js"></script>
+</body>
+</html>

@@ -177,7 +177,7 @@ async function startScreen() {
         </form>
         <p class="start-links"><a href="#" id="pick-file">다른 장부 파일 열기</a> · <a href="#" id="go-new">새 장부 만들기</a></p>` : `
         <h2>시작하기</h2>
-        <p>장부는 이 컴퓨터의 파일 하나에 비밀번호로 잠가 저장합니다. 서버에는 아무것도 저장하지 않습니다.</p>
+        <p>장부는 이 컴퓨터의 파일 하나에 비밀번호로 잠가 저장합니다. 장부 내용은 서버로 보내지 않습니다.</p>
         <div class="start-actions">
           <button type="button" id="pick-file">장부 파일 열기</button>
           <button type="button" class="secondary" id="go-new">새 장부 만들기</button>
