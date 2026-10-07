@@ -390,3 +390,6 @@ p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
   .help-cards { grid-template-columns: 1fr; }
   .help-keys { min-width: 0; }
 }
+.tabs { align-items: flex-end; } /* 두 줄짜리 탭이 있어도 다른 탭 높이는 그대로 */
+.tabs button.tab-danger + button.tab-danger { margin-left: 2px; }
+.tabs button small { display: block; font-size: 11px; font-weight: 500; line-height: 1.3; }
