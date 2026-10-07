@@ -360,13 +360,16 @@ p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
 .help-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; max-width: 1040px; margin: 0 auto; padding: 16px; align-items: start; }
 .help-toc { position: sticky; top: 96px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 12px 8px; }
 .help-toc b { display: block; padding: 0 10px 8px; font-size: 14px; }
-.help-toc a { display: block; padding: 7px 10px; border-radius: 4px; color: var(--text); text-decoration: none; font-size: 14px; }
+.help-toc a { display: block; padding: 7px 10px; border-radius: 4px; color: var(--text); text-decoration: none; font-size: 14px; transition: background-color .25s, color .25s; }
 .help-toc a:hover { background: var(--accent-soft); }
 .help-toc a.on { background: var(--accent); color: #fff; font-weight: 600; }
 .help-toc a.dim { opacity: .35; }
 .help-toc .tn { display: inline-block; width: 24px; color: var(--muted); }
 .help-toc a.on .tn { color: #cfe0f5; }
-.help-main section { padding: 18px 22px; margin-bottom: 18px; line-height: 1.75; }
+.help-main section { padding: 18px 22px; margin-bottom: 18px; line-height: 1.75; scroll-margin-top: 6px; }
+.help-main { padding-bottom: 55vh; } /* 마지막 항목도 화면 위까지 올라오게 */
+.help-main section.flash { animation: help-flash 1.4s ease-out; }
+@keyframes help-flash { 0% { box-shadow: 0 0 0 3px rgba(31, 78, 140, .55); } 100% { box-shadow: 0 0 0 3px rgba(31, 78, 140, 0); } }
 .help-main h1 { font-size: 22px; margin: 0 0 4px; }
 .help-main h2 { font-size: 18px; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
 .help-main .hn { background: var(--accent); color: #fff; border-radius: 50%; min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
@@ -388,7 +391,18 @@ p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
 .help-main .tip { background: #eef6f0; border: 1px solid #b9dcc4; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 14px; }
 .help-main .warn { background: #fdf0f0; border: 1px solid #f5b5b5; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 14px; }
 .help-faq details { border-bottom: 1px solid var(--line); padding: 4px 0; }
-.help-faq summary { color: var(--text); font-weight: 600; padding: 6px 0; }
+.help-faq summary { color: var(--text); font-weight: 600; padding: 6px 0; list-style: none; display: flex; align-items: center; gap: 8px; border-radius: 4px; transition: color .2s; }
+.help-faq summary::-webkit-details-marker { display: none; }
+.help-faq summary::before { content: "▶"; font-size: 11px; color: var(--accent); transition: transform .25s ease; }
+.help-faq details[open] summary { color: var(--accent); }
+.help-faq details[open] summary::before { transform: rotate(90deg); }
+.help-faq summary:hover { color: var(--accent); }
+.help-faq details[open] p { animation: help-open .3s ease-out; }
+@keyframes help-open { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .help-main section.flash, .help-faq details[open] p { animation: none; }
+  .help-toc a, .help-faq summary::before { transition: none; }
+}
 .help-faq details p { margin: 0 0 8px; color: #374151; }
 @media (max-width: 800px) {
   .help-layout { grid-template-columns: 1fr; }
