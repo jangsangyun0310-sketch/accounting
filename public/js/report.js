@@ -4,6 +4,7 @@ import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml, signedWon } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
+import { downloadXlsx, reportSheet } from './excel.js';
 
 const $ = (id) => document.getElementById(id);
 const FUND_SHORT = { GENERAL: '일반', SPECIAL: '특별' };
@@ -337,6 +338,13 @@ $('prev').addEventListener('click', () => go(shift(-1)));
 $('next').addEventListener('click', () => go(shift(1)));
 $('now').addEventListener('click', () => go(nowValue()));
 $('print').addEventListener('click', () => window.print());
+
+// 보고 있는 결산서를 Excel 로 (표 내용 그대로, 금액은 숫자로)
+const SHEET_NAME = { day: '일일결산', month: '월말결산', year: '연말결산', budget: '예산 대비 집행' };
+$('excel').addEventListener('click', () => {
+  if (!$('paper').querySelector('.report')) return;
+  downloadXlsx(`본당살림 ${SHEET_NAME[type]} ${currentValue()}.xlsx`, [reportSheet($('paper'), SHEET_NAME[type])]);
+});
 
 // 인쇄할 때마다 종이 오른쪽 아래에 출력 일시를 찍는다 (Ctrl+P 로 인쇄해도 같음)
 const printedAt = document.createElement('style');
