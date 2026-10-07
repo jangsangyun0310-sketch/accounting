@@ -67,7 +67,7 @@ function render(r) {
     ? `<p class="lock-banner">마감 시점 잔액과 현재 잔액이 다릅니다: ${r.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>`
     : '';
 
-  const manySteps = r.approvalSteps.length > 5;
+  const manySteps = r.approvalSteps.length > 4; // 5단계부터는 결재란을 제목 아래 한 줄로 (칸이 넓어 옆에 다 들어가지 않음)
   $('paper').innerHTML = `
     <article class="report ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
@@ -195,7 +195,7 @@ function renderPeriod(r) {
   $('paper').innerHTML = `
     <article class="report ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
-      <div class="r-head ${r.approvalSteps.length > 5 ? 'stacked' : ''}">
+      <div class="r-head ${r.approvalSteps.length > 4 ? 'stacked' : ''}">
         <div class="r-title">
           <h1>${isMonth ? '월 말 결 산 서' : '연 말 결 산 서'}${closed ? '' : ' <small>(가결산)</small>'}</h1>
           <table class="r-meta">
