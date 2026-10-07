@@ -30,24 +30,41 @@ export async function handleAuth(request, env, url) {
 
 // ---------------------------------------------------------------- 세션
 
-/** 요청의 세션 쿠키로 { user, parish } 를 찾는다. 없거나 만료면 null */
+/**
+ * 요청의 세션 쿠키로 { user, parish } 를 찾는다. 없거나 만료면 null.
+ * 아직 성당이 없는 사용자의 이메일이 어느 성당에 등록되어 있으면(함께 쓰는 사람) 여기서 그 성당에 연결한다.
+ */
 export async function getSession(request, env) {
   const token = readCookie(request, SESSION_COOKIE);
   if (!token) return null;
-  const row = await env.DB.prepare(
+  const tokenHash = await sha256(token);
+  const find = () => env.DB.prepare(
     `SELECT u.id, u.email, u.name, u.parish_id, p.name AS parish_name, s.expires_at
        FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN parishes p ON p.id = u.parish_id
       WHERE s.token_hash = ?`
-  ).bind(await sha256(token)).first();
+  ).bind(tokenHash).first();
+  let row = await find();
   if (!row) return null;
   if (row.expires_at <= new Date().toISOString()) {
-    await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256(token)).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(tokenHash).run();
     return null;
   }
+  if (!row.parish_id && await acceptInvite(env, row.id, row.email)) row = await find();
   return {
     user: { id: row.id, email: row.email, name: row.name },
     parish: row.parish_id ? { id: row.parish_id, name: row.parish_name } : null,
   };
+}
+
+/** 이 이메일로 등록된 성당이 있으면 사용자를 그 성당에 연결하고 등록을 지운다. 연결했으면 true */
+async function acceptInvite(env, userId, email) {
+  const invite = await env.DB.prepare('SELECT parish_id FROM invites WHERE email = ?').bind(email.toLowerCase()).first();
+  if (!invite) return false;
+  await env.DB.batch([
+    env.DB.prepare('UPDATE users SET parish_id = ? WHERE id = ? AND parish_id IS NULL').bind(invite.parish_id, userId),
+    env.DB.prepare('DELETE FROM invites WHERE email = ?').bind(email.toLowerCase()),
+  ]);
+  return true;
 }
 
 /** 로그인 성공: 세션을 만들고 쿠키를 붙여 next 로 보낸다 */

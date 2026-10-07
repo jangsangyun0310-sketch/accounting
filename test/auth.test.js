@@ -17,7 +17,7 @@ const realFetch = globalThis.fetch;
 beforeEach(() => {
   db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
-  db.exec(readFileSync(new URL('../src/migrations/0001_accounts.sql', import.meta.url), 'utf8'));
+  for (const m of ['0001_accounts.sql', '0002_members.sql']) db.exec(readFileSync(new URL(`../src/migrations/${m}`, import.meta.url), 'utf8'));
   env = {
     DB: d1Adapter(db),
     ASSETS: { fetch: async (req) => new Response(`asset:${new URL(req.url).pathname}`) },

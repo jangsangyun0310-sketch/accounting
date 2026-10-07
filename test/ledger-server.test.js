@@ -140,7 +140,7 @@ test('서버 장부: 백업 파일을 다른 빈 장부에 복구하면 같은 �
 function routerEnv() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
-  db.exec(readFileSync(new URL('../src/migrations/0001_accounts.sql', import.meta.url), 'utf8'));
+  for (const m of ['0001_accounts.sql', '0002_members.sql']) db.exec(readFileSync(new URL(`../src/migrations/${m}`, import.meta.url), 'utf8'));
   const calls = [];
   const env = {
     DB: d1Adapter(db),
@@ -270,4 +270,79 @@ test('탈퇴: 장부를 지우고 성당·사용자·로그인 정보를 지운�
   assert.deepEqual(db.prepare('SELECT name FROM parishes').all().map((r) => r.name), ['나성당']);
   assert.deepEqual(db.prepare('SELECT email FROM users').all().map((r) => r.email), ['b@example.com']);
   assert.equal((await router.fetch(new Request('http://localhost:8787/api/settings', { headers: { cookie: a } }), env)).status, 401);
+});
+
+// ---------------------------------------------------------------- 함께 쓰는 사람
+
+async function memberCall(env, cookie, method, path, body) {
+  const res = await router.fetch(new Request(`http://localhost:8787${path}`, {
+    method, headers: { cookie, origin: 'http://localhost:8787', 'content-type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  }), env);
+  return { status: res.status, body: await res.json() };
+}
+
+test('함께 쓰는 사람: 이메일을 등록해 두면 그 구글 계정으로 로그인할 때 같은 성당에 연결된다', async () => {
+  const { db, env, calls } = routerEnv();
+  const old = await devSession(env, 'old@example.com', '가성당');
+  const added = await memberCall(env, old, 'POST', '/account/members', { email: ' New@Example.com ' });
+  assert.equal(added.status, 201);
+  assert.equal(added.body.connected, false);
+  assert.deepEqual((await memberCall(env, old, 'GET', '/account/members')).body.invites.map((i) => i.email), ['new@example.com']);
+
+  // 새 사무장이 처음 로그인 → 성당 등록 화면 없이 바로 같은 성당
+  const fresh = await devSession(env, 'new@example.com');
+  const page = await router.fetch(new Request('http://localhost:8787/entry', { headers: { cookie: fresh } }), env);
+  assert.equal(await page.text(), 'asset');
+  await router.fetch(new Request('http://localhost:8787/api/settings', { headers: { cookie: fresh } }), env);
+  const parishOf = (email) => db.prepare('SELECT parish_id FROM users WHERE email = ?').get(email).parish_id;
+  assert.equal(calls.at(-1).parish, parishOf('old@example.com'));
+  assert.equal(parishOf('new@example.com'), parishOf('old@example.com'));
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM invites').get().n, 0);
+
+  // 새 사무장이 전 사무장을 뺀다 → 전 사무장은 바로 로그아웃
+  const removed = await memberCall(env, fresh, 'POST', '/account/members/remove', { email: 'old@example.com' });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.self, false);
+  assert.equal((await router.fetch(new Request('http://localhost:8787/api/settings', { headers: { cookie: old } }), env)).status, 401);
+  assert.equal(parishOf('old@example.com'), null);
+
+  // 마지막 한 사람은 뺄 수 없다
+  const last = await memberCall(env, fresh, 'POST', '/account/members/remove', { email: 'new@example.com' });
+  assert.equal(last.body.error.code, 'LAST_MEMBER');
+});
+
+test('함께 쓰는 사람: 이미 가입한(성당 없는) 계정은 바로 연결, 다른 성당 계정·중복은 거부, 등록 취소', async () => {
+  const { db, env } = routerEnv();
+  const a = await devSession(env, 'a@example.com', '가성당');
+  await devSession(env, 'b@example.com', '나성당');
+  await devSession(env, 'lonely@example.com'); // 가입만 하고 성당 없음
+
+  const now = await memberCall(env, a, 'POST', '/account/members', { email: 'lonely@example.com' });
+  assert.equal(now.body.connected, true);
+  assert.equal((await memberCall(env, a, 'POST', '/account/members', { email: 'lonely@example.com' })).body.error.code, 'ALREADY_MEMBER');
+  assert.equal((await memberCall(env, a, 'POST', '/account/members', { email: 'b@example.com' })).body.error.code, 'OTHER_PARISH');
+  assert.equal((await memberCall(env, a, 'POST', '/account/members', { email: 'not-an-email' })).body.error.code, 'BAD_EMAIL');
+
+  await memberCall(env, a, 'POST', '/account/members', { email: 'later@example.com' });
+  assert.equal((await memberCall(env, a, 'POST', '/account/members', { email: 'later@example.com' })).body.error.code, 'ALREADY_INVITED');
+  const cancel = await memberCall(env, a, 'POST', '/account/members/remove', { email: 'later@example.com' });
+  assert.equal(cancel.body.removed, 'invite');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM invites').get().n, 0);
+
+  // 다른 성당 사람은 뺄 수 없다
+  assert.equal((await memberCall(env, a, 'POST', '/account/members/remove', { email: 'b@example.com' })).body.error.code, 'NOT_MEMBER');
+});
+
+test('탈퇴하면 함께 쓰는 사람과 등록된 이메일도 모두 지워진다', async () => {
+  const { db, env } = routerEnv();
+  const a = await devSession(env, 'a@example.com', '가성당');
+  await devSession(env, 'b@example.com');
+  await memberCall(env, a, 'POST', '/account/members', { email: 'b@example.com' });
+  await memberCall(env, a, 'POST', '/account/members', { email: 'c@example.com' });
+  const out = await memberCall(env, a, 'POST', '/account/withdraw', { parishName: '가성당' });
+  assert.equal(out.status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM invites').get().n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM parishes').get().n, 0);
 });

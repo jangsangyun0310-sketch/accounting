@@ -1,18 +1,18 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 초기화·탈퇴(오른쪽 끝 빨간 탭)
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 함께 쓰는 사람 / 초기화·탈퇴(오른쪽 끝 빨간 탭)
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { formatDateTimeKST } from './shared/dates.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
-import { currentAccount } from './account.js';
+import { currentAccount, logout } from './account.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', 'members', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값
 
@@ -23,7 +23,7 @@ async function reload() {
 
 function render() {
   tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup, account: renderAccount })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -248,6 +248,51 @@ async function renderBackup() {
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
 }
 
+// ---------------------------------------------------------------- 함께 쓰는 사람
+
+async function renderMembers() {
+  panel.innerHTML = '<p class="muted">불러오는 중…</p>';
+  let m;
+  try {
+    const res = await fetch('/account/members');
+    m = await res.json();
+    if (!res.ok) throw new Error(m?.error?.message || `불러오지 못했습니다 (${res.status})`);
+  } catch (err) {
+    panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
+    return;
+  }
+  if (tab !== 'members') return;
+  const only = m.members.length <= 1;
+  const rows = [
+    ...m.members.map((u) => `<tr><td>${esc(u.email)}${u.email === m.me ? ' <span class="muted">(나)</span>' : ''}</td>
+      <td>사용 중 <span class="muted small">· 마지막 로그인 ${formatDateTimeKST(u.lastLoginAt)}</span></td>
+      <td class="actions">${only ? '' : `<button type="button" class="danger small" data-action="member-remove" data-email="${esc(u.email)}">빼기</button>`}</td></tr>`),
+    ...m.invites.map((i) => `<tr><td>${esc(i.email)}</td><td><span class="pill open">로그인 전</span>
+      <span class="muted small">· 그 계정으로 로그인하면 연결됩니다</span></td>
+      <td class="actions"><button type="button" class="secondary small" data-action="member-remove" data-email="${esc(i.email)}">취소</button></td></tr>`),
+  ];
+  panel.innerHTML = `
+    <p>이 성당 장부를 함께 쓰는 구글 계정입니다. 모두 같은 권한(입력·마감·결산·설정)을 가집니다.</p>
+    <table class="grid">
+      <thead><tr><th>구글 계정</th><th>상태</th><th class="actions"></th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>
+    <div class="form-grid" data-form="member" style="max-width:560px;grid-template-columns:1fr auto;align-items:end">
+      <label>추가할 사람의 구글 이메일 <input name="email" type="email" placeholder="예) new.office@gmail.com" autocomplete="off"></label>
+      <button type="button" data-action="member-add">추가</button>
+    </div>
+    <details class="help-box" open>
+      <summary>사무장이 바뀌었을 때</summary>
+      <ol>
+        <li>전 사무장이 여기에 <b>새 사무장의 구글 이메일</b>을 추가합니다.</li>
+        <li>새 사무장이 본당살림에 <b>그 구글 계정으로 로그인</b>합니다. 같은 컴퓨터라면 [로그아웃] 후 로그인 화면의 구글 계정 고르는 창에서 <b>"다른 계정 사용"</b>을 누릅니다.</li>
+        <li>장부가 보이면 이 화면에서 <b>전 사무장을 [빼기]</b> 합니다. 빠진 계정은 바로 로그아웃됩니다.</li>
+        <li>[성당 정보]의 <b>결산서 작성자</b> 이름을 바꿉니다.</li>
+      </ol>
+      <p class="help">💡 성당 업무 전용 구글 계정(예: 성당이름.office@gmail.com)으로 써 두면 인수인계가 더 쉽습니다.</p>
+    </details>`;
+}
+
 // ---------------------------------------------------------------- 초기화·탈퇴 (장부 초기화 · 탈퇴)
 
 async function renderAccount() {
@@ -305,6 +350,27 @@ const field = (row, name) => row.querySelector(`[name="${name}"]`);
 const actions = {
   'backup-download': async () => {
     if (await downloadBackup()) render();
+  },
+
+  'member-add': async () => {
+    const email = panel.querySelector('[data-form="member"] [name="email"]').value.trim();
+    if (!email) return toast('추가할 사람의 구글 이메일을 적어 주세요.', 'error');
+    let result;
+    if (await attempt(async () => { result = await accountPost('/account/members', { email }); })) {
+      toast(result.connected ? `${email} 계정을 연결했습니다.` : `${email} 을(를) 등록했습니다. 그 계정으로 로그인하면 연결됩니다.`);
+      render();
+    }
+  },
+
+  'member-remove': async (btn) => {
+    const email = btn.dataset.email;
+    const pending = btn.textContent.trim() === '취소';
+    if (!confirm(pending ? `${email} 등록을 취소할까요?` : `${email} 계정을 이 성당에서 뺄까요? 그 계정은 바로 로그아웃되고 장부를 볼 수 없게 됩니다.`)) return;
+    let result;
+    if (await attempt(async () => { result = await accountPost('/account/members/remove', { email }); }, pending ? '등록을 취소했습니다.' : '뺐습니다.')) {
+      if (result.self) logout(); // 나 자신을 뺐으면 로그인 화면으로
+      else render();
+    }
   },
 
   'ledger-reset': async () => {

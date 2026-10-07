@@ -345,3 +345,6 @@ p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
 .tabs button.tab-danger { margin-left: auto; background: #fff; color: var(--danger); border: 2px solid var(--danger); font-weight: 600;
   margin-bottom: -2px; } /* 테두리는 사방 2px. 아래 테두리가 버튼 밑의 파란 줄(2px)을 빨간색으로 덮는다 */
 .tabs button.tab-danger.active { background: var(--danger); color: #fff; }
+.help-box { margin-top: 16px; background: #f7f9fc; border: 1px solid var(--line); border-radius: 6px; padding: 6px 14px; max-width: 760px; }
+.help-box summary { font-weight: 600; color: var(--accent); }
+.help-box ol { padding-left: 20px; line-height: 1.8; margin: 6px 0; }
