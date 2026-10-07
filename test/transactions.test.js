@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDb, d1Adapter, accountId, subjectId, closeDate, worker } from './helpers.js';
+import { createDb, d1Adapter, accountId, subjectId, closeDate, closeThrough, worker } from './helpers.js';
 import { nextVoucher } from '../public/js/shared/voucher.js';
 
 function setup() {
@@ -152,7 +152,7 @@ test('마감된 날짜 통제', async () => {
   const base = { direction: 'IN', accountId: acc('교무금'), subjectId: sub('INCOME', '교무금'), amount: '1000' };
   const { body: { id } } = await api('POST', '/api/transactions', { ...base, date: '2026-10-04' });
   const { body: { id: later } } = await api('POST', '/api/transactions', { ...base, date: '2026-10-06' });
-  closeDate(db, '2026-10-04');
+  closeThrough(db, '2026-10-04');
 
   assert.equal((await api('GET', '/api/day?date=2026-10-04')).body.locked, true);
   assert.equal((await api('GET', '/api/day?date=2026-10-06')).body.locked, false);

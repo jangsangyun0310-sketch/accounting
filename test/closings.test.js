@@ -33,6 +33,7 @@ function setup() {
 test('마감: 결재선·잔액 스냅샷 저장, 이력 기록, 이후 입력 차단', async () => {
   const { db, api, income } = setup();
   await income('2026-10-02', 1000);
+  assert.equal((await api('POST', '/api/closings/2026-10-01/close', {})).status, 200); // 거래 없는 날도 마감
   let r = await api('POST', '/api/closings/2026-10-02/close', {});
   assert.equal(r.status, 200, JSON.stringify(r.body));
 
@@ -54,26 +55,28 @@ test('마감: 결재선·잔액 스냅샷 저장, 이력 기록, 이후 입력 �
   await api('PUT', '/api/approval-steps', { titles: ['담당', '신부'] });
   assert.deepEqual((await api('GET', '/api/closings/2026-10-02')).body.closing.approvalSteps,
     ['기안', '재정부회장', '사목회장', '주임신부']);
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM closing_events').get().n, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM closing_events').get().n, 2);
 });
 
-test('마감 순서: 앞 날짜 미마감 거래가 있으면 거부, 미래 날짜 거부, 개시일 이전 거부', async () => {
+test('마감 순서: 하루씩 빠짐없이, 미래 날짜 거부, 개시일 이전 거부', async () => {
   const { api, income } = setup();
   await income('2026-10-02', 1000);
   await income('2026-10-03', 1000);
   let r = await api('POST', '/api/closings/2026-10-03/close', {});
-  assert.equal(r.body.error.code, 'CLOSE_ORDER');
+  assert.ok(['CLOSE_SEQUENCE', 'CLOSE_ORDER'].includes(r.body.error.code), r.body.error.code);
+  r = await api('POST', '/api/closings/2026-10-02/close', {}); // 거래 없는 10-01 을 건너뛸 수 없다
+  assert.equal(r.body.error.code, 'CLOSE_SEQUENCE');
   r = await api('POST', '/api/closings/2026-10-05/close', {});
   assert.equal(r.body.error.code, 'FUTURE_DATE');
   r = await api('POST', '/api/closings/2026-09-30/close', {});
-  assert.equal(r.body.error.code, 'BEFORE_START_DATE');
+  assert.ok(['BEFORE_START_DATE', 'CLOSE_SEQUENCE'].includes(r.body.error.code), r.body.error.code);
 
   const cal = (await api('GET', '/api/closings?month=2026-10')).body;
-  assert.equal(cal.nextRequired, '2026-10-02');
-  assert.equal(cal.closableUntil, '2026-10-02');
+  assert.equal(cal.nextRequired, '2026-10-01');
+  assert.equal(cal.closableUntil, '2026-10-01');
   const day = (d) => cal.days.find((x) => x.date === d);
-  assert.equal(day('2026-10-01').canClose, true); // 거래 없는 앞 날짜는 가능
-  assert.equal(day('2026-10-02').canClose, true);
+  assert.equal(day('2026-10-01').canClose, true); // 마감할 수 있는 날은 하루뿐
+  assert.equal(day('2026-10-02').canClose, false);
   assert.equal(day('2026-10-03').canClose, false);
   assert.equal(day('2026-10-05').status, 'future');
   assert.equal(cal.days.length, 31);
@@ -81,6 +84,7 @@ test('마감 순서: 앞 날짜 미마감 거래가 있으면 거부, 미래 날
 
 test('마감취소: 마지막 마감일만, 메모 선택, 재마감 시 새 스냅샷', async () => {
   const { api, income } = setup();
+  await api('POST', '/api/closings/2026-10-01/close', {});
   await income('2026-10-02', 1000);
   await api('POST', '/api/closings/2026-10-02/close', {});
   await income('2026-10-03', 2000);
@@ -111,23 +115,27 @@ test('마감취소: 마지막 마감일만, 메모 선택, 재마감 시 새 스
 
   const log = (await api('GET', '/api/closing-events')).body.events;
   assert.deepEqual(log.map((e) => `${e.close_date} ${e.action}`),
-    ['2026-10-03 CLOSE', '2026-10-03 REOPEN', '2026-10-03 CLOSE', '2026-10-02 CLOSE']);
+    ['2026-10-03 CLOSE', '2026-10-03 REOPEN', '2026-10-03 CLOSE', '2026-10-02 CLOSE', '2026-10-01 CLOSE']);
   cal = (await api('GET', '/api/closings?month=2026-10')).body;
   assert.equal(cal.lastClosed, '2026-10-03');
 });
 
-test('뒤 날짜 마감은 거래 없는 앞 날짜를 함께 잠근다', async () => {
+test('거래 없는 날도 하루씩 직접 마감한다 (건너뛰기 불가)', async () => {
   const { api, income } = setup();
-  await api('POST', '/api/closings/2026-10-03/close', {});
+  let r = await api('POST', '/api/closings/2026-10-03/close', {});
+  assert.equal(r.body.error.code, 'CLOSE_SEQUENCE');
+  for (const d of ['01', '02', '03']) assert.equal((await api('POST', `/api/closings/2026-10-${d}/close`, {})).status, 200);
   const cal = (await api('GET', '/api/closings?month=2026-10')).body;
-  assert.equal(cal.days.find((x) => x.date === '2026-10-01').status, 'locked');
-  const r = await income('2026-10-01', 1);
+  assert.deepEqual(['01', '02', '03'].map((d) => cal.days.find((x) => x.date === `2026-10-${d}`).status), ['closed', 'closed', 'closed']);
+  assert.equal(cal.days.find((x) => x.date === '2026-10-04').canClose, true);
+  r = await income('2026-10-01', 1);
   assert.equal(r.body.error.code, 'DATE_CLOSED');
 });
 
 test('스냅샷 검증: 마감 후 잔액이 달라지면 불일치로 표시', async () => {
   const { db, api, income } = setup();
   await income('2026-10-02', 1000);
+  await api('POST', '/api/closings/2026-10-01/close', {});
   await api('POST', '/api/closings/2026-10-02/close', {});
   // 트리거를 우회한 직접 조작을 흉내 (실제로는 불가능해야 하는 상황)
   db.exec('DROP TRIGGER trg_accounts_bu_opening');

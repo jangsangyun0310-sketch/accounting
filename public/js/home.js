@@ -37,7 +37,7 @@ async function main() {
 
   const pending = closings.nextRequired && closings.nextRequired <= closings.today;
   $('closing-status').innerHTML = `마지막 마감일: <b>${closings.lastClosed ? formatKoreanDate(closings.lastClosed) : '없음'}</b>`
-    + (pending ? ` · <span class="error">마감하지 않은 거래가 있습니다 (${formatKoreanDate(closings.nextRequired)}부터)</span> <a href="${href('/closing')}">마감하러 가기</a>` : '');
+    + (pending ? ` · <span class="error">마감하지 않은 날이 있습니다 (${formatKoreanDate(closings.nextRequired)}부터)</span> <a href="${href('/closing')}">마감하러 가기</a>` : '');
 
   $('as-of').textContent = `${formatKoreanDate(balances.date)} 기준`;
 

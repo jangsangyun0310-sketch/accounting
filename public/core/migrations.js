@@ -9,4 +9,5 @@ export const MIGRATIONS = [
   '0005_closing_guards.sql',
   '0006_backup_restore.sql',
   '0007_delete_instead_of_void.sql',
+  '0009_close_every_day.sql', // (0008 은 예전 서버 보관함용 — 장부에는 적용하지 않음)
 ];

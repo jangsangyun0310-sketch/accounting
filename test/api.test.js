@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDb, d1Adapter, insertTx, closeDate, worker } from './helpers.js';
+import { createDb, d1Adapter, insertTx, closeDate, closeThrough, worker } from './helpers.js';
 
 function client(db) {
   const env = { DB: d1Adapter(db), AUTH_MODE: 'dev', DEV_USER: 'office@test' };
@@ -122,7 +122,7 @@ test('거래가 있는 통장은 삭제 불가, 마감 후 초기잔액 변경 �
   assert.equal(r.status, 409);
   assert.equal(r.body.error.code, 'ACCOUNT_IN_USE');
 
-  closeDate(db, '2026-10-04');
+  closeThrough(db, '2026-10-04');
   const base = { fundCode: 'GENERAL', name: '교무금', bankName: '', accountNo: '', isActive: true };
   r = await api('PUT', `/api/accounts/${acc.id}`, { ...base, openingBalance: '1' });
   assert.equal(r.body.error.code, 'OPENING_LOCKED');

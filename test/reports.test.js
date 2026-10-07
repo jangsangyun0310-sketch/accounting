@@ -55,6 +55,7 @@ test('일일 결산서: 요약·수입·지출·이체·통장별 잔액, 삭제
 test('마감된 날: 마감 당시 결재선·작성자 사용, 검증 결과 포함', async () => {
   const { api, tx } = setup();
   await tx('IN', '교무금', '교무금', 1000);
+  await api('POST', '/api/closings/2026-10-01/close', {});
   await api('POST', '/api/closings/2026-10-02/close', { writerName: '홍길동' });
   await api('PUT', '/api/approval-steps', { titles: ['담당', '신부'] });
   await api('PUT', '/api/settings/parish', { parishName: '예시성당', startDate: '2026-10-01', writerName: '김사무' });
@@ -130,10 +131,11 @@ test('연말결산: 월별 현황, 2월 말일 계산, 잘못된 입력 거부',
   assert.equal((await api('GET', '/api/reports/period?type=week')).status, 400);
 });
 
-test('자동 마감된 날(거래 없음)의 일일 결산서는 가결산이 아니라 마감 결산서', async () => {
-  const { api, tx } = setup();
+test('예전 방식으로 자동 마감된 날(거래 없음)의 일일 결산서는 가결산이 아니라 마감 결산서', async () => {
+  const { db, api, tx } = setup();
   await tx('IN', '교무금', '교무금', 300000, '홍길동'); // 10-02 거래
-  // 10-01 은 거래 없음 → 10-02 를 마감하면 함께 잠긴다
+  // 예전 자료 흉내: 하루씩 마감 규칙(0009) 전에는 거래 없는 10-01 을 건너뛰고 10-02 를 마감할 수 있었다
+  db.exec('DROP TRIGGER trg_close_bi_every_day');
   assert.equal((await api('POST', '/api/closings/2026-10-02/close', {})).status, 200);
   await api('PUT', '/api/approval-steps', { titles: ['담당', '신부'] }); // 마감 뒤 결재선을 바꿔도
 

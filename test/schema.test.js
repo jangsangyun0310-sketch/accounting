@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createDb, d1Adapter, insertTx, deleteTx, closeDate, reopenDate, accountId, subjectId,
+  createDb, d1Adapter, insertTx, deleteTx, closeDate, closeThrough, reopenDate, accountId, subjectId,
 } from './helpers.js';
 import { computeBalances } from '../public/core/routes/system.js';
 import { translateDbError } from '../public/core/lib/db.js';
@@ -96,27 +96,28 @@ test('통장 간 이체: 같은 그룹의 OUT/IN 한 쌍, 전체 합계 불변',
 test('마감: 마감일 이하 거래 입력·삭제 불가, 이후 날짜는 가능', () => {
   const db = createDb();
   const id = insertTx(db, { date: '2026-10-04', direction: 'IN', account: '교무금', subject: '교무금', amount: 1000 });
-  closeDate(db, '2026-10-04');
+  closeThrough(db, '2026-10-04');
   rejects(() => insertTx(db, { date: '2026-10-04', direction: 'IN', account: '교무금', subject: '교무금', amount: 1 }), 'DATE_CLOSED');
   rejects(() => insertTx(db, { date: '2026-10-02', direction: 'IN', account: '교무금', subject: '교무금', amount: 1 }), 'DATE_CLOSED');
   rejects(() => deleteTx(db, id), 'DATE_CLOSED');
   insertTx(db, { date: '2026-10-05', direction: 'IN', account: '교무금', subject: '교무금', amount: 1 });
 });
 
-test('마감 순서: 앞 날짜 미마감 거래가 있으면 뒤 날짜 마감 불가, 앞 날짜 재마감 불가', () => {
+test('마감 순서: 운영 개시일부터 하루씩 빠짐없이 (거래 없는 날도), 앞 날짜로 돌아가 마감 불가', () => {
   const db = createDb();
   insertTx(db, { date: '2026-10-02', direction: 'IN', account: '교무금', subject: '교무금', amount: 1 });
-  rejects(() => closeDate(db, '2026-10-04'), 'CLOSE_ORDER');
-  rejects(() => closeDate(db, '2026-10-03'), 'CLOSE_ORDER'); // 거래가 있는 날은 반드시 개별 마감
+  assert.throws(() => closeDate(db, '2026-10-04'), /CLOSE_(ORDER|SEQUENCE)/);
+  rejects(() => closeDate(db, '2026-10-02'), 'CLOSE_SEQUENCE'); // 거래 없는 10/1 을 건너뛸 수 없다
+  closeDate(db, '2026-10-01');
   closeDate(db, '2026-10-02');
-  closeDate(db, '2026-10-04'); // 거래 없는 10/3 은 자동 통과
-  rejects(() => closeDate(db, '2026-10-01'), 'ALREADY_LOCKED');
+  rejects(() => closeDate(db, '2026-10-04'), 'CLOSE_SEQUENCE'); // 거래 없는 10/3 도 직접 마감해야 한다
+  closeDate(db, '2026-10-03');
+  closeDate(db, '2026-10-04');
 });
 
 test('마감취소: 마지막 마감일부터 역순, 사유 필수, 기록 삭제 불가, 재마감 가능', () => {
   const db = createDb();
-  closeDate(db, '2026-10-03');
-  closeDate(db, '2026-10-04');
+  closeThrough(db, '2026-10-04');
   rejects(() => reopenDate(db, '2026-10-03'), 'REOPEN_NOT_LATEST');
   assert.throws(() => reopenDate(db, '2026-10-04', ''), /CHECK constraint failed/);
   reopenDate(db, '2026-10-04');
@@ -145,7 +146,7 @@ test('설정 보호: 마감 후 초기잔액 변경 불가, 거래 있는 통장
   rejects(() => db.prepare("DELETE FROM budget_subjects WHERE kind = 'INCOME' AND name = '교무금'").run(), 'SUBJECT_IN_USE');
   rejects(() => db.prepare("UPDATE parish_settings SET start_date = '2026-09-01'").run(), 'START_DATE_LOCKED');
   db.prepare("DELETE FROM accounts WHERE name = '제대 후원금'").run(); // 거래 없는 통장은 삭제 가능
-  closeDate(db, '2026-10-04');
+  closeThrough(db, '2026-10-04');
   rejects(() => db.prepare("UPDATE accounts SET opening_balance = 1 WHERE name = '경상비'").run(), 'OPENING_LOCKED');
 });
 

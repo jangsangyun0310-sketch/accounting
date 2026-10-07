@@ -81,6 +81,14 @@ export function closeDate(db, date) {
   ).run(date, NOW);
 }
 
+/** 마감은 하루씩 빠짐없이: 다음 마감할 날부터 date 까지 차례로 마감 (테스트 준비용) */
+export function closeThrough(db, date) {
+  const last = db.prepare("SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'").get().d;
+  const start = db.prepare('SELECT start_date AS d FROM parish_settings WHERE id = 1').get().d;
+  const day = (s, n) => new Date(Date.parse(`${s}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  for (let d = last ? day(last, 1) : start; d <= date; d = day(d, 1)) closeDate(db, d);
+}
+
 export function reopenDate(db, date, reason = '정정 필요') {
   db.prepare(
     `UPDATE daily_closings SET status = 'REOPENED', reopened_at = ?, reopened_by = 'test', reopen_reason = ?

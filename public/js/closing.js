@@ -25,7 +25,7 @@ function renderStatus() {
     <div class="status-item"><span class="muted">마지막 마감일</span>
       <b>${c.lastClosed ? formatKoreanDate(c.lastClosed) : '없음'}</b></div>
     <div class="status-item"><span class="muted">다음 마감할 날</span>
-      <b>${needs ? formatKoreanDate(c.nextRequired) : '<span class="muted">미마감 거래 없음</span>'}</b></div>
+      <b>${needs ? formatKoreanDate(c.nextRequired) : '<span class="muted">오늘까지 모두 마감했습니다</span>'}</b></div>
     ${needs ? `<button type="button" id="quick-close" data-date="${next}">${formatKoreanDate(next)} 마감하기</button>` : ''}`;
 }
 
@@ -39,14 +39,14 @@ async function loadCalendar() {
   const firstWeekday = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
   const cells = Array.from({ length: firstWeekday }, () => '<div class="cell empty"></div>');
   for (const d of calendar.days) {
-    const hasTx = d.posted + d.voided > 0;
+    // 오늘까지 마감하지 않은 날은 거래가 없어도 미마감 (하루씩 빠짐없이 마감)
     const cls = [
       'cell', d.status,
-      d.status === 'open' && hasTx ? 'pending' : '',
+      d.status === 'open' ? 'pending' : '',
       d.date === calendar.today ? 'today' : '',
       d.date === selected ? 'selected' : '',
     ].join(' ');
-    const label = d.status === 'open' && hasTx ? '미마감' : STATUS_LABEL[d.status];
+    const label = d.status === 'open' ? '미마감' : STATUS_LABEL[d.status];
     cells.push(`
       <button type="button" class="${cls}" data-date="${d.date}">
         <span class="day">${Number(d.date.slice(8))}</span>
@@ -55,6 +55,8 @@ async function loadCalendar() {
       </button>`);
   }
   $('calendar').innerHTML = WEEKDAYS.map((w) => `<div class="wd">${w}</div>`).join('') + cells.join('');
+  // '자동 마감'(예전 방식) 설명은 그런 날이 있는 달에만
+  $('legend-locked').hidden = !calendar.days.some((d) => d.status === 'locked');
 }
 
 // ---------------------------------------------------------------- 날짜 상세
@@ -70,7 +72,7 @@ async function loadDetail(date) {
   const postedCount = day.transactions.filter((t) => t.status === 'POSTED').length;
 
   const statusText = closed ? '<span class="pill closed">마감</span>'
-    : covered ? '<span class="pill locked">자동 마감</span> <span class="muted small">거래가 없어 이후 날짜를 마감할 때 자동으로 마감됨</span>'
+    : covered ? '<span class="pill locked">자동 마감</span> <span class="muted small">예전 방식: 거래가 없어 이후 날짜를 마감할 때 함께 마감됨</span>'
     : c?.status === 'REOPENED' ? '<span class="pill reopened">마감취소됨</span>'
     : '<span class="pill open">미마감</span>';
 
@@ -107,7 +109,7 @@ async function loadDetail(date) {
       ${info.canReopen ? `<button type="button" class="danger" data-reopen="${date}">마감취소</button>` : ''}
       <a class="button secondary" href="${href(`/report?date=${date}`)}">결산서 보기·인쇄</a>
       ${!info.canClose && !closed && !covered && date <= info.today && date >= info.startDate
-        ? `<p class="help">앞 날짜(${formatKoreanDate(info.nextRequired)})에 마감되지 않은 거래가 있습니다. 그 날부터 순서대로 마감하세요.</p>` : ''}
+        ? `<p class="help">마감은 하루씩 순서대로 합니다. 먼저 ${formatKoreanDate(info.nextRequired)}을(를) 마감하세요. (거래가 없는 날도 마감합니다)</p>` : ''}
       ${closed && !info.canReopen ? '<p class="help">마감취소는 가장 마지막 마감일부터 순서대로만 할 수 있습니다.</p>' : ''}
       ${date > info.today ? '<p class="help">미래 날짜는 마감할 수 없습니다.</p>' : ''}
     </div>

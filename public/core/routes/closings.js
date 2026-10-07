@@ -1,6 +1,6 @@
 // 일 마감·마감취소
 // 마감 시 결재선과 통장별 잔액을 같은 SQL 문 안에서 스냅샷으로 저장한다 (읽기와 저장 사이 틈 없음).
-// 순서 규칙(날짜순 마감, 역순 마감취소)은 DB 트리거가 최종적으로 강제한다.
+// 순서 규칙(하루씩 빠짐없이 마감, 역순 마감취소)은 DB 트리거가 최종적으로 강제한다.
 import { ApiError, json, readJson } from '../lib/http.js';
 import { BALANCES_SQL } from '../lib/db.js';
 import { verifySnapshot } from '../lib/ledger.js';
@@ -18,12 +18,11 @@ async function closingState(db) {
             (SELECT MAX(close_date) FROM daily_closings WHERE status = 'CLOSED') AS last_closed`
   ).first();
   const lastClosed = row.last_closed;
-  // 아직 잠기지 않은 거래가 있는 가장 이른 날짜: 이 날짜를 넘어서 마감할 수 없다
-  const nextRequired = await db.prepare(
-    `SELECT MIN(tx_date) AS d FROM transactions WHERE tx_date > ?`
-  ).bind(lastClosed ?? '0000-00-00').first('d');
+  // 마감은 하루씩 빠짐없이: 다음에 마감할 날은 마지막 마감일 다음 날(처음이면 운영 개시일) 하나뿐
+  const nextRequired = lastClosed ? addDays(lastClosed, 1) : row.start_date;
   const today = todayKST();
-  const closableUntil = nextRequired && nextRequired < today ? nextRequired : today;
+  // 오늘까지 모두 마감했으면 마감할 날이 없다
+  const closableUntil = nextRequired && nextRequired <= today ? nextRequired : null;
   return { startDate: row.start_date, lastClosed, nextRequired, today, closableUntil };
 }
 
@@ -55,7 +54,7 @@ export async function list({ env, url }) {
     let status;
     if (state.startDate && d < state.startDate) status = 'before-start';
     else if (c?.status === 'CLOSED') status = 'closed';
-    else if (state.lastClosed && d <= state.lastClosed) status = 'locked'; // 뒤 날짜 마감으로 함께 잠김
+    else if (state.lastClosed && d <= state.lastClosed) status = 'locked'; // 예전 방식: 거래 없이 뒤 날짜 마감으로 함께 잠긴 날 (자동 마감)
     else if (d > state.today) status = 'future';
     else status = c?.status === 'REOPENED' ? 'reopened' : 'open';
     days.push({
@@ -65,7 +64,7 @@ export async function list({ env, url }) {
       voided: t?.voided ?? 0,
       closedAt: c?.closed_at ?? null,
       closedBy: c?.closed_by ?? null,
-      canClose: !['closed', 'locked', 'before-start', 'future'].includes(status) && d <= state.closableUntil,
+      canClose: d === state.closableUntil,
       canReopen: status === 'closed' && d === state.lastClosed,
     });
   }
@@ -100,8 +99,7 @@ export async function detail({ env, params }) {
     },
     events: events.results,
     verification,
-    canClose: !(closing?.status === 'CLOSED') && !(state.lastClosed && d <= state.lastClosed)
-      && d >= state.startDate && d <= state.closableUntil,
+    canClose: d === state.closableUntil,
     canReopen: closing?.status === 'CLOSED' && d === state.lastClosed,
     ...state,
   });
