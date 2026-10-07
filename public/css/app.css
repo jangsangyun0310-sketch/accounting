@@ -299,8 +299,8 @@ table.grid td.actions .danger.small, .delete-blocked { width: 64px; box-sizing: 
 .topbar .share-btn { margin-left: auto; background: #fff; color: var(--in); border: 1.5px solid var(--in); font-weight: 600; }
 /* 로그아웃 · 공유하기: 메뉴·설정 버튼과 같은 높이(38px)와 글자 크기 */
 .topbar .share-btn, .topbar .account button, .topbar .help-link { height: 38px; padding: 0 14px; font-size: 15px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
-.topbar .account button { background: #fff; color: #4b5563; border: 1.5px solid #b9c0ca; font-weight: 500; }
-.topbar .account button:hover { background: #f3f4f6; }
+.topbar .account button { background: #fff; color: #1d2330; border: 1.5px solid #4b5563; font-weight: 600; } /* 진한 글씨·테두리: 누를 수 있는 버튼으로 보이게 */
+.topbar .account button:hover { background: #eef0f3; }
 .topbar .help-link { color: var(--accent); border: 1.5px solid var(--accent); background: #fff; text-decoration: none; font-weight: 600; }
 .topbar .help-link:hover { background: var(--accent-soft); }
 .topbar .help-link.active { background: var(--accent); color: #fff; }
@@ -447,7 +447,7 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   .topbar .account { margin-left: 0; order: 3; }
   .topbar .more-btn { order: 4; }
   .topbar .account button, .topbar .share-btn { display: none; }
-  .topbar .more-btn { display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #4b5563; border: 1.5px solid #b9c0ca; border-radius: 4px; font-size: 18px; width: 40px; padding: 0; }
+  .topbar .more-btn { display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #1d2330; border: 1.5px solid #4b5563; border-radius: 4px; font-size: 18px; width: 40px; padding: 0; }
   /* [⋯]를 누르면 버튼 아래에 작은 창으로 로그아웃·공유하기 */
   .topbar-inner { position: relative; }
   .topbar.menu-open .account button, .topbar.menu-open .share-btn {
