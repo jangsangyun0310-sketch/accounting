@@ -271,7 +271,7 @@ async function renderAccount() {
     <h3>장부 초기화</h3>
     <div class="danger-zone">
       <p>지금 장부의 <b>모든 거래·마감·통장·과목·설정</b>을 지우고 <b>최초 설정부터 다시</b> 시작합니다. 로그인 계정과 성당 등록은 그대로입니다.</p>
-      <p>지운 장부는 되살릴 수 없습니다. 그래서 <b>먼저 백업 파일을 내려받아야</b> 초기화할 수 있습니다.
+      <p>지운 장부는 되살릴 수 없습니다. 그래서 <b>먼저 백업 파일을 내려받아야</b> 초기화할 수 있습니다.<br>
         (나중에 필요하면 최초 설정 화면의 [예전 장부 가져오기]로 되돌릴 수 있습니다.)</p>
       <p>${backupStatusHtml(backup).html}</p>
       <p><button type="button" class="secondary" data-action="backup-download">① 백업 파일 내려받기</button></p>
