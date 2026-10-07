@@ -427,3 +427,5 @@ td, th { overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 적요도 칸 안
   .topbar .share-btn .label { display: none; }
   .topbar .brand { margin-right: 12px; }
 }
+#inapp { font-size: 14px; line-height: 1.6; }
+#inapp .button { margin-top: 8px; display: block; text-align: center; }
