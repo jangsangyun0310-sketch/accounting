@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>도움말 - 본당살림</title>
+  <link rel="icon" href="/img/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/icon-180.png">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header id="topbar" class="topbar"><div class="topbar-inner"><a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a></div></header>
+  <div class="help-layout">
+    <nav class="help-toc" id="toc">
+      <b>도움말 차례</b>
+      <a href="#start"><span class="tn">1</span>처음 시작하기</a>
+      <a href="#entry"><span class="tn">2</span>거래 입력</a>
+      <a href="#transfer"><span class="tn">3</span>이체 · 입금</a>
+      <a href="#closing"><span class="tn">4</span>일 마감</a>
+      <a href="#report"><span class="tn">5</span>결산서 인쇄</a>
+      <a href="#ledger"><span class="tn">6</span>거래 조회</a>
+      <a href="#backup"><span class="tn">7</span>백업</a>
+      <a href="#import"><span class="tn">8</span>예전 장부 가져오기</a>
+      <a href="#members"><span class="tn">9</span>사무장이 바뀌었을 때</a>
+      <a href="#settings"><span class="tn">10</span>설정 바꾸기</a>
+      <a href="#faq"><span class="tn">?</span>자주 묻는 질문</a>
+    </nav>
+
+    <main class="help-main" id="help">
+      <section>
+        <h1>본당살림 사용 설명서</h1>
+        <p class="muted">처음 쓰시는 분은 1번부터 차례로 읽어 보세요. 궁금한 것만 찾으려면 아래에 단어를 넣으세요.</p>
+        <div class="help-search">
+          <input id="help-q" type="search" placeholder="예) 마감취소, 이체, 백업, 결재선">
+          <button type="button" class="secondary" id="help-clear" hidden>모두 보기</button>
+        </div>
+        <p id="help-result" class="help" hidden></p>
+      </section>
+
+      <section id="start" data-keywords="시작 가입 로그인 성당 등록 최초 설정 운영 개시일 초기잔액 아이콘 바탕화면">
+        <h2><span class="hn">1</span>처음 시작하기</h2>
+        <div class="help-cards">
+          <div><span class="n">1단계</span><b>구글로 로그인</b><p>[Google 계정으로 로그인]을 누르고 성당 업무에 쓸 구글 계정을 고릅니다.</p></div>
+          <div><span class="n">2단계</span><b>성당 등록</b><p>성당 이름을 적고 정보 보관에 동의합니다.</p></div>
+          <div><span class="n">3단계</span><b>최초 설정</b><p>운영 개시일, 통장과 초기잔액, 예산과목, 결재선을 차례로 넣습니다.</p></div>
+        </div>
+        <figure><img src="/img/help/setup.png" alt="최초 설정 화면: 성당명, 운영 개시일, 결산서 작성자" loading="lazy" width="1100" height="400"></figure>
+        <div class="tip">💡 <b>운영 개시일</b>은 잔액을 확실히 아는 날로 정하세요. 예를 들어 11월 1일로 정하면, 각 통장의 초기잔액은 <b>10월 31일 마감 잔액</b>입니다. 운영 개시일 이전 날짜로는 거래를 넣을 수 없습니다.</div>
+        <p>설정을 마치면 홈 화면의 <b>[바탕화면에 아이콘 만들기]</b>를 눌러 두세요. 다음부터는 아이콘만 누르면 열립니다.</p>
+      </section>
+
+      <section id="entry" data-keywords="거래 입력 수입 지출 저장 단축키 F2 F3 F4 Enter 수정 삭제 고치기 지우기 적요 증빙">
+        <h2><span class="hn">2</span>거래 입력</h2>
+        <p>날짜를 고르고 <b>수입 · 지출</b>을 고른 뒤, 통장 → 예산과목 → 금액 → 적요 순서로 넣고 <kbd>Enter</kbd>를 누르면 저장됩니다.</p>
+        <figure><img src="/img/help/entry.png" alt="거래 입력 화면: 날짜, 수입·지출·이체 선택, 통장·과목·금액·적요, 저장" loading="lazy" width="1100" height="545"></figure>
+        <table class="grid help-keys">
+          <thead><tr><th>키</th><th>하는 일</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>F2</kbd></td><td>수입으로 바꾸기</td></tr>
+            <tr><td><kbd>F3</kbd></td><td>지출로 바꾸기</td></tr>
+            <tr><td><kbd>F4</kbd></td><td>이체 · 입금으로 바꾸기</td></tr>
+            <tr><td><kbd>Enter</kbd></td><td>다음 칸으로. 마지막 칸에서는 저장</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>고치던 것 취소</td></tr>
+          </tbody>
+        </table>
+        <div class="tip">💡 저장한 뒤에도 통장과 과목은 그대로 남고 금액 칸으로 돌아갑니다. 같은 과목의 교무금을 여러 건 넣을 때 금액과 적요만 바꿔 계속 입력하면 됩니다.</div>
+        <p><b>고치기 · 지우기:</b> 아래 거래 내역에서 해당 줄의 [수정] 또는 [삭제]를 누릅니다. 마감한 날짜의 거래는 먼저 <a href="#closing">마감취소</a>를 해야 고칠 수 있습니다.</p>
+      </section>
+
+      <section id="transfer" data-keywords="이체 입금 현금 통장 옮기기 보내는 곳 받는 곳">
+        <h2><span class="hn">3</span>이체 · 입금</h2>
+        <p>사무실 현금을 통장에 넣거나, 통장끼리 돈을 옮길 때 씁니다. <b>성당의 돈이 늘거나 줄지 않으므로 수입 · 지출에 잡히지 않습니다.</b></p>
+        <ol>
+          <li>거래 입력에서 <b>[이체·입금]</b>(<kbd>F4</kbd>)을 누릅니다.</li>
+          <li><b>보내는 곳</b>과 <b>받는 곳</b>, 금액을 넣고 저장합니다.</li>
+        </ol>
+        <div class="tip">예) 주일헌금 현금 900,000원을 경상비 통장에 입금 → 보내는 곳: 사무실 현금, 받는 곳: 경상비</div>
+      </section>
+
+      <section id="closing" data-keywords="마감 일마감 마감취소 달력 잠김 가결산 순서">
+        <h2><span class="hn">4</span>일 마감</h2>
+        <p>그날 입력을 다 했으면 <b>[일 마감]</b>에서 그날을 마감합니다. 마감한 날은 잠겨서 실수로 바뀌지 않고, 결산서의 "가결산" 표시가 없어집니다.</p>
+        <figure><img src="/img/help/closing.png" alt="일 마감 화면: 달력(초록 마감, 주황 미마감)과 선택한 날의 현황, 마감하기 버튼" loading="lazy" width="1100" height="640"></figure>
+        <ul>
+          <li>달력 색: <b class="in">초록</b> 마감 · <b style="color:#9ca3af">회색</b> 거래 없는 날(함께 잠김) · <b style="color:#c27803">주황</b> 마감 안 한 거래 있음</li>
+          <li>마감은 <b>날짜 순서대로</b>만 됩니다. 앞 날짜에 마감 안 한 거래가 있으면 뒤 날짜를 마감할 수 없습니다.</li>
+          <li><b>마감취소</b>는 가장 마지막에 마감한 날부터 거꾸로만 됩니다. 마감취소한 뒤 고치고 다시 마감하세요.</li>
+        </ul>
+      </section>
+
+      <section id="report" data-keywords="결산 결산서 인쇄 일일 월말 연말 결재란 A4 출력 PDF">
+        <h2><span class="hn">5</span>결산서 인쇄</h2>
+        <p><b>[결산]</b>에서 일일결산 · 월말결산 · 연말결산을 고르고 <b>[인쇄]</b>(<kbd>Ctrl</kbd>+<kbd>P</kbd>)를 누릅니다.</p>
+        <figure><img src="/img/help/report.png" alt="일일 결산서 A4 미리보기: 결재란, 회계별 현황, 수입·지출 내역" loading="lazy" width="1100" height="600"></figure>
+        <div class="tip">🖨 인쇄 창에서 <b>용지 A4 · 여백 기본값 · 배율 100 · 머리글과 바닥글 해제</b>로 맞추면 깔끔하게 나옵니다. 종이 오른쪽 아래에 출력 일시가 찍힙니다.</div>
+      </section>
+
+      <section id="ledger" data-keywords="거래 조회 검색 기간 통장 잔액 대조 은행">
+        <h2><span class="hn">6</span>거래 조회</h2>
+        <p>기간 · 통장 · 과목 · 구분 · 검색어로 거래를 찾습니다. 시작일을 고르면 종료일도 같은 날로 맞춰집니다.</p>
+        <div class="tip">💡 통장을 하나 고르면 거래마다 잔액이 나와서 <b>은행 통장 사본과 한 줄씩 맞춰 볼</b> 수 있습니다.</div>
+      </section>
+
+      <section id="backup" data-keywords="백업 내려받기 파일 json 보관 USB">
+        <h2><span class="hn">7</span>백업</h2>
+        <p>장부는 본당살림 서버에 저장되지만, 만일에 대비해 <b>한 달에 한 번</b>쯤 <b>[설정 → 백업 → 백업 파일 내려받기]</b>로 장부 전체를 파일로 받아 USB나 OneDrive에 두세요.</p>
+        <div class="warn">⚠ 백업 파일에는 신자 이름과 금액이 들어 있습니다. 다른 사람에게 보내지 마세요.</div>
+      </section>
+
+      <section id="import" data-keywords="예전 장부 가져오기 복구 bondang json 비밀번호 파일">
+        <h2><span class="hn">8</span>예전 장부 가져오기</h2>
+        <p>예전 장부 파일(.bondang)이나 백업 파일(.json)이 있으면, 최초 설정 화면 맨 위 <b>[예전 장부 가져오기]</b>에서 파일을 고릅니다. .bondang 파일은 그 파일의 비밀번호를 넣습니다.</p>
+        <ol>
+          <li>파일 고르기 → (.bondang 이면) 비밀번호 넣고 [파일 열기]</li>
+          <li>성당 이름 · 거래 기간 · 마지막 마감일 · 건수 요약을 확인</li>
+          <li><b>[이 장부 가져오기]</b></li>
+        </ol>
+        <p class="help">이미 쓰고 있는 장부에는 가져올 수 없습니다. 장부를 비우고 다시 가져오려면 <a href="#settings">설정 → 초기화 / 탈퇴</a>를 보세요.</p>
+      </section>
+
+      <section id="members" data-keywords="사무장 바뀜 인수인계 함께 사용 함께 쓰는 사람 추가 빼기 계정 이메일 다른 계정">
+        <h2><span class="hn">9</span>사무장이 바뀌었을 때</h2>
+        <p><b>[설정 → 함께 사용]</b>에서 새 사무장의 구글 이메일을 추가하면, 그 계정으로 로그인하는 순간 같은 장부가 열립니다. 함께 쓰는 사람은 모두 같은 권한(입력·마감·결산·설정)을 가집니다.</p>
+        <ol>
+          <li>전 사무장이 <b>새 사무장의 구글 이메일</b>을 추가합니다.</li>
+          <li>새 사무장이 <b>그 구글 계정으로 로그인</b>합니다. 같은 컴퓨터라면 [로그아웃] 후 구글 계정 고르는 창에서 <b>"다른 계정 사용"</b>을 누릅니다.</li>
+          <li>장부가 보이면 <b>전 사무장을 [빼기]</b> 합니다. 빠진 계정은 바로 로그아웃됩니다.</li>
+          <li>[설정 → 성당 정보]의 <b>결산서 작성자</b> 이름을 바꿉니다.</li>
+        </ol>
+        <div class="tip">💡 끝나면 그 컴퓨터 크롬에 로그인되어 있던 전 사무장의 구글 계정도 로그아웃해 두세요.</div>
+      </section>
+
+      <section id="settings" data-keywords="설정 성당 정보 통장 예산과목 결재선 백업 함께 사용 초기화 탈퇴 사용 중지">
+        <h2><span class="hn">10</span>설정 바꾸기</h2>
+        <table class="grid">
+          <thead><tr><th>탭</th><th>바꿀 수 있는 것</th></tr></thead>
+          <tbody>
+            <tr><td>성당 정보</td><td>성당명, 결산서 작성자</td></tr>
+            <tr><td>통장 · 예산과목</td><td>추가 · 이름 바꾸기 · 순서 · 사용 중지 (거래가 있으면 지울 수 없고 사용 중지)</td></tr>
+            <tr><td>결재선</td><td>결산서 결재란의 직함</td></tr>
+            <tr><td>백업</td><td>백업 파일 내려받기</td></tr>
+            <tr><td>함께 사용</td><td>장부를 함께 쓸 구글 계정 추가 · 빼기</td></tr>
+            <tr><td class="out"><b>초기화 / 탈퇴</b></td><td>장부를 비우고 처음부터 · 서비스 탈퇴 (되살릴 수 없으니 먼저 백업)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="faq" class="help-faq" data-keywords="질문 문의 집 창 닫기 실수 통장 사무장">
+        <h2><span class="hn">?</span>자주 묻는 질문</h2>
+        <details><summary>집에서도 쓸 수 있나요?</summary><p>네. 어느 컴퓨터에서든 같은 구글 계정으로 로그인하면 같은 장부가 열립니다.</p></details>
+        <details><summary>입력하다 실수로 창을 닫으면 어떻게 되나요?</summary><p>저장 버튼을 누른 거래는 이미 서버에 저장되어 있습니다. 다시 열면 그대로 있습니다.</p></details>
+        <details><summary>마감한 날의 거래를 고치고 싶어요.</summary><p>[일 마감]에서 그날까지 마감취소를 한 뒤 고치고, 다시 마감하세요.</p></details>
+        <details><summary>통장이 더 이상 필요 없어요.</summary><p>거래가 있는 통장은 지울 수 없고 [사용 중지]로 바꿉니다. 지난 결산서는 그대로 남습니다.</p></details>
+        <details><summary>사무장이 바뀌면요?</summary><p><a href="#members">9. 사무장이 바뀌었을 때</a>를 보세요.</p></details>
+        <details><summary>문의는 어디로 하나요?</summary><p><a href="mailto:jangsangyun0310@gmail.com">jangsangyun0310@gmail.com</a> 으로 보내 주세요.</p></details>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/js/help.js"></script>
+</body>
+</html>

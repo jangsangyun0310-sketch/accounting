@@ -10,7 +10,11 @@ const NAV = [
   { href: '/ledger', label: '거래 조회', key: 'ledger' },
   { href: '/closing', label: '일 마감', key: 'closing' },
   { href: '/report', label: '결산', key: 'report' },
+  { href: '/help', label: '도움말', key: 'help' },
 ];
+
+// 도움말 메뉴는 지금 보고 있는 화면의 설명으로 바로 연다
+const HELP_SECTION = { home: 'start', setup: 'start', entry: 'entry', ledger: 'ledger', closing: 'closing', report: 'report', settings: 'settings' };
 
 /**
  * 페이지 공통 초기화: 사용자·설정을 불러오고 상단 메뉴를 그린다.
@@ -35,7 +39,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
       ${settings.setupCompleted
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
-        `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
+        `<a href="${href(n.key === 'help' && HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
       <span class="account"><button type="button" class="secondary small" id="logout-btn"
         title="${esc(account.user.email)} 계정으로 로그인되어 있습니다">로그아웃</button></span>
       <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button></div>`;

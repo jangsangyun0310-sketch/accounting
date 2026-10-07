@@ -341,10 +341,52 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 
 /* 한글 문장은 단어(어절) 중간에서 줄을 바꾸지 않는다 (예: "등록은" 이 "등 / 록은" 으로 끊기지 않게) */
 p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
-/* 설정의 [초기화 / 탈퇴] 탭: 다른 탭과 떨어진 오른쪽 끝, 빨간색 */
-.tabs button.tab-danger { margin-left: auto; background: #fff; color: var(--danger); border: 2px solid var(--danger); font-weight: 600;
+/* 설정의 [함께 사용] [초기화 / 탈퇴] 탭: 다른 탭과 떨어진 오른쪽 끝. 초기화 / 탈퇴는 빨간색 */
+.tabs button.tab-right { margin-left: auto; }
+.tabs button.tab-danger { background: #fff; color: var(--danger); border: 2px solid var(--danger); font-weight: 600;
   margin-bottom: -2px; } /* 테두리는 사방 2px. 아래 테두리가 버튼 밑의 파란 줄(2px)을 빨간색으로 덮는다 */
 .tabs button.tab-danger.active { background: var(--danger); color: #fff; }
 .help-box { margin-top: 16px; background: #f7f9fc; border: 1px solid var(--line); border-radius: 6px; padding: 6px 14px; max-width: 760px; }
 .help-box summary { font-weight: 600; color: var(--accent); }
 .help-box ol { padding-left: 20px; line-height: 1.8; margin: 6px 0; }
+
+/* ---- 도움말 ---- */
+.help-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; max-width: 1040px; margin: 0 auto; padding: 16px; align-items: start; }
+.help-toc { position: sticky; top: 96px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 12px 8px; }
+.help-toc b { display: block; padding: 0 10px 8px; font-size: 14px; }
+.help-toc a { display: block; padding: 7px 10px; border-radius: 4px; color: var(--text); text-decoration: none; font-size: 14px; }
+.help-toc a:hover { background: var(--accent-soft); }
+.help-toc a.on { background: var(--accent); color: #fff; font-weight: 600; }
+.help-toc a.dim { opacity: .35; }
+.help-toc .tn { display: inline-block; width: 24px; color: var(--muted); }
+.help-toc a.on .tn { color: #cfe0f5; }
+.help-main section { padding: 18px 22px; margin-bottom: 18px; line-height: 1.75; }
+.help-main h1 { font-size: 22px; margin: 0 0 4px; }
+.help-main h2 { font-size: 18px; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+.help-main .hn { background: var(--accent); color: #fff; border-radius: 50%; min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+.help-main figure { margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0, 0, 0, .06); }
+.help-main figure img { display: block; width: 100%; height: auto; }
+.help-main kbd { font-size: 13px; opacity: 1; padding: 2px 7px; border: 1px solid #9aa3af; border-bottom-width: 2px; border-radius: 4px; background: #fff; margin: 0 2px; }
+.help-main ol, .help-main ul { padding-left: 22px; margin: 6px 0; }
+.help-search { display: flex; gap: 8px; margin: 12px 0 4px; }
+.help-search input { font-size: 16px; padding: 10px 12px; }
+.help-search button { white-space: nowrap; }
+.help-search button[hidden] { display: none; }
+.help-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0; }
+.help-cards > div { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #fafbfc; }
+.help-cards .n { font-weight: 800; color: var(--accent); font-size: 13px; }
+.help-cards b { display: block; margin: 2px 0 4px; }
+.help-cards p { margin: 0; font-size: 14px; color: #374151; }
+.help-keys { width: auto; min-width: 420px; }
+.help-keys td:first-child { white-space: nowrap; width: 1%; }
+.help-main .tip { background: #eef6f0; border: 1px solid #b9dcc4; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 14px; }
+.help-main .warn { background: #fdf0f0; border: 1px solid #f5b5b5; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 14px; }
+.help-faq details { border-bottom: 1px solid var(--line); padding: 4px 0; }
+.help-faq summary { color: var(--text); font-weight: 600; padding: 6px 0; }
+.help-faq details p { margin: 0 0 8px; color: #374151; }
+@media (max-width: 800px) {
+  .help-layout { grid-template-columns: 1fr; }
+  .help-toc { position: static; }
+  .help-cards { grid-template-columns: 1fr; }
+  .help-keys { min-width: 0; }
+}

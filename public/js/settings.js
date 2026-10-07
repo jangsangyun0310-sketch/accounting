@@ -1,4 +1,4 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 함께 쓰는 사람 / 초기화·탈퇴(오른쪽 끝 빨간 탭)
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 … (오른쪽 끝) 함께 사용 / 초기화·탈퇴(빨간 탭)
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
@@ -248,7 +248,7 @@ async function renderBackup() {
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
 }
 
-// ---------------------------------------------------------------- 함께 쓰는 사람
+// ---------------------------------------------------------------- 함께 사용
 
 async function renderMembers() {
   panel.innerHTML = '<p class="muted">불러오는 중…</p>';
@@ -278,7 +278,7 @@ async function renderMembers() {
       <tbody>${rows.join('')}</tbody>
     </table>
     <div class="form-grid" data-form="member" style="max-width:560px;grid-template-columns:1fr auto;align-items:end">
-      <label>추가할 사람의 구글 이메일 <input name="email" type="email" placeholder="예) new.office@gmail.com" autocomplete="off"></label>
+      <label>추가할 사람의 구글 이메일 <input name="email" type="email" placeholder="예) name@gmail.com" autocomplete="off"></label>
       <button type="button" data-action="member-add">추가</button>
     </div>
     <details class="help-box" open>
@@ -289,7 +289,6 @@ async function renderMembers() {
         <li>장부가 보이면 이 화면에서 <b>전 사무장을 [빼기]</b> 합니다. 빠진 계정은 바로 로그아웃됩니다.</li>
         <li>[성당 정보]의 <b>결산서 작성자</b> 이름을 바꿉니다.</li>
       </ol>
-      <p class="help">💡 성당 업무 전용 구글 계정(예: 성당이름.office@gmail.com)으로 써 두면 인수인계가 더 쉽습니다.</p>
     </details>`;
 }
 
