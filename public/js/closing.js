@@ -103,9 +103,9 @@ async function loadDetail(date) {
       ${approvalBoxHtml(c.approvalSteps)}` : ''}
 
     <div class="detail-actions">
-      <a class="button secondary" href="${href(`/report?date=${date}`)}">결산서 보기·인쇄</a>
       ${info.canClose ? `<button type="button" data-close-date="${date}">이 날짜 마감하기</button>` : ''}
       ${info.canReopen ? `<button type="button" class="danger" data-reopen="${date}">마감취소</button>` : ''}
+      <a class="button secondary" href="${href(`/report?date=${date}`)}">결산서 보기·인쇄</a>
       ${!info.canClose && !closed && !covered && date <= info.today && date >= info.startDate
         ? `<p class="help">앞 날짜(${formatKoreanDate(info.nextRequired)})에 마감되지 않은 거래가 있습니다. 그 날부터 순서대로 마감하세요.</p>` : ''}
       ${closed && !info.canReopen ? '<p class="help">마감취소는 가장 마지막 마감일부터 순서대로만 할 수 있습니다.</p>' : ''}

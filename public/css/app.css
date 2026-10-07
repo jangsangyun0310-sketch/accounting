@@ -275,7 +275,7 @@ ul.legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1
 .detail-head { display: flex; align-items: center; gap: 12px; }
 .detail-head h2 { margin: 0; }
 .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0 4px; }
-.detail-actions button { padding: 9px 20px; }
+.detail-actions button, .detail-actions .button { padding: 9px 20px; line-height: 1.5; }
 .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; color: #fff; }
 .pill.closed { background: var(--in); }
 .pill.locked { background: #9ca3af; }
