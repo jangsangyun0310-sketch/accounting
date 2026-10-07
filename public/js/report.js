@@ -272,6 +272,13 @@ $('next').addEventListener('click', () => go(shift(1)));
 $('now').addEventListener('click', () => go(nowValue()));
 $('print').addEventListener('click', () => window.print());
 
+// 인쇄할 때마다 종이 오른쪽 아래에 출력 일시를 찍는다 (Ctrl+P 로 인쇄해도 같음)
+const printedAt = document.createElement('style');
+document.head.append(printedAt);
+window.addEventListener('beforeprint', () => {
+  printedAt.textContent = `@page { @bottom-right { content: "출력 일시 ${formatDateTimeKST(new Date().toISOString())}"; font-size: 8pt; color: #555; } }`;
+});
+
 initPage('report').then(({ settings }) => {
   const thisYear = Number(todayKST().slice(0, 4));
   const firstYear = Number((settings.parish?.startDate ?? todayKST()).slice(0, 4));
