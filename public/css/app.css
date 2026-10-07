@@ -26,7 +26,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 }
 /* 본문(.container)과 같은 폭·여백이라 메뉴 왼쪽 끝이 본문 상자 왼쪽 줄에 맞는다 */
 .topbar-inner {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   max-width: 1040px; margin: 0 auto; padding: 0 16px;
 }
 .topbar-inner.narrow { max-width: 860px; }
@@ -49,7 +49,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 }
 .topbar .settings-link:hover { background: var(--accent-soft); }
 .topbar .settings-link.active { background: var(--accent); color: #fff; }
-.topbar nav { display: flex; gap: 4px; margin-left: 12px; flex-wrap: wrap; }
+.topbar nav { display: flex; gap: 2px; margin-left: 8px; flex-wrap: wrap; }
 .topbar nav a { color: var(--accent); text-decoration: none; padding: 8px 14px; line-height: 1.5; border-radius: 4px; font-weight: 500; }
 .topbar nav a:hover { background: var(--accent-soft); }
 .topbar nav a.active { background: var(--accent); color: #fff; font-weight: 600; }
@@ -294,9 +294,12 @@ table.grid td.actions .danger.small, .delete-blocked { width: 64px; box-sizing: 
 /* ---- 공유하기 ---- */
 .topbar .share-btn { margin-left: auto; background: #fff; color: var(--in); border: 1.5px solid var(--in); font-weight: 600; }
 /* 로그아웃 · 공유하기: 메뉴·설정 버튼과 같은 높이(38px)와 글자 크기 */
-.topbar .share-btn, .topbar .account button { height: 38px; padding: 0 14px; font-size: 15px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
+.topbar .share-btn, .topbar .account button, .topbar .help-link { height: 38px; padding: 0 14px; font-size: 15px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; }
 .topbar .account button { background: #fff; color: #4b5563; border: 1.5px solid #b9c0ca; font-weight: 500; }
 .topbar .account button:hover { background: #f3f4f6; }
+.topbar .help-link { color: var(--accent); border: 1.5px solid var(--accent); background: #fff; text-decoration: none; font-weight: 600; }
+.topbar .help-link:hover { background: var(--accent-soft); }
+.topbar .help-link.active { background: var(--accent); color: #fff; }
 .topbar .share-btn:hover { background: #e9f5ee; }
 dialog#share-dialog { width: min(640px, 95vw); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; }
 dialog#share-dialog h3 { margin-top: 0; }
@@ -340,7 +343,7 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
   font-size: 16px; font-weight: 600; text-decoration: none;
 }
 .google-btn:hover { background: #f5f7fa; }
-.topbar .account { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.topbar .account { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .topbar .account + .share-btn { margin-left: 0; }
 .danger-zone { border: 1px solid #f5b5b5; background: #fffafa; border-radius: 6px; padding: 4px 14px 2px; max-width: 760px; }
 .danger-zone label { max-width: 440px; margin-bottom: 8px; }
