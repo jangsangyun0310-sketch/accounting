@@ -138,6 +138,7 @@ export async function validateBackup(backup) {
   for (const c of tables.daily_closings.filter((x) => x.status === 'CLOSED')) {
     let snapshot;
     try { snapshot = JSON.parse(c.balance_snapshot); } catch { throw invalid(`${c.close_date} 마감 기록이 손상되었습니다.`); }
+    if (!Array.isArray(snapshot)) throw invalid(`${c.close_date} 마감 기록이 손상되었습니다.`);
     for (const s of snapshot) {
       if (!accounts.has(s.id) || balanceAt(s.id, c.close_date) !== s.balance) {
         throw invalid(`${c.close_date} 마감 잔액(${s.name})이 거래 내역과 맞지 않습니다.`);
