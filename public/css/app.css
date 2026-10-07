@@ -338,3 +338,6 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 .topbar .account + .share-btn { margin-left: 0; }
 .danger-zone { border: 1px solid #f5b5b5; background: #fffafa; border-radius: 6px; padding: 4px 14px 2px; max-width: 760px; }
 .danger-zone label { max-width: 440px; margin-bottom: 8px; }
+
+/* 한글 문장은 단어(어절) 중간에서 줄을 바꾸지 않는다 (예: "등록은" 이 "등 / 록은" 으로 끊기지 않게) */
+p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
