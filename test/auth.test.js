@@ -216,3 +216,7 @@ test('돌아갈 주소는 이 사이트 안만', () => {
   assert.equal(safeNext('https://evil.test'), '/');
   assert.equal(safeNext(null), '/');
 });
+
+test('개인정보처리방침은 로그인 없이 누구나 볼 수 있다', async () => {
+  assert.equal(await (await call('/privacy')).text(), 'asset:/privacy');
+});

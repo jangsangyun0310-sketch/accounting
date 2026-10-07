@@ -16,11 +16,12 @@
     ]
   },
 
-  // 서비스 계정 데이터베이스 (성당·사용자·로그인 세션). database_id 가 없으면 첫 배포 때 만들어진다.
+  // 서비스 계정 데이터베이스 (성당·사용자·로그인 세션). 아시아·태평양(apac)에 만듦
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "bondang-salim-main",
+      "database_id": "19e59564-19b7-41e4-a1f4-6901c5afba44",
       "migrations_dir": "src/migrations"
     }
   ],

@@ -8,12 +8,15 @@
 import { getSession, handleAuth, redirect } from './auth.js';
 
 const PUBLIC_PAGES = new Set(['/login', '/login.html']);
+// 로그인과 관계없이 누구나 보는 화면 (구글 로그인 설정·스토어 등록에 주소가 필요)
+const OPEN_PAGES = new Set(['/privacy', '/privacy.html']);
 const SIGNUP_PAGES = new Set(['/signup', '/signup.html']);
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/auth/')) return handleAuth(request, env, url);
+    if (OPEN_PAGES.has(url.pathname)) return env.ASSETS.fetch(request);
 
     const session = await getSession(request, env);
     if (url.pathname.startsWith('/api/')) return ledgerApi(request, env, url, session);
