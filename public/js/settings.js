@@ -1,4 +1,4 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 초기화·탈퇴
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 / 초기화·탈퇴(오른쪽 끝 빨간 탭)
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';

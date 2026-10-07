@@ -341,3 +341,6 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 
 /* 한글 문장은 단어(어절) 중간에서 줄을 바꾸지 않는다 (예: "등록은" 이 "등 / 록은" 으로 끊기지 않게) */
 p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
+/* 설정의 [초기화 / 탈퇴] 탭: 다른 탭과 떨어진 오른쪽 끝, 빨간색 */
+.tabs button.tab-danger { margin-left: auto; background: #fff; color: var(--danger); border: 1.5px solid var(--danger); border-bottom: none; font-weight: 600; }
+.tabs button.tab-danger.active { background: var(--danger); color: #fff; }
