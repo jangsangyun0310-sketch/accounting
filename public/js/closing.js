@@ -7,7 +7,7 @@ import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } f
 
 const $ = (id) => document.getElementById(id);
 const STATUS_LABEL = {
-  closed: '마감', locked: '잠김', reopened: '마감취소됨', open: '', future: '', 'before-start': '',
+  closed: '마감', locked: '자동 마감', reopened: '마감취소됨', open: '', future: '', 'before-start': '',
 };
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -70,7 +70,7 @@ async function loadDetail(date) {
   const postedCount = day.transactions.filter((t) => t.status === 'POSTED').length;
 
   const statusText = closed ? '<span class="pill closed">마감</span>'
-    : covered ? '<span class="pill locked">잠김 (이후 날짜 마감으로 함께 잠김)</span>'
+    : covered ? '<span class="pill locked">자동 마감</span> <span class="muted small">거래가 없어 이후 날짜를 마감할 때 자동으로 마감됨</span>'
     : c?.status === 'REOPENED' ? '<span class="pill reopened">마감취소됨</span>'
     : '<span class="pill open">미마감</span>';
 
