@@ -12,25 +12,20 @@ async function main() {
   const [balances, health, closings, backup] = await Promise.all([
     api('/api/balances'), api('/api/health'), api('/api/closings'), api('/api/backup/status')]);
 
-  const box = $('parish-address');
-  const { ledgerFileName, closeLedger } = await import('./local/session.js');
-  box.hidden = false;
-  box.innerHTML = `<b>장부 파일</b> 📒 ${esc(await ledgerFileName())}
-    <span class="muted">— 이 컴퓨터에 저장되어 있습니다. 입력할 때마다 자동으로 저장됩니다.</span>
-    <a href="#" id="close-ledger">다른 장부 파일 열기</a>
-    ${isInstalledApp ? '' : `<div class="install-row"><button type="button" class="small" id="install-app">바탕화면에 아이콘 만들기</button>
-      <span class="muted">아이콘을 눌러 바로 열 수 있습니다.</span></div>
+  // 바탕화면 아이콘 안내 (이미 설치한 앱 창에서는 숨김)
+  if (!isInstalledApp) {
+    const box = $('parish-address');
+    box.hidden = false;
+    box.innerHTML = `<div class="install-row"><button type="button" class="small" id="install-app">바탕화면에 아이콘 만들기</button>
+      <span class="muted">장부는 서버에 저장되어, 어느 컴퓨터에서든 로그인하면 같은 장부가 열립니다.</span></div>
       <p id="install-help" class="help" hidden>이 브라우저에서는 버튼으로 설치할 수 없습니다.
       <b>크롬</b>: 주소창 오른쪽의 설치 아이콘(⊕) 또는 메뉴(⋮) → 전송, 공유 및 전송 → <b>페이지를 앱으로 설치</b>.
       <b>엣지</b>: 메뉴(…) → 앱 → <b>이 사이트를 앱으로 설치</b>.
-      이미 설치했다면 바탕화면이나 시작 메뉴에서 "본당살림"을 찾아보세요.</p>`}`;
-  $('install-app')?.addEventListener('click', async () => {
-    if (!(await installApp())) $('install-help').hidden = false;
-  });
-  $('close-ledger').addEventListener('click', (e) => {
-    e.preventDefault();
-    if (confirm('이 장부를 닫고 다른 장부 파일을 엽니다. 계속할까요?')) closeLedger();
-  });
+      이미 설치했다면 바탕화면이나 시작 메뉴에서 "본당살림"을 찾아보세요.</p>`;
+    $('install-app').addEventListener('click', async () => {
+      if (!(await installApp())) $('install-help').hidden = false;
+    });
+  }
 
   const b = backupStatusHtml(backup);
   $('backup-status').innerHTML = b.html + (b.needed

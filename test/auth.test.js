@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { d1Adapter } from './helpers.js';
-import worker from '../src/index.js';
+import worker from '../src/router.js';
 import { safeNext } from '../src/auth.js';
 
 const ORIGIN = 'https://bondang.test';

@@ -3,6 +3,7 @@
 //                                    처리자는 설정의 '결산서 작성자' 이름으로 기록한다 (없으면 '사무실').
 // AUTH_MODE = 'access' (선택)      : Cloudflare Access 로그인. Cf-Access-Jwt-Assertion 서명·대상·만료를 검증한다.
 // AUTH_MODE = 'dev'    (로컬 개발) : 검증 없이 DEV_USER 로 동작한다.
+// AUTH_MODE = 'server' (서비스)    : 로그인은 Worker 가 확인하고, 처리자는 ACTOR(사용자 이메일)로 기록한다.
 // 값이 없으면 안전하게 'access' 로 취급한다.
 import { ApiError } from './http.js';
 
@@ -19,6 +20,8 @@ export async function getActor(request, env) {
     return { email: writer?.trim() || OPEN_ACTOR };
   }
   if (mode === 'dev') return { email: env.DEV_USER || 'dev@local' };
+  // 서비스 서버: Worker 가 로그인 세션을 확인한 뒤 성당 저장소에 사용자 이메일을 넘긴다 (src/ledger.js)
+  if (mode === 'server') return { email: env.ACTOR || OPEN_ACTOR };
   if (mode !== 'access') throw new ApiError(500, 'AUTH_MODE_INVALID', '인증 설정(AUTH_MODE)이 올바르지 않습니다.');
 
   const teamDomain = (env.ACCESS_TEAM_DOMAIN || '').replace(/\/+$/, '');

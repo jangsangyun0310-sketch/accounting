@@ -94,6 +94,11 @@ $('filters').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); search(); }
 });
 
+// 시작일을 고르면 종료일도 같은 날로 (하루치를 바로 볼 수 있게. 기간은 종료일을 다시 고르면 됨)
+$('from').addEventListener('change', () => {
+  if ($('from').value) $('to').value = $('from').value;
+});
+
 initPage('ledger').then(({ settings: s }) => {
   settings = s;
   fillFilters();

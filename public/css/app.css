@@ -323,8 +323,7 @@ dialog#share-dialog h3 { margin-top: 0; }
 ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 .copy-row.big input { font-size: 15px; color: var(--text); padding: 9px; }
 .parish-address { background: #f0f7f2; border-color: #b9dcc4; font-size: 14px; }
-.parish-address #close-ledger { margin-left: 8px; }
-.parish-address .install-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.parish-address .install-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 @media print { .topbar { position: static; } }
 
 /* ---- 로그인 ---- */

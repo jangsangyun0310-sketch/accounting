@@ -368,12 +368,14 @@ panel.addEventListener('keydown', (e) => {
   else $('next').click();
 });
 
-initPage('setup', { requireSetup: false }).then(({ settings }) => {
+initPage('setup', { requireSetup: false }).then(({ settings, account }) => {
   if (settings.setupCompleted) {
     clearDraft();
     location.replace(href('/settings'));
     return;
   }
+  // 가입할 때 등록한 성당 이름을 미리 채운다
+  if (!state.parish.parishName && account.parish?.name) state.parish.parishName = account.parish.name;
   initRestore(document.getElementById('restore-box'), {
     onRestored: () => { clearDraft(); location.replace(href('/')); },
   });

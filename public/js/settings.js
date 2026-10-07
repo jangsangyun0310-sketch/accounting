@@ -11,7 +11,7 @@ const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', 'password'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값
 
@@ -22,7 +22,7 @@ async function reload() {
 
 function render() {
   tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup, password: renderPassword })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -235,56 +235,16 @@ async function renderBackup() {
   const { html } = backupStatusHtml(s);
   panel.innerHTML = `
     <p>${html}</p>
-    <button type="button" data-action="backup-download">백업 사본 저장하기</button>
+    <button type="button" data-action="backup-download">백업 파일 내려받기</button>
     <div class="help">
-      <p>지금 장부 파일의 <b>사본</b>을 고른 곳에 저장합니다. 사본도 <b>같은 비밀번호로 잠겨</b> 있습니다.
-        <b>매주 한 번</b>, 그리고 월말에 저장하고, <b>USB나 OneDrive 처럼 이 컴퓨터 밖</b>에도 두세요.
-        컴퓨터가 고장 나면 장부 파일도 함께 잃을 수 있습니다.</p>
-      <p>되살릴 때는 시작 화면에서 <b>[장부 파일 열기]</b>로 백업 사본을 고르면 그대로 열립니다.</p>
+      <p>장부는 본당살림 서버에 저장되어 있습니다. 그래도 만일에 대비해 <b>한 달에 한 번</b>쯤 장부 전체를 백업 파일(.json)로 내려받아
+        <b>USB나 OneDrive</b>에 보관해 두세요.</p>
+      <p>백업 파일에는 신자 이름과 금액이 들어 있으니 다른 사람에게 보내지 마세요.</p>
     </div>
     ${s.history.length ? `
       <h4>최근 기록</h4>
       <ul class="audit">${s.history.map((h) => `<li>${formatDateTimeKST(h.at)} · ${esc(h.actor)} ·
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
-}
-
-// ---------------------------------------------------------------- 비밀번호
-
-function renderPassword() {
-  panel.innerHTML = `
-    <form id="password-form" class="form-narrow" autocomplete="off">
-      <p>장부 파일 전체가 새 비밀번호로 다시 잠깁니다. 바꾸면 예전 비밀번호로는 이 파일을 열 수 없습니다.
-        (직원이 그만두었을 때 바꾸세요)</p>
-      <label>지금 비밀번호 <input type="password" id="pw-current" required></label>
-      <label>새 비밀번호 (8자 이상) <input type="password" id="pw-new" minlength="8" required></label>
-      <label>새 비밀번호 확인 <input type="password" id="pw-new2" minlength="8" required></label>
-      <label class="check"><input type="checkbox" id="pw-ack" required>
-        새 비밀번호를 잊으면 누구도(개발자 포함) 자료를 되살릴 수 없다는 것을 이해했습니다.</label>
-      <button type="submit" id="pw-save">비밀번호 바꾸기</button>
-      <p class="help">이미 저장해 둔 백업 사본은 <b>예전 비밀번호</b>로 잠겨 있습니다. 바꾼 뒤에는 백업 사본을 새로 저장해 두세요.</p>
-    </form>`;
-  const $f = (id) => document.getElementById(id);
-  $f('password-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if ($f('pw-new').value.length < 8) return toastError('새 비밀번호는 8자 이상으로 정하세요.');
-    if ($f('pw-new').value !== $f('pw-new2').value) return toastError('새 비밀번호 확인이 다릅니다.');
-    if (!$f('pw-ack').checked) return toastError('안내를 확인하고 체크해 주세요.');
-    const button = $f('pw-save');
-    button.disabled = true;
-    button.textContent = '바꾸는 중…';
-    await attempt(async () => {
-      const { checkPassword, changePassword } = await import('./local/session.js');
-      if (!(await checkPassword($f('pw-current').value))) throw new Error('지금 비밀번호가 맞지 않습니다.');
-      await changePassword($f('pw-new').value);
-      $f('password-form').reset();
-    }, '비밀번호를 바꿨습니다.');
-    button.disabled = false;
-    button.textContent = '비밀번호 바꾸기';
-  });
-}
-
-function toastError(message) {
-  attempt(async () => { throw new Error(message); });
 }
 
 // ---------------------------------------------------------------- 동작

@@ -1,11 +1,14 @@
 // API 호출 공용 함수. 오류는 사용자 메시지를 담은 Error 로 던진다.
-// /api/* 는 서버가 아니라 이 브라우저 안의 엔진(장부 파일)이 처리한다.
+// /api/* 는 서버가 로그인한 사용자의 성당 장부로 보낸다.
 
-/** fetch 와 같은 모양으로 브라우저 안의 엔진에 보낸다 */
+/** 장부 서버에 보낸다. 로그인이 풀렸으면 로그인 화면으로 */
 export async function apiFetch(path, init = {}) {
-  const { ready } = await import('./local/session.js');
-  const engine = await ready();
-  return engine.fetch(path, init);
+  const res = await fetch(path, init);
+  if (res.status === 401) {
+    location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
+    return new Promise(() => {}); // 이동 중에는 이후 코드 실행 안 함
+  }
+  return res;
 }
 
 export async function api(path, { method = 'GET', body } = {}) {

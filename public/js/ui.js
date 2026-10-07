@@ -36,8 +36,8 @@ export async function initPage(active, { requireSetup = true } = {}) {
         ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <nav>${settings.setupCompleted ? NAV.map((n) =>
         `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}">${n.label}</a>`).join('') : ''}</nav>
-      <span class="account">${esc(account.user.email)}
-        <button type="button" class="secondary small" id="logout-btn">로그아웃</button></span>
+      <span class="account"><button type="button" class="secondary small" id="logout-btn"
+        title="${esc(account.user.email)} 계정으로 로그인되어 있습니다">로그아웃</button></span>
       <button type="button" class="share-btn" id="share-btn">🔗 공유하기</button></div>`;
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
     bar.querySelector('#logout-btn')?.addEventListener('click', logout);

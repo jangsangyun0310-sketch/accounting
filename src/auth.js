@@ -131,7 +131,12 @@ async function googleCallback(request, env, url) {
       code_verifier: saved.verifier,
     }),
   });
-  if (!res.ok) return loginError('google');
+  if (!res.ok) {
+    // 구글이 알려 준 이유만 남긴다 (예: invalid_client = 보안 비밀이 틀림, redirect_uri_mismatch)
+    const detail = await res.json().catch(() => ({}));
+    console.warn('google token error', res.status, detail.error, detail.error_description);
+    return loginError('google');
+  }
   const { id_token: idToken } = await res.json();
 
   // id_token 은 구글 토큰 주소에서 비밀키로 직접 받은 것이라 서명 대신 내용만 확인한다 (OpenID Connect 3.1.3.7)
@@ -143,7 +148,13 @@ async function googleCallback(request, env, url) {
   }
   const valid = GOOGLE_ISSUERS.includes(claims.iss) && claims.aud === env.GOOGLE_CLIENT_ID
     && claims.exp * 1000 > Date.now() && claims.nonce === saved.nonce && claims.sub;
-  if (!valid) return loginError('google');
+  if (!valid) {
+    console.warn('google id_token rejected', {
+      iss: GOOGLE_ISSUERS.includes(claims.iss), aud: claims.aud === env.GOOGLE_CLIENT_ID,
+      exp: claims.exp * 1000 > Date.now(), nonce: claims.nonce === saved.nonce, sub: !!claims.sub,
+    });
+    return loginError('google');
+  }
   if (!claims.email || claims.email_verified !== true) return loginError('email');
 
   const userId = await upsertUser(env, { sub: claims.sub, email: claims.email, name: claims.name });
