@@ -15,6 +15,7 @@ import m0005 from '../public/migrations/0005_closing_guards.sql';
 import m0006 from '../public/migrations/0006_backup_restore.sql';
 import m0007 from '../public/migrations/0007_delete_instead_of_void.sql';
 import m0009 from '../public/migrations/0009_close_every_day.sql';
+import m0010 from '../public/migrations/0010_budgets.sql';
 
 const MIGRATION_FILES = [
   { name: '0001_init.sql', sql: m0001 },
@@ -25,6 +26,7 @@ const MIGRATION_FILES = [
   { name: '0006_backup_restore.sql', sql: m0006 },
   { name: '0007_delete_instead_of_void.sql', sql: m0007 },
   { name: '0009_close_every_day.sql', sql: m0009 },
+  { name: '0010_budgets.sql', sql: m0010 },
 ];
 
 export class Ledger extends DurableObject {

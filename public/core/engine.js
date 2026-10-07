@@ -12,6 +12,7 @@ import * as transactions from './routes/transactions.js';
 import * as closings from './routes/closings.js';
 import * as reports from './routes/reports.js';
 import * as backup from './routes/backup.js';
+import * as budgets from './routes/budgets.js';
 
 const routes = [
   ['GET', '/api/health', system.health],
@@ -42,6 +43,8 @@ const routes = [
   ['POST', '/api/closings/:date/reopen', closings.reopen],
   ['GET', '/api/reports/daily', reports.daily],
   ['GET', '/api/reports/period', reports.period],
+  ['GET', '/api/budgets', budgets.list],
+  ['PUT', '/api/budgets', budgets.save],
   ['GET', '/api/backup', backup.download],
   ['GET', '/api/backup/status', backup.status],
   ['POST', '/api/backup/log', backup.log],

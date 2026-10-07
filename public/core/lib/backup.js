@@ -18,6 +18,9 @@ export const TABLES = [
     columns: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active',
       'created_at', 'created_by', 'updated_at', 'updated_by'] },
   { name: 'approval_steps', order: 'seq', columns: ['seq', 'title'] },
+  // optional: 이 표가 생기기 전(2026-10-08 이전)의 백업 파일에는 없다 → 빈 표로 본다
+  { name: 'budgets', order: 'year, subject_id', optional: true,
+    columns: ['year', 'subject_id', 'amount', 'updated_at', 'updated_by'] },
   { name: 'transactions', order: 'id',
     columns: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount', 'memo',
       'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by', 'created_at', 'created_by'] },
@@ -68,6 +71,7 @@ export async function validateBackup(backup) {
 
   for (const t of TABLES) {
     const rows = tables[t.name];
+    if (rows === undefined && t.optional) continue;
     if (!Array.isArray(rows)) throw invalid(`백업 파일에 ${t.name} 표가 없습니다.`);
     for (const row of rows) {
       const keys = row && typeof row === 'object' ? Object.keys(row) : [];
@@ -76,7 +80,11 @@ export async function validateBackup(backup) {
       }
     }
   }
-  if (Object.keys(tables).length !== TABLES.length) throw invalid('백업 파일의 표 구성이 다릅니다.');
+  const known = new Set(TABLES.map((t) => t.name));
+  const required = TABLES.filter((t) => !t.optional).length;
+  if (Object.keys(tables).some((k) => !known.has(k)) || Object.keys(tables).length < required) {
+    throw invalid('백업 파일의 표 구성이 다릅니다.');
+  }
 
   if (await sha256Hex(JSON.stringify(tables)) !== backup.checksum) {
     throw invalid('백업 파일이 손상되었거나 수정되었습니다 (검사값 불일치).');
@@ -90,6 +98,9 @@ export async function validateBackup(backup) {
   const accounts = new Map(tables.accounts.map((a) => [a.id, a]));
   const subjects = new Map(tables.budget_subjects.map((s) => [s.id, s]));
   const txs = tables.transactions;
+  for (const x of tables.budgets ?? []) {
+    if (!subjects.has(x.subject_id)) throw invalid(`예산의 과목(#${x.subject_id})이 백업에 없습니다.`);
+  }
 
   for (const t of txs) {
     if (!accounts.has(t.account_id)) throw invalid(`거래 #${t.id} 의 통장이 백업에 없습니다.`);
@@ -152,7 +163,7 @@ export async function validateBackup(backup) {
     parishName: tables.parish_settings[0].parish_name,
     exportedAt: backup.exportedAt,
     schema: backup.schema,
-    counts: Object.fromEntries(TABLES.map((t) => [t.name, tables[t.name].length])),
+    counts: Object.fromEntries(TABLES.map((t) => [t.name, (tables[t.name] ?? []).length])),
     firstDate: dates[0] ?? null,
     lastDate: dates.at(-1) ?? null,
     lastClosed: closed.at(-1) ?? null,
@@ -170,7 +181,7 @@ export function restoreStatements(db, tables) {
     // 이전 버전 백업의 취소된 거래는 복구하지 않는다 (지금은 취소 = 삭제)
     const rows = t.name === 'transactions'
       ? tables.transactions.filter((x) => x.status === 'POSTED').map((x) => ({ ...x, replaces_id: null }))
-      : tables[t.name];
+      : (tables[t.name] ?? []);
     for (const chunk of chunkRows(rows)) statements.push(db.prepare(sql).bind(JSON.stringify(chunk)));
   }
   statements.push(db.prepare('DELETE FROM restore_session'));

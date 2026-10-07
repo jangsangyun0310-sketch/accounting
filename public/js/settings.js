@@ -1,9 +1,10 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 백업 … (오른쪽 끝) 함께 사용 / 초기화·탈퇴(빨간 탭)
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 연 예산 / 백업 … (오른쪽 끝) 함께 사용 / 초기화·탈퇴(빨간 탭)
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
-import { formatDateTimeKST } from './shared/dates.js';
+import { formatDateTimeKST, todayKST } from './shared/dates.js';
+import { href } from './base.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
 import { currentAccount, logout } from './account.js';
 
@@ -12,7 +13,7 @@ const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'backup', 'members', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'budget', 'backup', 'members', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값
 
@@ -23,7 +24,7 @@ async function reload() {
 
 function render() {
   tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -221,6 +222,62 @@ panel.addEventListener('input', (e) => {
   document.getElementById('approval-preview').innerHTML = approvalBoxHtml(approvalDraft.map((t) => t.trim() || '　'));
 });
 
+// ---------------------------------------------------------------- 연 예산
+
+let budgetYear = Number(todayKST().slice(0, 4));
+
+async function renderBudgetTab() {
+  panel.innerHTML = '<p class="muted">불러오는 중…</p>';
+  let b;
+  try {
+    b = await api(`/api/budgets?year=${budgetYear}`);
+  } catch (err) {
+    panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
+    return;
+  }
+  if (tab !== 'budget') return;
+  const thisYear = Number(todayKST().slice(0, 4));
+  const firstYear = Math.min(Number((settings.parish?.startDate ?? todayKST()).slice(0, 4)), thisYear);
+  const years = [];
+  for (let y = thisYear + 1; y >= firstYear; y--) years.push(y);
+  const rows = (group, label) => `
+    <h3>${label}</h3>
+    <table class="grid edit budget-table">
+      <thead><tr><th>예산과목</th><th class="num">${budgetYear}년 예산(원)</th><th class="num">지금까지 ${label === '수입' ? '수입' : '집행'}</th></tr></thead>
+      <tbody>${group.items.map((x) => `
+        <tr><td>${esc(x.name)}${x.isActive ? '' : ' <span class="muted">(사용중지)</span>'}</td>
+          <td class="num"><input name="budget" data-subject="${x.subjectId}" value="${x.budget ? formatWon(x.budget) : ''}" placeholder="0"></td>
+          <td class="num muted">${formatWon(x.actual)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr class="subtotal"><td>${label} 합계</td><td class="num" data-total="${label}">${formatWon(group.budget)}</td><td class="num">${formatWon(group.actual)}</td></tr></tfoot>
+    </table>`;
+  panel.innerHTML = `
+    <label class="inline">연도 <select id="budget-year">${years.map((y) => `<option value="${y}" ${y === budgetYear ? 'selected' : ''}>${y}년</option>`).join('')}</select></label>
+    <p class="help">과목별 한 해 예산을 넣으세요. 비워 두면 그 과목은 예산이 없는 것으로 봅니다.
+      집행 현황은 <a href="${href(`/report?type=budget&budget=${budgetYear}`)}">결산 → 예산 대비</a>에서 보고 인쇄합니다.</p>
+    <div data-form="budget">
+      ${rows(b.income, '수입')}
+      ${rows(b.expense, '지출')}
+    </div>
+    <button type="button" data-action="budget-save">${budgetYear}년 예산 저장</button>`;
+  panel.querySelectorAll('input[name="budget"]').forEach((input) => {
+    bindAmountInput(input);
+    input.addEventListener('input', updateBudgetTotals);
+  });
+  panel.querySelector('#budget-year').addEventListener('change', (e) => {
+    budgetYear = Number(e.target.value);
+    renderBudgetTab();
+  });
+}
+
+/** 입력하는 동안 수입·지출 예산 합계를 다시 계산 */
+function updateBudgetTotals() {
+  for (const table of panel.querySelectorAll('.budget-table')) {
+    const total = [...table.querySelectorAll('input[name="budget"]')]
+      .reduce((sum, i) => sum + (Number(i.value.replace(/\D/g, '')) || 0), 0);
+    table.querySelector('[data-total]').textContent = formatWon(total);
+  }
+}
+
 // ---------------------------------------------------------------- 백업
 
 async function renderBackup() {
@@ -370,6 +427,12 @@ const actions = {
       if (result.self) logout(); // 나 자신을 뺐으면 로그인 화면으로
       else render();
     }
+  },
+
+  'budget-save': async () => {
+    const items = [...panel.querySelectorAll('input[name="budget"]')]
+      .map((i) => ({ subjectId: Number(i.dataset.subject), amount: i.value.trim() }));
+    if (await attempt(() => api('/api/budgets', { method: 'PUT', body: { year: budgetYear, items } }), `${budgetYear}년 예산을 저장했습니다.`)) renderBudgetTab();
   },
 
   'ledger-reset': async () => {

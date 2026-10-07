@@ -518,3 +518,10 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   .kind-toggle button { flex: 1; padding: 8px 0; }
   .entry-fields .save { width: 100%; }
 }
+
+/* 설정 → 연 예산: 수입·지출 표의 칸 너비를 같게 */
+table.budget-table { table-layout: fixed; max-width: 760px; }
+table.budget-table th:first-child { width: 40%; }
+table.budget-table th:nth-child(2) { width: 32%; }
+table.budget-table input { max-width: 220px; margin-left: auto; display: block; }
+@media (max-width: 720px) { table.budget-table { table-layout: auto; } }

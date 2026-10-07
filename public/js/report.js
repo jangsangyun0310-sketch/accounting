@@ -1,4 +1,4 @@
-// 결산서: 일일결산 · 월말결산 · 연말결산 A4 미리보기와 인쇄
+// 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 A4 미리보기와 인쇄
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml, signedWon } from './ui.js';
@@ -12,11 +12,12 @@ const TYPES = {
   day: { now: '오늘' },
   month: { now: '이번 달' },
   year: { now: '올해' },
+  budget: { now: '올해' }, // 예산 대비 집행 (연도 고르기는 연말결산과 같은 칸)
 };
 let type = 'day';
 
 function currentValue() {
-  return { day: $('date').value, month: $('month').value, year: $('year').value }[type];
+  return { day: $('date').value, month: $('month').value, year: $('year').value, budget: $('year').value }[type];
 }
 
 /** 결산 종류와 날짜(일: YYYY-MM-DD, 월: YYYY-MM, 연: YYYY)를 정하고 결산서를 불러온다 */
@@ -25,17 +26,20 @@ async function load(nextType, value) {
   document.querySelectorAll('#report-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
   $('date').hidden = type !== 'day';
   $('month').hidden = type !== 'month';
-  $('year').hidden = type !== 'year';
+  $('year').hidden = type !== 'year' && type !== 'budget';
   $('now').textContent = TYPES[type].now;
   if (type === 'day') $('date').value = value;
   if (type === 'month') $('month').value = value;
-  if (type === 'year') {
+  if (type === 'year' || type === 'budget') {
     if (![...$('year').options].some((o) => o.value === value)) $('year').append(new Option(`${value}년`, value));
     $('year').value = value;
   }
   history.replaceState(null, '', `?type=${type}&${type === 'day' ? 'date' : type}=${value}`);
 
-  if (type === 'day') {
+  if (type === 'budget') {
+    const r = await api(`/api/budgets?year=${value}`);
+    if (type === 'budget' && String(r.year) === currentValue()) renderBudget(r);
+  } else if (type === 'day') {
     const r = await api(`/api/reports/daily?date=${value}`);
     if (type === 'day' && r.date === $('date').value) render(r);
   } else {
@@ -66,7 +70,7 @@ function shift(dir) {
 
 function nowValue() {
   const t = todayKST();
-  return { day: t, month: t.slice(0, 7), year: t.slice(0, 4) }[type];
+  return { day: t, month: t.slice(0, 7), year: t.slice(0, 4), budget: t.slice(0, 4) }[type];
 }
 
 function render(r) {
@@ -264,6 +268,54 @@ function renderPeriod(r) {
     </article>`;
 }
 
+// ---------------------------------------------------------------- 예산 대비 집행
+
+const pct = (rate) => (rate == null ? '-' : `${rate.toFixed(1)}%`);
+
+function budgetTable(group, label, kind) {
+  const over = (x) => kind === 'EXPENSE' && x.budget > 0 && x.actual > x.budget; // 지출이 예산을 넘음
+  return `
+    <table class="r-table fixed">
+      <colgroup><col style="width:8mm"><col><col style="width:28mm"><col style="width:28mm"><col style="width:28mm"><col style="width:18mm"></colgroup>
+      <thead><tr><th class="no">No</th><th>예산과목</th><th>예산액</th><th>${kind === 'INCOME' ? '수입액' : '집행액'}</th><th>잔액</th><th>${kind === 'INCOME' ? '달성률' : '집행률'}</th></tr></thead>
+      <tbody>${group.items.length ? group.items.map((x, i) => `
+        <tr class="${over(x) ? 'over' : ''}"><td class="no">${i + 1}</td><td>${esc(x.name)}${x.isActive ? '' : ' <span class="muted">(사용중지)</span>'}</td>
+          <td class="amt">${formatWon(x.budget)}</td><td class="amt">${formatWon(x.actual)}</td>
+          <td class="amt">${formatWon(x.remaining)}</td><td class="amt strong">${pct(x.rate)}</td></tr>`).join('')
+        : `<tr><td colspan="6" class="empty">${label} 과목 없음</td></tr>`}</tbody>
+      <tfoot><tr><td colspan="2">${label} 합계</td><td class="amt">${formatWon(group.budget)}</td><td class="amt">${formatWon(group.actual)}</td>
+        <td class="amt">${formatWon(group.remaining)}</td><td class="amt">${pct(group.rate)}</td></tr></tfoot>
+    </table>`;
+}
+
+function renderBudget(r) {
+  document.title = `예산 대비 집행 ${r.year}년 - 본당살림`;
+  const noBudget = r.income.budget === 0 && r.expense.budget === 0;
+  $('state').innerHTML = noBudget
+    ? `<span class="pill open">예산 없음</span> <span class="muted">${r.year}년 예산을 아직 넣지 않았습니다. <a href="${href('/settings#budget')}">설정 → 연 예산</a>에서 넣으세요.</span>`
+    : `<span class="muted">${formatKoreanDate(r.through)}까지 집행 기준</span> · <a href="${href('/settings#budget')}">예산 고치기</a>`;
+  $('warning').innerHTML = '';
+  $('paper').innerHTML = `
+    <article class="report">
+      <div class="r-head ${r.approvalSteps.length > 4 ? 'stacked' : ''}">
+        <div class="r-title">
+          <h1>예 산 대 비 집 행</h1>
+          <table class="r-meta">
+            <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
+            <tr><th>회계연도</th><td>${r.year}년 <span class="range">(${monthDay(`${r.year}-01-01`)} ~ ${monthDay(r.through)})</span></td></tr>
+            <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
+          </table>
+        </div>
+        <div class="r-approval">${approvalBoxHtml(r.approvalSteps)}</div>
+      </div>
+      <h2>1. 수입</h2>
+      ${budgetTable(r.income, '수입', 'INCOME')}
+      <h2>2. 지출</h2>
+      ${budgetTable(r.expense, '지출', 'EXPENSE')}
+      <p class="r-note">※ 집행액은 확정된 수입·지출 거래의 합계입니다 (통장 간 이체는 넣지 않음). 잔액 = 예산액 − 집행액. 빨간 줄은 예산을 넘은 지출입니다.</p>
+    </article>`;
+}
+
 // ---------------------------------------------------------------- 이벤트
 
 const run = (p) => p.catch((err) => toast(err.message, 'error'));
@@ -278,7 +330,7 @@ $('report-tabs').addEventListener('click', (e) => {
   const today = todayKST();
   const base = today.startsWith(prefix) ? today
     : type === 'day' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
-  run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4) }[b.dataset.type]));
+  run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4) }[b.dataset.type]));
 });
 for (const id of ['date', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
 $('prev').addEventListener('click', () => go(shift(-1)));
