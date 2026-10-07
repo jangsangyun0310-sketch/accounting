@@ -129,3 +129,24 @@ test('연말결산: 월별 현황, 2월 말일 계산, 잘못된 입력 거부',
   assert.equal((await api('GET', '/api/reports/period?type=month&month=2026-13')).status, 400);
   assert.equal((await api('GET', '/api/reports/period?type=week')).status, 400);
 });
+
+test('자동 마감된 날(거래 없음)의 일일 결산서는 가결산이 아니라 마감 결산서', async () => {
+  const { api, tx } = setup();
+  await tx('IN', '교무금', '교무금', 300000, '홍길동'); // 10-02 거래
+  // 10-01 은 거래 없음 → 10-02 를 마감하면 함께 잠긴다
+  assert.equal((await api('POST', '/api/closings/2026-10-02/close', {})).status, 200);
+  await api('PUT', '/api/approval-steps', { titles: ['담당', '신부'] }); // 마감 뒤 결재선을 바꿔도
+
+  const auto = (await api('GET', '/api/reports/daily?date=2026-10-01')).body;
+  assert.equal(auto.status, 'CLOSED');
+  assert.equal(auto.autoClosedBy, '2026-10-02');
+  const own = (await api('GET', '/api/reports/daily?date=2026-10-02')).body;
+  assert.equal(own.autoClosedBy, null);
+  assert.deepEqual(auto.approvalSteps, own.approvalSteps); // 함께 마감한 날의 결재선
+  assert.equal(auto.verification, null);
+  assert.equal(auto.total.end, own.total.prev); // 거래가 없으니 다음 날 전일잔액과 같다
+
+  const after = (await api('GET', '/api/reports/daily?date=2026-10-03')).body; // 마감 이후 날짜는 그대로 가결산
+  assert.equal(after.status, 'PROVISIONAL');
+  assert.equal(after.autoClosedBy, null);
+});

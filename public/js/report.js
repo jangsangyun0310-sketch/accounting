@@ -61,7 +61,9 @@ function render(r) {
   const closed = r.status === 'CLOSED';
   document.title = `일일결산 ${r.date} - 본당살림`;
   $('state').innerHTML = closed
-    ? `<span class="pill closed">마감</span> <span class="muted">${formatDateTimeKST(r.closedAt)} · ${esc(r.closedBy)}</span>`
+    ? (r.autoClosedBy
+      ? `<span class="pill closed">자동 마감</span> <span class="muted">거래가 없어 ${formatKoreanDate(r.autoClosedBy)} 마감 때 함께 마감되었습니다</span>`
+      : `<span class="pill closed">마감</span> <span class="muted">${formatDateTimeKST(r.closedAt)} · ${esc(r.closedBy)}</span>`)
     : `<span class="pill open">미마감</span> <span class="muted">가결산으로 출력됩니다. <a href="${href(`/closing?date=${r.date}`)}">마감하러 가기</a></span>`;
   $('warning').innerHTML = r.verification && !r.verification.ok
     ? `<p class="lock-banner">마감 시점 잔액과 현재 잔액이 다릅니다: ${r.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>`
