@@ -344,3 +344,4 @@ p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
 /* 설정의 [초기화 / 탈퇴] 탭: 다른 탭과 떨어진 오른쪽 끝, 빨간색 */
 .tabs button.tab-danger { margin-left: auto; background: #fff; color: var(--danger); border: 1.5px solid var(--danger); border-bottom: none; font-weight: 600; }
 .tabs button.tab-danger.active { background: var(--danger); color: #fff; }
+.tabs:has(.tab-danger.active) { border-bottom-color: var(--danger); } /* 이 탭을 열었을 때 아래 줄도 빨간색 */
