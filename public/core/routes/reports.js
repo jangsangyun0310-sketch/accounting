@@ -7,20 +7,21 @@ import { computeDay, computePeriod, periodBreakdown, subjectTotals, verifySnapsh
 import { bad } from '../lib/validate.js';
 import { sumAmounts } from '../../js/shared/money.js';
 import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
+import { dailyApprovalSteps } from './journal.js';
 
 /** GET /api/reports/daily?date= */
 export async function daily({ env, url }) {
   const date = url.searchParams.get('date') || todayKST();
   if (!isValidDate(date)) throw bad('날짜 형식이 올바르지 않습니다.', 'BAD_DATE');
   const db = env.DB;
-  const [day, parish, closing, steps] = await Promise.all([
+  const [day, parish, closing, dailySteps] = await Promise.all([
     computeDay(db, date),
     db.prepare('SELECT parish_name, writer_name, start_date FROM parish_settings WHERE id = 1').first(),
     db.prepare(
       `SELECT status, approval_snapshot, balance_snapshot, writer_name, closed_at, closed_by
        FROM daily_closings WHERE close_date = ?`
     ).bind(date).first(),
-    db.prepare('SELECT title FROM approval_steps ORDER BY seq').all(),
+    dailyApprovalSteps(db),
   ]);
   // 자동 마감: 이 날의 마감 기록은 없지만 이후 날짜가 마감되어 함께 잠긴 날 (마감 순서 규칙상 거래가 없는 날)
   const cover = closing?.status === 'CLOSED' || (parish && date < parish.start_date) ? null : await db.prepare(
@@ -58,7 +59,7 @@ export async function daily({ env, url }) {
     date,
     parishName: parish?.parish_name ?? '',
     writerName: (closed ? record.writer_name : parish?.writer_name) ?? '',
-    approvalSteps: closed ? JSON.parse(record.approval_snapshot) : steps.results.map((s) => s.title),
+    approvalSteps: closed ? JSON.parse(record.approval_snapshot) : dailySteps,
     status: closed ? 'CLOSED' : 'PROVISIONAL',
     autoClosedBy: cover ? cover.close_date : null, // 자동 마감이면 함께 마감한 날짜
     closedAt: closed ? record.closed_at : null,

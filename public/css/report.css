@@ -114,3 +114,69 @@ body.report-page { background: #e9ecf0; }
   .report-tabs { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 8px; margin-top: 10px; }
   .report-tabs button { padding: 8px 0 !important; font-size: 14px; white-space: nowrap; }
 }
+
+/* ---------------------------------------------------------------- 사목일지 */
+/* 종이 위 입력칸: 화면에서는 연한 노란 칸, 인쇄하면 글자만 */
+.journal input.cell, .journal select.cell, .journal textarea.cell {
+  width: 100%; border: none; border-radius: 0; background: #fffbe6; padding: 0.4mm 1mm;
+  font: inherit; font-size: 9pt; color: #000; min-width: 0; height: auto;
+}
+.journal input.cell.num { text-align: right; font-variant-numeric: tabular-nums; }
+.journal input.cell:focus, .journal select.cell:focus, .journal textarea.cell:focus { outline: 2px solid var(--accent); background: #fff; }
+.journal select.cell { padding: 0.2mm 0.5mm; }
+.journal .r-table td.inp { padding: 0.3mm 0.5mm; }
+.journal textarea.cell { display: block; width: calc(100% - 0.6mm); min-height: 26mm; resize: vertical; line-height: 1.5; border: 0.3mm solid #222; padding: 1.5mm 2mm; overflow: hidden; }
+.journal .notes-print { display: none; }
+.journal .sacraments th, .journal .sacraments td { text-align: center; }
+.journal #members .total { font-weight: 700; }
+.journal #members .total-cell { position: relative; }
+.journal #members .auto-btn { display: none; position: absolute; left: 1.5mm; top: 50%; transform: translateY(-50%); }
+.journal #members tr.manual .auto-btn { display: inline; }
+.journal #members tr.manual .total { background: #fde7c4; }
+.journal .link-btn { background: none; border: none; color: var(--accent); text-decoration: underline; font-size: 8pt; padding: 0; cursor: pointer; }
+.journal .row-add { margin-top: 1.5mm; font-size: 12px; padding: 3px 10px; }
+.journal .row-del { border: none; background: none; color: #b42318; cursor: pointer; font-size: 13px; padding: 0 2px; }
+.journal .wait { border: 0.3mm dashed #888; padding: 6mm; text-align: center; color: #444; }
+.journal .wait a { margin-left: 6px; }
+.journal .sub-h { font-size: 9.5pt; margin: 2.5mm 0 1mm; font-weight: 600; }
+.journal-page .report-toolbar #save { padding: 8px 22px; }
+.journal-page .report-toolbar #print { padding: 8px 18px; }
+@media print {
+  .journal input.cell, .journal select.cell { background: none; }
+  .journal select.cell { appearance: none; -webkit-appearance: none; }
+  .journal input.cell::placeholder { color: transparent; }
+  .journal .notes-print { display: block; white-space: pre-wrap; min-height: 20mm; border: 0.3mm solid #222; padding: 1.5mm 2mm; line-height: 1.5; width: calc(100% - 0.6mm); }
+}
+@media screen and (max-width: 720px) {
+  /* 휴대폰: 종이를 줄이지 않고 화면 폭에 맞춰 입력하기 좋게 */
+  .journal-page .paper { width: auto; min-height: 0; padding: 12px; margin: 8px; }
+  .journal-page .r-head { flex-direction: column; gap: 3mm; }
+  .journal-page .r-cols { grid-template-columns: 1fr; }
+  .journal-page .report { font-size: 13px; }
+  .journal input.cell, .journal select.cell, .journal textarea.cell { font-size: 16px; padding: 4px; }
+  .journal .r-table.fixed col[style] { width: auto !important; }
+  .journal .sacraments { table-layout: auto; }
+  /* 미사 표: 시간·구분·숫자 칸은 좁게, 미사 이름 칸을 넓게 */
+  .journal #masses col:nth-child(1) { width: 58px !important; }
+  .journal #masses col:nth-child(2) { width: auto !important; }
+  .journal #masses col:nth-child(3) { width: 60px !important; }
+  .journal #masses col:nth-child(4), .journal #masses col:nth-child(5) { width: 54px !important; }
+  .journal #masses col:nth-child(6) { width: 24px !important; }
+  .journal #masses th { white-space: normal; font-size: 12px; }
+  .journal #masses td.inp { padding: 1px; }
+  .journal-page .toolbar-actions { width: 100%; }
+  .journal-page .toolbar-actions button { flex: 1; }
+}
+/* 사목일지 인쇄: 보통 하루치가 A4 한 장에 들어가도록 간격을 조금 줄인다 */
+@media print {
+  .journal h2 { margin: 2mm 0 0.6mm; font-size: 10pt; }
+  .journal .sub-h { margin: 1.2mm 0 0.5mm; font-size: 9pt; }
+  .journal .r-table th, .journal .r-table td { padding-top: 0.25mm; padding-bottom: 0.25mm; }
+  .journal .r-head { margin-bottom: 2mm; }
+  .journal table.approval-box td { height: 15mm; }
+  .journal .r-title h1 { font-size: 16pt; margin-bottom: 1mm; }
+  .journal .r-meta th, .journal .r-meta td { padding-top: 0.3mm; padding-bottom: 0.3mm; }
+  .journal .r-grand { margin-top: 1mm; }
+  .journal .notes-print { min-height: 10mm; padding: 1mm 2mm; }
+  .journal .r-cols { break-inside: avoid; }
+}

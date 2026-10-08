@@ -1,13 +1,13 @@
 // 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 A4 미리보기와 인쇄
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, toast, approvalBoxHtml, signedWon } from './ui.js';
+import { initPage, toast, approvalBoxHtml } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 import { downloadXlsx, reportSheet } from './excel.js';
+import { accountBalances, detailTable, fundSummaryTable, summaryRow, transferTable } from './daily-tables.js';
 
 const $ = (id) => document.getElementById(id);
-const FUND_SHORT = { GENERAL: '일반', SPECIAL: '특별' };
 
 const TYPES = {
   day: { now: '오늘' },
@@ -103,13 +103,7 @@ function render(r) {
       </div>
 
       <h2>1. 회계별 현황</h2>
-      <table class="r-table">
-        <thead><tr><th>구분</th><th>전일잔액</th><th>당일수입</th><th>당일지출</th><th>이체(±)</th><th>당일잔액</th></tr></thead>
-        <tbody>
-          ${r.funds.map((f) => summaryRow(esc(f.name), f)).join('')}
-        </tbody>
-        <tfoot>${summaryRow('합 계', r.total)}</tfoot>
-      </table>
+      ${fundSummaryTable(r)}
 
       <h2>2. 당일 수입 내역</h2>
       ${detailTable(r.income, '수입')}
@@ -117,63 +111,12 @@ function render(r) {
       <h2>3. 당일 지출 내역</h2>
       ${detailTable(r.expense, '지출')}
 
-      ${r.transfers.rows.length ? `
-        <h2>4. 통장 간 이체 내역</h2>
-        <table class="r-table fixed">
-          <colgroup><col style="width:8mm"><col style="width:37mm"><col style="width:37mm"><col><col style="width:22mm"><col style="width:25mm"></colgroup>
-          <thead><tr><th class="no">No</th><th>출금 통장</th><th>입금 통장</th><th>적요</th><th>증빙번호</th><th>금액</th></tr></thead>
-          <tbody>${r.transfers.rows.map((t, i) => `
-            <tr><td class="no">${i + 1}</td>
-              <td>${esc(t.fromName)} <span class="fund">${FUND_SHORT[t.fromFund]}</span></td>
-              <td>${esc(t.toName)} <span class="fund">${FUND_SHORT[t.toFund] ?? ''}</span></td>
-              <td>${esc(t.memo)}</td><td>${esc(t.voucherNo)}</td><td class="amt">${formatWon(t.amount)}</td></tr>`).join('')}
-          </tbody>
-          <tfoot><tr><td colspan="5">이체 합계 (${r.transfers.rows.length}건)</td><td class="amt">${formatWon(r.transfers.total)}</td></tr></tfoot>
-        </table>` : ''}
+      ${r.transfers.rows.length ? `<h2>4. 통장 간 이체 내역</h2>${transferTable(r)}` : ''}
 
       <h2>${r.transfers.rows.length ? 5 : 4}. 통장별 현재잔액</h2>
-      <div class="r-cols">
-        ${r.funds.map((f) => `
-          <table class="r-table">
-            <thead><tr><th>${esc(f.name)} 통장</th><th>전일잔액</th><th>현재잔액</th></tr></thead>
-            <tbody>${r.accounts.filter((a) => a.fundCode === f.code).map((a) => `
-              <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td>
-                <td class="amt strong">${formatWon(a.end)}</td></tr>`).join('')}
-            </tbody>
-            <tfoot><tr><td>소계</td><td class="amt">${formatWon(f.prev)}</td><td class="amt">${formatWon(f.end)}</td></tr></tfoot>
-          </table>`).join('')}
-      </div>
-      <table class="r-table r-grand">
-        <tr><td>전체 합계</td><td class="amt">전일잔액 ${formatWon(r.total.prev)}</td>
-          <td class="amt strong">현재잔액 ${formatWon(r.total.end)}</td></tr>
-      </table>
+      ${accountBalances(r)}
 
     </article>`;
-}
-
-function summaryRow(label, r) {
-  return `<tr><td class="label">${label}</td>${amountCells(r)}</tr>`;
-}
-
-function amountCells(r) {
-  return `<td class="amt">${formatWon(r.prev)}</td><td class="amt">${formatWon(r.income)}</td>
-    <td class="amt">${formatWon(r.expense)}</td><td class="amt">${signedWon(r.transferIn - r.transferOut)}</td>
-    <td class="amt strong">${formatWon(r.end)}</td>`;
-}
-
-function detailTable(section, label) {
-  return `
-    <table class="r-table fixed">
-      <colgroup><col style="width:8mm"><col style="width:10mm"><col style="width:34mm"><col style="width:26mm"><col><col style="width:22mm"><col style="width:25mm"></colgroup>
-      <thead><tr><th class="no">No</th><th>회계</th><th>통장</th><th>예산과목</th><th>적요</th><th>증빙번호</th><th>금액</th></tr></thead>
-      <tbody>${section.rows.length ? section.rows.map((t, i) => `
-        <tr><td class="no">${i + 1}</td><td class="fund-col">${FUND_SHORT[t.fundCode]}</td><td>${esc(t.accountName)}</td>
-          <td>${esc(t.subjectName)}</td><td>${esc(t.memo)}</td><td>${esc(t.voucherNo)}</td>
-          <td class="amt">${formatWon(t.amount)}</td></tr>`).join('')
-        : `<tr><td colspan="7" class="empty">${label} 내역 없음</td></tr>`}
-      </tbody>
-      <tfoot><tr><td colspan="6">${label} 합계 (${section.rows.length}건)</td><td class="amt">${formatWon(section.total)}</td></tr></tfoot>
-    </table>`;
 }
 
 // ---------------------------------------------------------------- 월말·연말결산

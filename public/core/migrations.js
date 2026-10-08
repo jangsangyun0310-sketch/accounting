@@ -11,4 +11,5 @@ export const MIGRATIONS = [
   '0007_delete_instead_of_void.sql',
   '0009_close_every_day.sql', // (0008 은 예전 서버 보관함용 — 장부에는 적용하지 않음)
   '0010_budgets.sql',
+  '0011_pastoral_journal.sql',
 ];

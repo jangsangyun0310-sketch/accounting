@@ -1,4 +1,4 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 연 예산 / 백업 … (오른쪽 끝) 함께 사용 / 초기화·탈퇴(빨간 탭)
+// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 사목일지 / 연 예산 / 백업 … (오른쪽 끝) 함께 사용 / 초기화·탈퇴(빨간 탭)
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
@@ -13,9 +13,10 @@ const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'budget', 'backup', 'members', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = ['parish', 'accounts', 'subjects', 'approval', 'journal', 'budget', 'backup', 'members', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
-let approvalDraft = null; // 결재선 편집 중 값
+let approvalDraft = null; // 결재선 편집 중 값 { daily: [...], main: [...] }
+let scheduleDraft = null; // 요일별 기본 미사 편집 중 값
 
 async function reload() {
   settings = await api('/api/settings');
@@ -24,7 +25,7 @@ async function reload() {
 
 function render() {
   tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, journal: renderJournalTab, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -192,34 +193,116 @@ function orderButtons(type, id, i, count) {
 
 // ---------------------------------------------------------------- 결재선
 
+const APPROVAL_LINES = [
+  { key: 'daily', title: '일일결산 · 사목일지', help: '날마다 인쇄하는 일일결산서와 사목일지의 결재란입니다.' },
+  { key: 'main', title: '월말 · 연말결산 · 예산 대비', help: '월말결산서 · 연말결산서 · 예산 대비 집행의 결재란입니다.' },
+];
+
 function renderApproval() {
-  approvalDraft ??= settings.approvalSteps.map((s) => s.title);
-  const steps = approvalDraft;
-  panel.innerHTML = `
-    <label class="inline">결재 단계 수
-      <select id="approval-count">${Array.from({ length: MAX_STEPS }, (_, i) =>
-        `<option ${i + 1 === steps.length ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
-    </label>
-    <div class="form-grid" id="approval-titles">
-      ${steps.map((t, i) => `<label>${i + 1}단계 <input data-i="${i}" value="${esc(t)}" maxlength="12"></label>`).join('')}
-    </div>
-    <h4>결산서 결재란 미리보기</h4>
-    <div id="approval-preview">${approvalBoxHtml(steps.map((t) => t.trim() || '　'))}</div>
-    <p class="help">이미 마감된 날짜의 결산서는 마감 당시 결재선으로 출력됩니다.</p>
-    <button type="button" data-action="approval-save">저장</button>`;
+  approvalDraft ??= {
+    main: settings.approvalSteps.map((s) => s.title),
+    // 일일 결재선을 따로 정한 적이 없으면 월말·연말 결재선과 같게 시작
+    daily: (settings.dailyApprovalSteps.length ? settings.dailyApprovalSteps : settings.approvalSteps).map((s) => s.title),
+  };
+  panel.innerHTML = APPROVAL_LINES.map(({ key, title, help }) => {
+    const steps = approvalDraft[key];
+    return `
+    <div class="approval-line" data-line="${key}">
+      <h3>${title} 결재선</h3>
+      <p class="help">${help}</p>
+      <label class="inline">결재 단계 수
+        <select class="approval-count">${Array.from({ length: MAX_STEPS }, (_, i) =>
+          `<option ${i + 1 === steps.length ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
+      </label>
+      <div class="form-grid approval-titles">
+        ${steps.map((t, i) => `<label>${i + 1}단계 <input data-i="${i}" value="${esc(t)}" maxlength="12"></label>`).join('')}
+      </div>
+      <h4>결재란 미리보기</h4>
+      <div class="approval-preview">${approvalBoxHtml(steps.map((t) => t.trim() || '　'))}</div>
+      <button type="button" data-action="approval-save" data-line="${key}">${title} 결재선 저장</button>
+    </div>`;
+  }).join('<hr class="line-sep">') + '<p class="help">이미 마감된 날짜의 일일결산서는 마감 당시 결재선으로 출력됩니다.</p>';
 }
 
 panel.addEventListener('change', (e) => {
-  if (e.target.id !== 'approval-count') return;
+  if (!e.target.classList.contains('approval-count')) return;
+  const key = e.target.closest('[data-line]').dataset.line;
   const n = Number(e.target.value);
-  approvalDraft = Array.from({ length: n }, (_, i) => approvalDraft[i] ?? '');
+  approvalDraft[key] = Array.from({ length: n }, (_, i) => approvalDraft[key][i] ?? '');
   render();
 });
 
 panel.addEventListener('input', (e) => {
-  if (!e.target.closest('#approval-titles')) return;
-  approvalDraft[e.target.dataset.i] = e.target.value;
-  document.getElementById('approval-preview').innerHTML = approvalBoxHtml(approvalDraft.map((t) => t.trim() || '　'));
+  const box = e.target.closest('.approval-titles');
+  if (!box) return;
+  const line = box.closest('[data-line]');
+  const draft = approvalDraft[line.dataset.line];
+  draft[e.target.dataset.i] = e.target.value;
+  line.querySelector('.approval-preview').innerHTML = approvalBoxHtml(draft.map((t) => t.trim() || '　'));
+});
+
+// ---------------------------------------------------------------- 사목일지: 요일별 기본 미사 · 시작 총원
+
+const WEEKDAY_NAMES = ['주일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+const WEEKDAY_ORDER = [6, 0, 1, 2, 3, 4, 5]; // 토요일 특전미사부터 주일, 평일 순으로
+const MASS_KIND = { SUNDAY: '주일', WEEKDAY: '평일', WEDDING: '혼배', FUNERAL: '장례', SPECIAL: '특별' };
+
+function renderJournalTab() {
+  if (!scheduleDraft) {
+    scheduleDraft = settings.massSchedule.map((m) => ({ ...m }));
+    sortSchedule();
+  }
+  const rows = scheduleDraft.map((m, i) => ({ ...m, i }));
+  const start = settings.journalStart;
+  panel.innerHTML = `
+    <h3>요일별 기본 미사</h3>
+    <p class="help">사목일지를 처음 열면 그 요일의 미사가 자동으로 채워집니다. 그날 일정이 바뀌면 사목일지에서 고치면 됩니다.</p>
+    <table class="grid edit schedule-table" data-form="schedule">
+      <thead><tr><th>요일</th><th>시간</th><th>미사 이름</th><th>구분</th><th></th></tr></thead>
+      <tbody>${rows.length ? rows.map((m) => `
+        <tr data-i="${m.i}">
+          <td><select name="weekday">${WEEKDAY_ORDER.map((w) => `<option value="${w}" ${w === Number(m.weekday) ? 'selected' : ''}>${WEEKDAY_NAMES[w]}</option>`).join('')}</select></td>
+          <td><input name="time" value="${esc(m.time)}" placeholder="06:00" maxlength="5" inputmode="numeric"></td>
+          <td><input name="name" value="${esc(m.name)}" placeholder="예: 교중미사" maxlength="30"></td>
+          <td><select name="kind">${Object.entries(MASS_KIND).map(([k, v]) => `<option value="${k}" ${k === m.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+          <td><button type="button" class="secondary small" data-action="schedule-remove" data-i="${m.i}">지우기</button></td>
+        </tr>`).join('') : '<tr><td colspan="5" class="muted">아직 없습니다. [+ 미사 추가]로 넣으세요.</td></tr>'}</tbody>
+    </table>
+    <p>
+      <button type="button" class="secondary" data-action="schedule-add">+ 미사 추가</button>
+      <button type="button" data-action="schedule-save">기본 미사 저장</button>
+      <button type="button" class="secondary" data-action="schedule-sort" ${rows.length > 1 ? '' : 'hidden'}>요일 · 시간 순으로 정리</button>
+    </p>
+    <hr class="line-sep">
+    <h3>시작 총원</h3>
+    <p class="help">사목일지를 쓰기 시작할 때의 우리 성당 총원입니다. 이후에는 날마다 전입 · 전출을 더하고 빼서 현재 총원이 계산됩니다.</p>
+    <div class="form-grid" data-form="journal-start">
+      <label>세대 <input name="households" inputmode="numeric" value="${start.households ? formatWon(start.households) : ''}" placeholder="0"></label>
+      <label>인원 (명) <input name="members" inputmode="numeric" value="${start.members ? formatWon(start.members) : ''}" placeholder="0"></label>
+    </div>
+    <button type="button" data-action="journal-start-save">시작 총원 저장</button>`;
+}
+
+/** 편집 중인 기본 미사를 토요일 → 주일 → 월~금, 시간 순으로 */
+function sortSchedule() {
+  const order = (w) => WEEKDAY_ORDER.indexOf(Number(w));
+  scheduleDraft.sort((a, b) => order(a.weekday) - order(b.weekday) || fixTime(a.time).localeCompare(fixTime(b.time)));
+}
+
+// 기본 미사 표에서 고친 값은 바로 편집 중 값에 반영 (다시 그려도 유지)
+panel.addEventListener('input', (e) => {
+  const row = e.target.closest('.schedule-table tr[data-i]');
+  if (row && e.target.tagName === 'INPUT') scheduleDraft[row.dataset.i][e.target.name] = e.target.value;
+  if (e.target.closest('[data-form="journal-start"]')) {
+    const d = e.target.value.replace(/[^0-9]/g, '').slice(0, 8);
+    e.target.value = d ? formatWon(Number(d)) : '';
+  }
+});
+panel.addEventListener('change', (e) => {
+  const row = e.target.closest('.schedule-table tr[data-i]');
+  if (row && e.target.tagName === 'SELECT') {
+    scheduleDraft[row.dataset.i][e.target.name] = e.target.name === 'weekday' ? Number(e.target.value) : e.target.value;
+  }
 });
 
 // ---------------------------------------------------------------- 연 예산
@@ -533,14 +616,60 @@ const actions = {
     if (await attempt(() => api('/api/subjects/reorder', { method: 'POST', body: { kind: s.kind, ids } }))) await reload();
   },
 
-  'approval-save': async () => {
-    const body = { titles: approvalDraft };
-    if (await attempt(() => api('/api/approval-steps', { method: 'PUT', body }), '결재선을 저장했습니다.')) {
+  'approval-save': async (btn) => {
+    const key = btn.dataset.line;
+    const path = key === 'daily' ? '/api/approval-steps/daily' : '/api/approval-steps';
+    const label = APPROVAL_LINES.find((l) => l.key === key).title;
+    if (await attempt(() => api(path, { method: 'PUT', body: { titles: approvalDraft[key] } }), `${label} 결재선을 저장했습니다.`)) {
+      const other = key === 'daily' ? 'main' : 'daily';
+      const keep = approvalDraft[other]; // 저장하지 않은 다른 결재선 편집은 그대로
       approvalDraft = null;
+      settings = await api('/api/settings');
+      renderApproval();
+      approvalDraft[other] = keep;
+      render();
+    }
+  },
+
+  'schedule-add': async () => {
+    const last = scheduleDraft.at(-1);
+    scheduleDraft.push({ weekday: last ? Number(last.weekday) : 0, time: '', name: '', kind: last?.kind ?? 'SUNDAY' });
+    render();
+    panel.querySelector('.schedule-table tbody tr:last-child input[name="time"]')?.focus();
+  },
+
+  'schedule-remove': async (btn) => {
+    scheduleDraft.splice(Number(btn.dataset.i), 1);
+    render();
+  },
+
+  'schedule-sort': async () => {
+    sortSchedule();
+    render();
+  },
+
+  'schedule-save': async () => {
+    sortSchedule();
+    const items = scheduleDraft.map((m) => ({ weekday: Number(m.weekday), time: fixTime(m.time), name: m.name, kind: m.kind }));
+    if (await attempt(() => api('/api/mass-schedule', { method: 'PUT', body: { items } }), '요일별 기본 미사를 저장했습니다.')) {
+      scheduleDraft = null;
       await reload();
     }
   },
+
+  'journal-start-save': async () => {
+    const form = panel.querySelector('[data-form="journal-start"]');
+    const body = { households: field(form, 'households').value, members: field(form, 'members').value };
+    if (await attempt(() => api('/api/journal-settings', { method: 'PUT', body }), '시작 총원을 저장했습니다.')) await reload();
+  },
 };
+
+/** 0600 · 6:00 → 06:00 */
+function fixTime(v) {
+  const t = String(v ?? '').trim();
+  const m = /^(\d{1,2}):?(\d{2})$/.exec(t);
+  return m ? `${m[1].padStart(2, '0')}:${m[2]}` : t;
+}
 
 /** 목록에서 id 를 dir(-1 위, +1 아래) 만큼 옮긴 새 id 순서 */
 function moved(list, id, dir) {
@@ -568,7 +697,7 @@ panel.addEventListener('click', async (e) => {
 panel.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && editing) { editing = null; render(); return; }
   if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
-  const form = e.target.closest('[data-form]') || e.target.closest('#approval-titles');
+  const form = e.target.closest('[data-form]') || e.target.closest('.approval-titles');
   if (!form) return;
   e.preventDefault();
   const inputs = [...form.querySelectorAll('input:not([disabled]):not([type="checkbox"]), select:not([disabled])')];
@@ -582,6 +711,7 @@ tabs.addEventListener('click', (e) => {
   if (!b) return;
   tab = b.dataset.tab;
   editing = null;
+  scheduleDraft = null;
   history.replaceState(null, '', `#${tab}`);
   render();
 });

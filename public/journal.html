@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>사목일지 - 본당살림</title>
+  <link rel="icon" href="/img/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/icon-180.png">
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/report.css">
+</head>
+<body class="report-page journal-page">
+  <header id="topbar" class="topbar no-print"><div class="topbar-inner a4"><a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a></div></header>
+  <div class="report-toolbar no-print">
+    <div class="date-nav">
+      <button type="button" class="secondary small" id="prev" title="전날">◀</button>
+      <input type="date" id="date" aria-label="날짜">
+      <button type="button" class="secondary small" id="next" title="다음날">▶</button>
+      <button type="button" class="secondary small" id="now">오늘</button>
+    </div>
+    <span class="toolbar-actions">
+      <button type="button" id="save">저장 <kbd>Ctrl+S</kbd></button>
+      <button type="button" class="secondary" id="print">인쇄 <kbd>Ctrl+P</kbd></button>
+    </span>
+    <span id="state"></span>
+  </div>
+  <p class="print-guide no-print">노란 칸에 입력하고 <b>[저장]</b>을 누릅니다. 인쇄하면 입력한 글자만 나옵니다. 인쇄 창 설정: 용지 <b>A4</b> · 여백 <b>기본값</b> · 배율 <b>기본값(100)</b> · 머리글과 바닥글 <b>해제</b></p>
+  <div class="paper-scroll"><div class="paper" id="paper"><p class="muted">불러오는 중…</p></div></div>
+  <script type="module" src="/js/journal.js"></script>
+</body>
+</html>

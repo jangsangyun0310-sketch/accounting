@@ -13,6 +13,7 @@ import * as closings from './routes/closings.js';
 import * as reports from './routes/reports.js';
 import * as backup from './routes/backup.js';
 import * as budgets from './routes/budgets.js';
+import * as journal from './routes/journal.js';
 
 const routes = [
   ['GET', '/api/health', system.health],
@@ -30,6 +31,9 @@ const routes = [
   ['PUT', '/api/subjects/:id', settings.updateSubject],
   ['DELETE', '/api/subjects/:id', settings.deleteSubject],
   ['PUT', '/api/approval-steps', settings.updateApprovalSteps],
+  ['PUT', '/api/approval-steps/daily', settings.updateDailyApprovalSteps],
+  ['PUT', '/api/mass-schedule', settings.updateMassSchedule],
+  ['PUT', '/api/journal-settings', settings.updateJournalSettings],
   ['GET', '/api/day', transactions.getDay],
   ['GET', '/api/transactions', transactions.search],
   ['POST', '/api/transactions', transactions.create],
@@ -45,6 +49,8 @@ const routes = [
   ['GET', '/api/reports/period', reports.period],
   ['GET', '/api/budgets', budgets.list],
   ['PUT', '/api/budgets', budgets.save],
+  ['GET', '/api/journal', journal.get],
+  ['PUT', '/api/journal', journal.save],
   ['GET', '/api/backup', backup.download],
   ['GET', '/api/backup/status', backup.status],
   ['POST', '/api/backup/log', backup.log],

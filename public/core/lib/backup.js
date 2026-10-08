@@ -21,6 +21,17 @@ export const TABLES = [
   // optional: 이 표가 생기기 전(2026-10-08 이전)의 백업 파일에는 없다 → 빈 표로 본다
   { name: 'budgets', order: 'year, subject_id', optional: true,
     columns: ['year', 'subject_id', 'amount', 'updated_at', 'updated_by'] },
+  // 사목일지 (2026-10-09 이전 백업에는 없다)
+  { name: 'daily_approval_steps', order: 'seq', optional: true, columns: ['seq', 'title'] },
+  { name: 'mass_schedule', order: 'id', optional: true, columns: ['id', 'weekday', 'mass_time', 'name', 'kind'] },
+  { name: 'journal_settings', order: 'id', optional: true,
+    columns: ['id', 'start_households', 'start_members', 'updated_at', 'updated_by'] },
+  { name: 'journals', order: 'journal_date', optional: true,
+    columns: ['journal_date', 'households_in', 'households_out', 'households_total', 'members_in', 'members_out',
+      'members_total', 'baptism', 'confirmation', 'anointing', 'marriage', 'funeral', 'communion', 'notes',
+      'updated_at', 'updated_by'] },
+  { name: 'journal_masses', order: 'journal_date, seq', optional: true,
+    columns: ['journal_date', 'seq', 'mass_time', 'name', 'kind', 'attendance', 'confessions'] },
   { name: 'transactions', order: 'id',
     columns: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount', 'memo',
       'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by', 'created_at', 'created_by'] },

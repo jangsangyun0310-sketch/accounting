@@ -4,14 +4,16 @@ import { ApiError, json, readJson } from '../lib/http.js';
 import { auditRowStatement, auditStatement, readRowJson } from '../lib/db.js';
 import {
   accountInput, approvalTitles, array, bool, id as parseId, noDuplicates, oneOf, parishInput,
-  subjectInput, FUND_CODES, SUBJECT_KINDS,
+  subjectInput, text, FUND_CODES, SUBJECT_KINDS,
 } from '../lib/validate.js';
+
+import { count, massTime, MASS_KINDS } from './journal.js';
 
 const FUND_ID = { GENERAL: 1, SPECIAL: 2 };
 
 export async function getSettings({ env }) {
   const db = env.DB;
-  const [parish, funds, accounts, subjects, steps, flags] = await db.batch([
+  const [parish, funds, accounts, subjects, steps, flags, dailySteps, schedule, journalStart] = await db.batch([
     db.prepare('SELECT parish_name, start_date, writer_name, setup_completed FROM parish_settings WHERE id = 1'),
     db.prepare('SELECT id, code, name FROM funds ORDER BY sort_order'),
     db.prepare(
@@ -31,6 +33,9 @@ export async function getSettings({ env }) {
       `SELECT EXISTS (SELECT 1 FROM transactions) AS has_tx,
               EXISTS (SELECT 1 FROM daily_closings WHERE status = 'CLOSED') AS has_closed`
     ),
+    db.prepare('SELECT seq, title FROM daily_approval_steps ORDER BY seq'),
+    db.prepare('SELECT id, weekday, mass_time, name, kind FROM mass_schedule ORDER BY weekday, mass_time, id'),
+    db.prepare('SELECT start_households, start_members FROM journal_settings WHERE id = 1'),
   ]);
   const p = parish.results[0] ?? null;
   const f = flags.results[0];
@@ -47,6 +52,14 @@ export async function getSettings({ env }) {
       sortOrder: s.sort_order, isActive: s.is_active === 1, txCount: s.tx_count,
     })),
     approvalSteps: steps.results,
+    // 일일결산·사목일지 결재선. 비어 있으면 approvalSteps 를 그대로 쓴다
+    dailyApprovalSteps: dailySteps.results,
+    massSchedule: schedule.results.map((m) => ({ id: m.id, weekday: m.weekday, time: m.mass_time, name: m.name, kind: m.kind })),
+    journalStart: {
+      households: journalStart.results[0]?.start_households ?? 0,
+      members: journalStart.results[0]?.start_members ?? 0,
+      saved: Boolean(journalStart.results[0]),
+    },
     // 화면에서 잠긴 항목을 미리 안내하기 위한 정보 (실제 차단은 DB 트리거)
     locks: { startDate: f.has_tx === 1, openingBalance: f.has_closed === 1 },
   });
@@ -212,6 +225,67 @@ export async function updateApprovalSteps({ request, env, actor }) {
       actor: actor.email, entity: 'approval_steps', entityId: null, action: 'UPDATE',
       before: before.map((s) => s.title), after: titles,
     }),
+  ]);
+  return json({ ok: true });
+}
+
+/** 일일결산·사목일지 결재선 (월말·연말과 따로) */
+export async function updateDailyApprovalSteps({ request, env, actor }) {
+  const db = env.DB;
+  await requireSetup(db);
+  const titles = approvalTitles((await readJson(request))?.titles);
+  const { results: before } = await db.prepare('SELECT seq, title FROM daily_approval_steps ORDER BY seq').all();
+  await db.batch([
+    db.prepare('DELETE FROM daily_approval_steps'),
+    ...titles.map((t, i) => db.prepare('INSERT INTO daily_approval_steps (seq, title) VALUES (?, ?)').bind(i + 1, t)),
+    auditStatement(db, {
+      actor: actor.email, entity: 'daily_approval_steps', entityId: null, action: 'UPDATE',
+      before: before.map((s) => s.title), after: titles,
+    }),
+  ]);
+  return json({ ok: true });
+}
+
+// ---- 사목일지: 요일별 기본 미사 · 시작 총원 ----
+
+export async function updateMassSchedule({ request, env, actor }) {
+  const db = env.DB;
+  await requireSetup(db);
+  const items = array((await readJson(request))?.items, '기본 미사', { max: 100 }).map((m, i) => {
+    const weekday = Number(m?.weekday);
+    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) throw new ApiError(400, 'INVALID_INPUT', `${i + 1}번째 줄의 요일이 올바르지 않습니다.`);
+    return {
+      weekday,
+      time: massTime(m?.time, `${i + 1}번째 줄의 시간`, { required: true }),
+      name: text(m?.name, `${i + 1}번째 줄의 미사 이름`, { max: 30, required: false }),
+      kind: oneOf(m?.kind, MASS_KINDS, `${i + 1}번째 줄의 구분`),
+    };
+  });
+  const { results: before } = await db.prepare('SELECT weekday, mass_time, name, kind FROM mass_schedule ORDER BY weekday, mass_time, id').all();
+  await db.batch([
+    db.prepare('DELETE FROM mass_schedule'),
+    ...items.map((m) => db.prepare('INSERT INTO mass_schedule (weekday, mass_time, name, kind) VALUES (?, ?, ?, ?)')
+      .bind(m.weekday, m.time, m.name, m.kind)),
+    auditStatement(db, { actor: actor.email, entity: 'mass_schedule', entityId: null, action: 'UPDATE', before, after: items }),
+  ]);
+  return json({ ok: true, count: items.length });
+}
+
+export async function updateJournalSettings({ request, env, actor }) {
+  const db = env.DB;
+  await requireSetup(db);
+  const body = await readJson(request);
+  const households = count(body?.households, '시작 세대 수', 10000000);
+  const members = count(body?.members, '시작 인원', 10000000);
+  const before = await db.prepare('SELECT start_households, start_members FROM journal_settings WHERE id = 1').first();
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare(
+      `INSERT INTO journal_settings (id, start_households, start_members, updated_at, updated_by) VALUES (1, ?, ?, ?, ?)
+       ON CONFLICT (id) DO UPDATE SET start_households = excluded.start_households, start_members = excluded.start_members,
+         updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+    ).bind(households, members, now, actor.email),
+    auditStatement(db, { actor: actor.email, entity: 'journal_settings', entityId: 1, action: 'UPDATE', before, after: { households, members } }),
   ]);
   return json({ ok: true });
 }
