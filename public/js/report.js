@@ -34,9 +34,10 @@ async function load(nextType, value) {
     $('to').value = value.to;
     const account = $('account').value;
     history.replaceState(null, '', `?type=accounts&from=${value.from}&to=${value.to}${account ? `&account=${account}` : ''}`);
+    const seq = ++accountsSeq;
     const r = await api(`/api/reports/accounts?from=${value.from}&to=${value.to}`);
-    if (type === 'accounts' && r.from === $('from').value && r.to === $('to').value) {
-      accountsReport = r;
+    if (type === 'accounts' && seq === accountsSeq) { // 늦게 온 예전 조회 결과는 버린다
+      accountsReport = { ...r, accountId: Number(account) || null };
       renderAccounts();
     }
     fitPaper();
@@ -280,6 +281,7 @@ function renderBudget(r) {
 // ---------------------------------------------------------------- 통장별 입출금 내역
 
 let accountsReport = null;
+let accountsSeq = 0;
 
 const monthEnd = (d) => addDays(`${addDays(monthStart(d), 31).slice(0, 7)}-01`, -1);
 
@@ -301,10 +303,9 @@ function accountRowCells(t) {
   return { kind: t.direction === 'IN' ? '수입' : '지출', what: t.subjectName ?? '' };
 }
 
-/** 고른 통장만 (통장 전체면 모두) + 그 합계 */
+/** 조회할 때 고른 통장만 (통장 전체면 모두) + 그 합계 */
 function selectedAccounts(r) {
-  const id = Number($('account').value);
-  const list = id ? r.accounts.filter((a) => a.id === id) : r.accounts;
+  const list = r.accountId ? r.accounts.filter((a) => a.id === r.accountId) : r.accounts;
   const total = Object.fromEntries(['prev', 'in', 'out', 'end'].map((k) => [k, sumBy(list, k)]));
   return { list, total };
 }
@@ -418,26 +419,20 @@ $('report-tabs').addEventListener('click', (e) => {
   const accounts = { from: monthStart(base), to: base.slice(0, 7) === today.slice(0, 7) ? today : monthEnd(base) };
   run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), accounts }[b.dataset.type]));
 });
-// 통장별 내역: 시작일이 종료일보다 늦어지면 다른 쪽을 맞춘다
-$('from').addEventListener('change', () => {
-  if (!isValidDate($('from').value)) return;
-  if (!isValidDate($('to').value) || $('to').value < $('from').value) $('to').value = $('from').value;
-  run(load('accounts', { from: $('from').value, to: $('to').value }));
-});
-$('to').addEventListener('change', () => {
-  if (!isValidDate($('to').value)) return;
-  if (!isValidDate($('from').value) || $('from').value > $('to').value) $('from').value = $('to').value;
-  run(load('accounts', { from: $('from').value, to: $('to').value }));
+// 통장별 내역: 기간·통장을 고르고 [조회] (Enter 도 됨). 빠른 기간 버튼은 바로 조회
+function searchAccounts() {
+  const [from, to] = [$('from').value, $('to').value];
+  if (!isValidDate(from) || !isValidDate(to)) return toast('시작일과 종료일을 고르세요.', 'error');
+  if (from > to) return toast('시작일이 종료일보다 늦습니다.', 'error');
+  run(load('accounts', { from, to }));
+}
+$('search-accounts').addEventListener('click', searchAccounts);
+$('range-nav').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); searchAccounts(); }
 });
 $('range-nav').addEventListener('click', (e) => {
   const b = e.target.closest('[data-range]');
   if (b) run(load('accounts', quickRange(b.dataset.range)));
-});
-$('account').addEventListener('change', () => {
-  const p = new URLSearchParams(location.search);
-  if ($('account').value) p.set('account', $('account').value); else p.delete('account');
-  history.replaceState(null, '', `?${p}`);
-  if (accountsReport) { renderAccounts(); fitPaper(); }
 });
 for (const id of ['date', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
 $('prev').addEventListener('click', () => go(shift(-1)));
@@ -450,7 +445,7 @@ const SHEET_NAME = { day: '일일결산', month: '월말결산', year: '연말�
 $('excel').addEventListener('click', () => {
   if (!$('paper').querySelector('.report')) return;
   if (type === 'accounts') {
-    downloadXlsx(`본당살림 통장별 입출금 ${$('from').value}~${$('to').value}.xlsx`, accountsSheets());
+    downloadXlsx(`본당살림 통장별 입출금 ${accountsReport.from}~${accountsReport.to}.xlsx`, accountsSheets());
     return;
   }
   downloadXlsx(`본당살림 ${SHEET_NAME[type]} ${currentValue()}.xlsx`, [reportSheet($('paper'), SHEET_NAME[type])]);
