@@ -1,9 +1,9 @@
-// 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 A4 미리보기와 인쇄
+// 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 · 통장별 입출금 내역 A4 미리보기와 인쇄
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, toast, approvalBoxHtml } from './ui.js';
+import { initPage, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
-import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
+import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, monthStart, todayKST } from './shared/dates.js';
 import { downloadXlsx, reportSheet } from './excel.js';
 import { accountBalances, detailTable, fundSummaryTable, summaryRow, transferTable } from './daily-tables.js';
 
@@ -14,17 +14,34 @@ const TYPES = {
   month: { now: '이번 달' },
   year: { now: '올해' },
   budget: { now: '올해' }, // 예산 대비 집행 (연도 고르기는 연말결산과 같은 칸)
+  accounts: { now: '이번 달' }, // 통장별 입출금 내역 (시작일~종료일)
 };
 let type = 'day';
 
 function currentValue() {
+  if (type === 'accounts') return `${$('from').value}~${$('to').value}`;
   return { day: $('date').value, month: $('month').value, year: $('year').value, budget: $('year').value }[type];
 }
 
-/** 결산 종류와 날짜(일: YYYY-MM-DD, 월: YYYY-MM, 연: YYYY)를 정하고 결산서를 불러온다 */
+/** 결산 종류와 날짜(일: YYYY-MM-DD, 월: YYYY-MM, 연: YYYY, 통장별: { from, to })를 정하고 결산서를 불러온다 */
 async function load(nextType, value) {
   type = nextType;
   document.querySelectorAll('#report-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
+  document.querySelector('.date-nav').hidden = type === 'accounts';
+  $('range-nav').hidden = type !== 'accounts';
+  if (type === 'accounts') {
+    $('from').value = value.from;
+    $('to').value = value.to;
+    const account = $('account').value;
+    history.replaceState(null, '', `?type=accounts&from=${value.from}&to=${value.to}${account ? `&account=${account}` : ''}`);
+    const r = await api(`/api/reports/accounts?from=${value.from}&to=${value.to}`);
+    if (type === 'accounts' && r.from === $('from').value && r.to === $('to').value) {
+      accountsReport = r;
+      renderAccounts();
+    }
+    fitPaper();
+    return;
+  }
   $('date').hidden = type !== 'day';
   $('month').hidden = type !== 'month';
   $('year').hidden = type !== 'year' && type !== 'budget';
@@ -260,6 +277,129 @@ function renderBudget(r) {
     </article>`;
 }
 
+// ---------------------------------------------------------------- 통장별 입출금 내역
+
+let accountsReport = null;
+
+const monthEnd = (d) => addDays(`${addDays(monthStart(d), 31).slice(0, 7)}-01`, -1);
+
+/** 빠른 기간: 이번 달(1일~오늘) · 지난달 · 올해(1월 1일~오늘) */
+function quickRange(range) {
+  const today = todayKST();
+  if (range === 'last') {
+    const end = addDays(monthStart(today), -1);
+    return { from: monthStart(end), to: end };
+  }
+  return { from: range === 'year' ? `${today.slice(0, 4)}-01-01` : monthStart(today), to: today };
+}
+
+/** 거래 한 줄: 이체는 상대 통장을 화살표로 (→ 보냄, ← 받음) */
+function accountRowCells(t) {
+  if (t.kind === 'TRANSFER') {
+    return { kind: '이체', what: `${t.direction === 'OUT' ? '→' : '←'} ${t.counterpartName ?? ''}` };
+  }
+  return { kind: t.direction === 'IN' ? '수입' : '지출', what: t.subjectName ?? '' };
+}
+
+/** 고른 통장만 (통장 전체면 모두) + 그 합계 */
+function selectedAccounts(r) {
+  const id = Number($('account').value);
+  const list = id ? r.accounts.filter((a) => a.id === id) : r.accounts;
+  const total = Object.fromEntries(['prev', 'in', 'out', 'end'].map((k) => [k, sumBy(list, k)]));
+  return { list, total };
+}
+
+function renderAccounts() {
+  const r = accountsReport;
+  const closed = r.status === 'CLOSED';
+  const { list, total } = selectedAccounts(r);
+  const sameYear = r.from.slice(0, 4) === r.to.slice(0, 4);
+  const day = (d) => (sameYear ? '' : `${d.slice(2, 4)}.`) + `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  document.title = `통장별 입출금 ${r.from}~${r.to} - 본당살림`;
+  $('state').innerHTML = closed
+    ? '<span class="pill closed">마감 완료</span> <span class="muted">기간 안의 모든 날이 마감되었습니다.</span>'
+    : `<span class="pill open">미마감 포함</span> <span class="muted">마감되지 않은 날이 있어 가결산으로 출력됩니다.
+        (마지막 마감일: ${r.closedThrough ? formatKoreanDate(r.closedThrough) : '없음'})</span>`;
+  $('warning').innerHTML = '';
+
+  const sections = list.map((a, i) => `
+      <h2>${i + 2}. ${esc(a.name)}<span class="fund-tag">${FUND_LABEL[a.fundCode]}</span></h2>
+      <table class="r-table fixed">
+        <colgroup><col style="width:15mm"><col style="width:11mm"><col style="width:36mm"><col>
+          <col style="width:24mm"><col style="width:24mm"><col style="width:26mm"></colgroup>
+        <thead><tr><th>날짜</th><th>구분</th><th>과목·상대통장</th><th>적요</th><th>입금</th><th>출금</th><th>잔액</th></tr></thead>
+        <tbody>
+          <tr class="carry"><td colspan="6">이월 잔액 (${monthDay(r.from)} 이전)</td><td class="amt">${formatWon(a.prev)}</td></tr>
+          ${a.rows.length ? a.rows.map((t) => {
+            const c = accountRowCells(t);
+            return `<tr><td>${day(t.date)}</td><td>${c.kind}</td><td class="${t.kind === 'TRANSFER' ? 'xfer' : ''}">${esc(c.what)}</td>
+              <td>${esc(t.memo ?? '')}</td><td class="amt">${t.direction === 'IN' ? formatWon(t.amount) : ''}</td>
+              <td class="amt">${t.direction === 'OUT' ? formatWon(t.amount) : ''}</td><td class="amt">${formatWon(t.balance)}</td></tr>`;
+          }).join('') : '<tr><td colspan="7" class="empty">기간 안에 입출금 없음</td></tr>'}
+        </tbody>
+        <tfoot><tr><td colspan="4">소계 (${a.rows.length}건)</td><td class="amt">${formatWon(a.in)}</td>
+          <td class="amt">${formatWon(a.out)}</td><td class="amt">${formatWon(a.end)}</td></tr></tfoot>
+      </table>`).join('');
+
+  $('paper').innerHTML = `
+    <article class="report ${closed ? '' : 'provisional'}">
+      ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
+      <div class="r-head">
+        <div class="r-title">
+          <h1>통장별 입출금 내역${closed ? '' : ' <small>(가결산)</small>'}</h1>
+          <table class="r-meta">
+            <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
+            <tr><th>기 간</th><td>${formatKoreanDate(r.from)} ~ ${formatKoreanDate(r.to)}</td></tr>
+            <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <h2>1. 통장별 요약</h2>
+      <table class="r-table">
+        <thead><tr><th>통장</th><th>회계</th><th>이월 잔액</th><th>입금</th><th>출금</th><th>기말 잔액</th></tr></thead>
+        <tbody>${list.map((a) => `
+          <tr><td>${esc(a.name)}</td><td>${FUND_LABEL[a.fundCode]}</td><td class="amt">${formatWon(a.prev)}</td>
+            <td class="amt">${formatWon(a.in)}</td><td class="amt">${formatWon(a.out)}</td><td class="amt strong">${formatWon(a.end)}</td></tr>`).join('')}
+        </tbody>
+        <tfoot><tr><td colspan="2">합 계</td><td class="amt">${formatWon(total.prev)}</td><td class="amt">${formatWon(total.in)}</td>
+          <td class="amt">${formatWon(total.out)}</td><td class="amt">${formatWon(total.end)}</td></tr></tfoot>
+      </table>
+      ${sections}
+      <p class="r-note">※ 입금·출금에는 통장 간 이체도 들어갑니다 (→ 보낸 통장, ← 받은 통장).</p>
+    </article>`;
+}
+
+/** 통장별 내역 Excel: 요약 시트 + 통장마다 시트 하나 (금액은 숫자) */
+function accountsSheets() {
+  const r = accountsReport;
+  const { list, total } = selectedAccounts(r);
+  const b = (v) => ({ v, bold: true });
+  const title = `통장별 입출금 내역${r.status === 'CLOSED' ? '' : ' (가결산)'}`;
+  const meta = [[b(title)], ['성당', r.parishName], ['기간', `${r.from} ~ ${r.to}`], []];
+  const summary = {
+    name: '통장별 요약',
+    widths: [24, 10, 16, 16, 16, 16],
+    rows: [...meta,
+      ['통장', '회계', '이월 잔액', '입금', '출금', '기말 잔액'].map(b),
+      ...list.map((a) => [a.name, FUND_LABEL[a.fundCode], a.prev, a.in, a.out, a.end]),
+      [b('합계'), null, b(total.prev), b(total.in), b(total.out), b(total.end)]],
+  };
+  const sheets = list.map((a) => ({
+    name: a.name,
+    widths: [12, 6, 22, 30, 14, 14, 16],
+    rows: [[b(`${a.name} (${FUND_LABEL[a.fundCode]})`)], ['기간', `${r.from} ~ ${r.to}`], [],
+      ['날짜', '구분', '과목·상대통장', '적요', '입금', '출금', '잔액'].map(b),
+      [`이월 잔액 (${r.from} 이전)`, null, null, null, null, null, a.prev],
+      ...a.rows.map((t) => {
+        const c = accountRowCells(t);
+        return [t.date, c.kind, c.what, t.memo ?? '', t.direction === 'IN' ? t.amount : null, t.direction === 'OUT' ? t.amount : null, t.balance];
+      }),
+      [b(`소계 (${a.rows.length}건)`), null, null, null, b(a.in), b(a.out), b(a.end)]],
+  }));
+  return [summary, ...sheets];
+}
+
 // ---------------------------------------------------------------- 이벤트
 
 const run = (p) => p.catch((err) => toast(err.message, 'error'));
@@ -270,11 +410,34 @@ $('report-tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-type]');
   if (!b || b.dataset.type === type) return;
   // 지금 보던 날짜가 속한 달·해를 연다. 보던 달·해가 오늘을 포함하면 오늘 기준으로.
-  const prefix = currentValue();
+  // 통장별 내역에서 넘어가면 종료일 기준, 통장별 내역으로 가면 그 달(이번 달이면 1일~오늘)
+  const prefix = type === 'accounts' ? $('to').value : currentValue();
   const today = todayKST();
   const base = today.startsWith(prefix) ? today
-    : type === 'day' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
-  run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4) }[b.dataset.type]));
+    : type === 'day' || type === 'accounts' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
+  const accounts = { from: monthStart(base), to: base.slice(0, 7) === today.slice(0, 7) ? today : monthEnd(base) };
+  run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), accounts }[b.dataset.type]));
+});
+// 통장별 내역: 시작일이 종료일보다 늦어지면 다른 쪽을 맞춘다
+$('from').addEventListener('change', () => {
+  if (!isValidDate($('from').value)) return;
+  if (!isValidDate($('to').value) || $('to').value < $('from').value) $('to').value = $('from').value;
+  run(load('accounts', { from: $('from').value, to: $('to').value }));
+});
+$('to').addEventListener('change', () => {
+  if (!isValidDate($('to').value)) return;
+  if (!isValidDate($('from').value) || $('from').value > $('to').value) $('from').value = $('to').value;
+  run(load('accounts', { from: $('from').value, to: $('to').value }));
+});
+$('range-nav').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-range]');
+  if (b) run(load('accounts', quickRange(b.dataset.range)));
+});
+$('account').addEventListener('change', () => {
+  const p = new URLSearchParams(location.search);
+  if ($('account').value) p.set('account', $('account').value); else p.delete('account');
+  history.replaceState(null, '', `?${p}`);
+  if (accountsReport) { renderAccounts(); fitPaper(); }
 });
 for (const id of ['date', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
 $('prev').addEventListener('click', () => go(shift(-1)));
@@ -286,6 +449,10 @@ $('print').addEventListener('click', () => window.print());
 const SHEET_NAME = { day: '일일결산', month: '월말결산', year: '연말결산', budget: '예산 대비 집행' };
 $('excel').addEventListener('click', () => {
   if (!$('paper').querySelector('.report')) return;
+  if (type === 'accounts') {
+    downloadXlsx(`본당살림 통장별 입출금 ${$('from').value}~${$('to').value}.xlsx`, accountsSheets());
+    return;
+  }
   downloadXlsx(`본당살림 ${SHEET_NAME[type]} ${currentValue()}.xlsx`, [reportSheet($('paper'), SHEET_NAME[type])]);
 });
 
@@ -300,8 +467,18 @@ initPage('report').then(({ settings }) => {
   const thisYear = Number(todayKST().slice(0, 4));
   const firstYear = Number((settings.parish?.startDate ?? todayKST()).slice(0, 4));
   for (let y = thisYear; y >= Math.min(firstYear, thisYear); y--) $('year').append(new Option(`${y}년`, String(y)));
+  $('account').innerHTML = '<option value="">통장 전체</option>' + ['GENERAL', 'SPECIAL'].map((fund) => {
+    const list = settings.accounts.filter((a) => a.fundCode === fund);
+    return list.length ? `<optgroup label="${FUND_LABEL[fund]}">${list.map((a) =>
+      `<option value="${a.id}">${esc(a.name)}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>` : '';
+  }).join('');
   const p = new URLSearchParams(location.search);
   type = TYPES[p.get('type')] ? p.get('type') : 'day';
+  if (type === 'accounts') {
+    $('account').value = p.get('account') ?? '';
+    const [from, to] = [p.get('from'), p.get('to')];
+    return load(type, isValidDate(from) && isValidDate(to) && from <= to ? { from, to } : quickRange('month'));
+  }
   const v = p.get(type === 'day' ? 'date' : type);
   return load(type, v && valid(v) ? v : nowValue());
 }).catch((err) => {

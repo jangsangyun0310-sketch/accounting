@@ -109,9 +109,18 @@ body.report-page { background: #e9ecf0; }
 /* 예산 대비: 지출이 예산을 넘은 과목은 빨간 글씨 */
 .r-table tr.over td { color: #b42318; }
 .r-note { font-size: 8pt; color: #444; margin: 3mm 0 0; }
+
+/* 통장별 입출금 내역: 기간·통장 고르기, 이체는 파란 글씨, 이월 줄은 연한 바탕 */
+.range-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.range-nav[hidden], .date-nav[hidden] { display: none; }
+.range-nav input[type="date"], .range-nav select { width: auto; }
+.r-table tr.carry td { background: #f6f7f9; }
+.r-table td.xfer { color: #1f4e8c; }
+.report h2 .fund-tag { font-weight: normal; font-size: 8.5pt; color: #555; margin-left: 2mm; }
+
 @media screen and (max-width: 720px) {
-  /* 결산 종류 4개를 한 줄에 같은 너비로 */
-  .report-tabs { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 0 8px; margin-top: 10px; }
+  /* 결산 종류 5개를 두 줄에 같은 너비로 */
+  .report-tabs { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 8px; margin-top: 10px; }
   .report-tabs button { padding: 8px 0 !important; font-size: 14px; white-space: nowrap; }
 }
 

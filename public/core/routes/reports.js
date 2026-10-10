@@ -3,7 +3,7 @@
 // 미마감 날은 현재 결재선·기본 작성자로 "가결산"을 만든다.
 // 자동 마감된 날(거래가 없어 이후 날짜를 마감할 때 함께 잠긴 날)은 그 이후 마감 기록의 결재선·작성자로 정상 결산서를 만든다.
 import { json } from '../lib/http.js';
-import { computeDay, computePeriod, periodBreakdown, subjectTotals, verifySnapshot } from '../lib/ledger.js';
+import { TX_SELECT, computeDay, computePeriod, mapTx, periodBreakdown, subjectTotals, verifySnapshot } from '../lib/ledger.js';
 import { bad } from '../lib/validate.js';
 import { sumAmounts } from '../../js/shared/money.js';
 import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
@@ -125,5 +125,61 @@ export async function period({ env, url }) {
     income: { rows: income, total: sumAmounts(income.map((r) => r.total)) },
     expense: { rows: expense, total: sumAmounts(expense.map((r) => r.total)) },
     breakdown,
+  });
+}
+
+/**
+ * GET /api/reports/accounts?from=YYYY-MM-DD&to=YYYY-MM-DD : 통장별 입출금 내역
+ * 통장마다 이월 잔액(prev)·입금·출금·기말 잔액과 기간 안의 거래(날짜순, 줄마다 잔액)를 준다. 이체도 입금·출금에 넣는다.
+ */
+export async function accounts({ env, url }) {
+  const p = url.searchParams;
+  const today = todayKST();
+  const from = p.get('from') || `${today.slice(0, 7)}-01`;
+  const to = p.get('to') || today;
+  if (!isValidDate(from) || !isValidDate(to)) throw bad('날짜 형식이 올바르지 않습니다.', 'BAD_DATE');
+  if (from > to) throw bad('시작일이 종료일보다 늦습니다.', 'BAD_RANGE');
+
+  const db = env.DB;
+  const [summary, txs, parish, lastClosed] = await Promise.all([
+    computePeriod(db, from, to),
+    db.prepare(`${TX_SELECT} WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED' ORDER BY t.tx_date, t.id`).bind(from, to).all(),
+    db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first(),
+    db.prepare(`SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'`).first('d'),
+  ]);
+  const rows = txs.results.map(mapTx);
+
+  const list = summary.accounts.map((a) => {
+    let balance = a.prev;
+    const items = rows.filter((t) => t.accountId === a.id).map((t) => {
+      balance = sumAmounts([balance, t.direction === 'IN' ? t.amount : -t.amount]);
+      return {
+        id: t.id, date: t.date, kind: t.kind, direction: t.direction,
+        subjectName: t.subjectName, counterpartName: t.counterpartName,
+        memo: t.memo, voucherNo: t.voucherNo, amount: t.amount, balance,
+      };
+    });
+    const inSum = sumAmounts([a.income, a.transferIn]);
+    const outSum = sumAmounts([a.expense, a.transferOut]);
+    if (balance !== a.end) throw new Error(`통장 ${a.name}: 거래 합계와 기말 잔액이 맞지 않습니다.`);
+    return { id: a.id, name: a.name, fundCode: a.fundCode, prev: a.prev, in: inSum, out: outSum, end: a.end, rows: items };
+  });
+  const total = {
+    prev: sumAmounts(list.map((a) => a.prev)),
+    in: sumAmounts(list.map((a) => a.in)),
+    out: sumAmounts(list.map((a) => a.out)),
+    end: sumAmounts(list.map((a) => a.end)),
+  };
+
+  return json({
+    from,
+    to,
+    parishName: parish?.parish_name ?? '',
+    writerName: parish?.writer_name ?? '',
+    status: lastClosed && lastClosed >= to ? 'CLOSED' : 'PROVISIONAL',
+    closedThrough: lastClosed ?? null,
+    funds: summary.funds.map(({ code, name }) => ({ code, name })),
+    accounts: list,
+    total,
   });
 }

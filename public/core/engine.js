@@ -47,6 +47,7 @@ const routes = [
   ['POST', '/api/closings/:date/reopen', closings.reopen],
   ['GET', '/api/reports/daily', reports.daily],
   ['GET', '/api/reports/period', reports.period],
+  ['GET', '/api/reports/accounts', reports.accounts],
   ['GET', '/api/budgets', budgets.list],
   ['PUT', '/api/budgets', budgets.save],
   ['GET', '/api/journal', journal.get],

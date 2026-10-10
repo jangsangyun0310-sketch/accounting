@@ -152,3 +152,30 @@ test('예전 방식으로 자동 마감된 날(거래 없음)의 일일 결산�
   assert.equal(after.status, 'PROVISIONAL');
   assert.equal(after.autoClosedBy, null);
 });
+
+test('통장별 입출금 내역: 이월·거래별 잔액·이체 포함 합계, 기간 밖·삭제 거래 제외', async () => {
+  const { api, tx, db } = setup();
+  await tx('OUT', '경상비', '관리운영비', 50000, '소모품');
+  const { body: { id } } = await tx('OUT', '경상비', '전례비', 9999, '중복');
+  await api('DELETE', `/api/transactions/${id}`);
+  await api('POST', '/api/transfers', { date: '2026-10-03', fromAccountId: 1, toAccountId: 7, amount: '1000000', memo: '적립' });
+  await api('POST', '/api/transactions', {                             // 기간 밖
+    date: '2026-10-20', direction: 'IN', accountId: 1, subjectId: subjectId(db, 'INCOME', '교무금'), amount: '9',
+  });
+
+  const r = (await api('GET', '/api/reports/accounts?from=2026-10-02&to=2026-10-10')).body;
+  assert.equal(r.status, 'PROVISIONAL');
+  const a = r.accounts.find((x) => x.id === 1);
+  assert.deepEqual(a.rows.map((x) => [x.date, x.kind, x.direction, x.amount, x.balance, x.counterpartName ?? x.subjectName]),
+    [['2026-10-02', 'NORMAL', 'OUT', 50000, a.prev - 50000, '관리운영비'],
+     ['2026-10-03', 'TRANSFER', 'OUT', 1000000, a.prev - 1050000, '장기수선 예치금']]);
+  assert.deepEqual([a.in, a.out, a.end], [0, 1050000, a.prev - 1050000]);
+  const b = r.accounts.find((x) => x.id === 7);
+  assert.deepEqual([b.in, b.end, b.rows[0].counterpartName], [1000000, b.prev + 1000000, a.name]);
+  // 거래 없는 통장도 이월 잔액만으로 나온다
+  assert.ok(r.accounts.some((x) => x.rows.length === 0 && x.prev === x.end));
+  assert.deepEqual([r.total.in, r.total.out, r.total.end - r.total.prev], [1000000, 1050000, -50000]);
+
+  assert.equal((await api('GET', '/api/reports/accounts?from=2026-10-10&to=2026-10-01')).status, 400);
+  assert.equal((await api('GET', '/api/reports/accounts?from=2026-02-30&to=2026-03-01')).status, 400);
+});

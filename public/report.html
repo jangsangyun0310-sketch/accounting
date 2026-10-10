@@ -16,6 +16,7 @@
     <button type="button" data-type="month">월말결산</button>
     <button type="button" data-type="year">연말결산</button>
     <button type="button" data-type="budget">예산 대비</button>
+    <button type="button" data-type="accounts">통장별 내역</button>
   </div>
   <div class="report-toolbar no-print">
     <div class="date-nav">
@@ -25,6 +26,13 @@
       <select id="year" aria-label="결산 연도"></select>
       <button type="button" class="secondary small" id="next" title="다음">▶</button>
       <button type="button" class="secondary small" id="now">오늘</button>
+    </div>
+    <div class="range-nav" id="range-nav" hidden>
+      <input type="date" id="from" aria-label="시작일"> ~ <input type="date" id="to" aria-label="종료일">
+      <button type="button" class="secondary small" data-range="month">이번 달</button>
+      <button type="button" class="secondary small" data-range="last">지난달</button>
+      <button type="button" class="secondary small" data-range="year">올해</button>
+      <select id="account" aria-label="통장"><option value="">통장 전체</option></select>
     </div>
     <span class="toolbar-actions">
       <button type="button" class="secondary" id="excel">Excel</button>
