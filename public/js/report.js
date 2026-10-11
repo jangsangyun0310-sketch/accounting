@@ -140,7 +140,7 @@ function render(r) {
 
       ${r.transfers.rows.length ? `<h2>4. 통장 간 이체 내역</h2>${transferTable(r)}` : ''}
 
-      ${hasCash(r) ? `<h2 class="cash-title">${n + 1}. 보유 현금</h2>${cashTable(r)}` : ''}
+      ${hasCash(r) ? `<h2>${n + 1}. 보유 현금</h2>${cashTable(r)}` : ''}
 
       <h2>${n + (hasCash(r) ? 2 : 1)}. 통장별 현재잔액</h2>
       ${accountBalances(r)}

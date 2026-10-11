@@ -66,9 +66,7 @@ body.report-page { background: #e9ecf0; }
 .r-table.cash-table td, .r-table tr.cash td { background: var(--cash-bg); }
 .r-table td.ng { color: #b42318; font-weight: 700; }
 .report h2.cash { background: var(--cash-bg); padding: 0.5mm 1.5mm; }
-/* 보유 현금 제목: 금색 띠 (일일결산서 h2 · 사목일지 소제목) */
-.report .cash-title { background: var(--cash-head); padding: 0.6mm 2mm; display: block; }
-.r-table.cash-table, .r-table tr.cash, .report h2.cash, .report .cash-title { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.r-table.cash-table, .r-table tr.cash, .report h2.cash { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .r-table.cash-table { border: 0.5mm solid #8a6a00; }
 .r-table .no { width: 8mm; text-align: center; }
 .r-table .fund-col { width: 10mm; text-align: center; }

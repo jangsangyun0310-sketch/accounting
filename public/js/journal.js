@@ -266,7 +266,7 @@ function accountingHtml(day) {
     <div class="sub-h">수입 내역</div>${detailTable(day.income, '수입', { voucher: false })}
     <div class="sub-h">지출 내역</div>${detailTable(day.expense, '지출', { voucher: false })}
     ${day.transfers.rows.length ? `<div class="sub-h">통장 간 이체</div>${transferTable(day, { voucher: false })}` : ''}
-    ${hasCash(day) ? `<div class="sub-h cash-title">보유 현금</div>${cashTable(day)}` : ''}
+    ${hasCash(day) ? `<div class="sub-h">보유 현금</div>${cashTable(day)}` : ''}
     <div class="sub-h">통장별 현재잔액</div>${accountBalances(day)}`;
 }
 
