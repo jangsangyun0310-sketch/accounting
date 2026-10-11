@@ -470,8 +470,8 @@ window.addEventListener('beforeprint', () => {
 window.addEventListener('afterprint', clearPrintFit);
 
 // ---------------------------------------------------------------- 인쇄: 장마다 A4 한 장
-// A4(297mm)에서 위·아래 여백(15mm + 17mm)을 뺀 높이보다 조금 작게 잡는다.
-const PAGE_MM = 260;
+// A4(297mm)에서 위·아래 여백(25mm + 17mm)을 뺀 높이보다 조금 작게 잡는다.
+const PAGE_MM = 250; // 위 여백 25mm (철하는 자리)
 const PHOTO_MM = { normal: 62, min: 38 };
 const mm = (n) => (n * 96) / 25.4;
 
