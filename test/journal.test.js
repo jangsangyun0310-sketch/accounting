@@ -208,3 +208,22 @@ test('사진: 두 자리에 올리고 바꾸고 지우기, 설명은 [저장] �
   const backup = await (await worker.fetch(new Request('http://local/api/backup'), { DB: d1Adapter(db), AUTH_MODE: 'dev' })).json();
   assert.equal('journal_photos' in backup.tables, false);
 });
+
+test('사진 모두 내려받기: 목록(사진 없이)과 연도별 장수, 한 장씩 받기', async () => {
+  const { api } = setup();
+  const img = 'data:image/jpeg;base64,' + 'B'.repeat(100);
+  await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 2, image: img });
+  await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 1, image: img });
+  await api('PUT', '/api/journal/photo', { date: '2025-12-24', slot: 1, image: img });
+  await api('PUT', '/api/journal', { date: '2026-10-11', photoCaptions: { 1: '견진성사' } });
+  const all = (await api('GET', '/api/journal/photos')).body;
+  assert.deepEqual(all.photos, [
+    { date: '2025-12-24', slot: 1, caption: '' },
+    { date: '2026-10-11', slot: 1, caption: '견진성사' },
+    { date: '2026-10-11', slot: 2, caption: '' },
+  ]);
+  assert.deepEqual(all.years, [{ year: '2026', count: 2 }, { year: '2025', count: 1 }]);
+  assert.equal((await api('GET', '/api/journal/photos?year=2025')).body.photos.length, 1);
+  assert.equal((await api('GET', '/api/journal/photo?date=2026-10-11&slot=1')).body.image, img);
+  assert.equal((await api('GET', '/api/journal/photo?date=2026-10-12&slot=1')).status, 400);
+});

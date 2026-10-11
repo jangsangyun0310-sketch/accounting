@@ -2,6 +2,8 @@
 //   GET /api/journal?date=YYYY-MM-DD : 그날의 사목일지 (저장 전이면 요일별 기본 미사로 채운 빈 일지)
 //   PUT /api/journal {date, households, members, masses, sacraments, documents, notes, photoCaptions} : 그날 사목일지를 통째로 저장
 //   PUT /api/journal/photo {date, slot, image} : 사진 한 장 올리기 (image 가 null 이면 지우기). 고르는 즉시 저장된다
+//   GET /api/journal/photos?year= : 사진 목록 (사진 없이 날짜 · 자리 · 설명, 연도별 장수) — 사진 모두 내려받기용
+//   GET /api/journal/photo?date=&slot= : 사진 한 장
 // 회계 부분은 화면이 /api/reports/daily 로 따로 불러온다 (마감한 날만 보여 준다).
 // 총원: 직접 고친 값(households_total·members_total)이 없으면 전날 총원 + 전입 − 전출.
 //       첫 날의 전날 총원은 설정의 시작 총원.
@@ -201,4 +203,31 @@ export async function savePhoto({ request, env, actor }) {
     auditStatement(db, { actor: actor.email, entity: 'journal_photos', entityId: `${d}#${slot}`, action: image === null ? 'DELETE' : 'UPDATE' }),
   ]);
   return json({ ok: true });
+}
+
+/** GET /api/journal/photos?year=YYYY (비우면 전체) : 날짜 · 자리 · 설명 목록과 연도별 장수 (사진은 한 장씩 따로 받는다) */
+export async function listPhotos({ env, url }) {
+  const db = env.DB;
+  const year = url.searchParams.get('year') || '';
+  if (year && !/^\d{4}$/.test(year)) throw bad('연도 형식이 올바르지 않습니다.', 'BAD_DATE');
+  const [list, years] = await db.batch([
+    db.prepare(
+      `SELECT journal_date, slot, caption FROM journal_photos
+       WHERE ?1 = '' OR substr(journal_date, 1, 4) = ?1 ORDER BY journal_date, slot`
+    ).bind(year),
+    db.prepare('SELECT substr(journal_date, 1, 4) AS year, COUNT(*) AS n FROM journal_photos GROUP BY year ORDER BY year DESC'),
+  ]);
+  return json({
+    photos: list.results.map((p) => ({ date: p.journal_date, slot: p.slot, caption: p.caption })),
+    years: years.results.map((y) => ({ year: y.year, count: y.n })),
+  });
+}
+
+/** GET /api/journal/photo?date=&slot= : 사진 한 장 (data URL) */
+export async function getPhoto({ env, url }) {
+  const d = parseDate(url.searchParams.get('date'), '사진');
+  const slot = oneOf(Number(url.searchParams.get('slot')), [1, 2], '사진 자리');
+  const image = await env.DB.prepare('SELECT image FROM journal_photos WHERE journal_date = ? AND slot = ?').bind(d, slot).first('image');
+  if (!image) throw bad('사진이 없습니다.', 'NOT_FOUND');
+  return json({ date: d, slot, image });
 }

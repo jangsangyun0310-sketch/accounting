@@ -57,6 +57,8 @@ const routes = [
   ['GET', '/api/journal', journal.get],
   ['PUT', '/api/journal', journal.save],
   ['PUT', '/api/journal/photo', journal.savePhoto],
+  ['GET', '/api/journal/photos', journal.listPhotos],
+  ['GET', '/api/journal/photo', journal.getPhoto],
   ['GET', '/api/backup', backup.download],
   ['GET', '/api/backup/status', backup.status],
   ['POST', '/api/backup/log', backup.log],

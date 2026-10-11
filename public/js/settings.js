@@ -8,6 +8,7 @@ import { formatDateTimeKST, todayKST } from './shared/dates.js';
 import { href } from './base.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
 import { currentAccount, logout } from './account.js';
+import { zipStored } from './shared/xlsx.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
@@ -424,8 +425,11 @@ async function renderBackup() {
     panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
     return;
   }
+  let photos = { years: [] };
+  try { photos = await api('/api/journal/photos'); } catch { /* 사진 목록을 못 받아도 백업은 보인다 */ }
   if (tab !== 'backup') return;
   const { html } = backupStatusHtml(s);
+  const photoTotal = photos.years.reduce((n, y) => n + y.count, 0);
   panel.innerHTML = `
     <p>${html}</p>
     <button type="button" data-action="backup-download">백업 파일 내려받기</button>
@@ -434,6 +438,19 @@ async function renderBackup() {
         <b>USB나 OneDrive</b>에 보관해 두세요.</p>
       <p>백업 파일에는 신자 이름과 금액이 들어 있으니 다른 사람에게 보내지 마세요.</p>
     </div>
+    <hr class="line-sep">
+    <h3>사목일지 사진</h3>
+    <p class="help">사진은 크기 때문에 백업 파일에 들어가지 않습니다. 따로 <b>사진 모두 내려받기</b>로 받아 함께 보관하세요.
+      (사진 파일 이름은 날짜, 사진 설명은 "사진 설명.txt" 에 들어갑니다)</p>
+    ${photoTotal ? `
+      <div class="form-grid">
+        <label>연도 <select id="photo-year">
+          <option value="">전체 (${photoTotal}장)</option>
+          ${photos.years.map((y) => `<option value="${y.year}">${y.year}년 (${y.count}장)</option>`).join('')}
+        </select></label>
+      </div>
+      <button type="button" class="secondary" data-action="photos-download">사진 모두 내려받기 (zip)</button>
+      <span id="photo-progress" class="muted"></span>` : '<p class="muted">아직 올린 사진이 없습니다.</p>'}
     ${s.history.length ? `
       <h4>최근 기록</h4>
       <ul class="audit">${s.history.map((h) => `<li>${formatDateTimeKST(h.at)} · ${esc(h.actor)} ·
@@ -509,7 +526,7 @@ async function renderAccount() {
       <p>지금 장부의 <b>모든 거래·마감·통장·과목·설정</b>을 지우고 <b>최초 설정부터 다시</b> 시작합니다. 로그인 계정과 성당 등록은 그대로입니다.</p>
       <p>지운 장부는 되살릴 수 없습니다. 그래서 <b>먼저 백업 파일을 내려받아야</b> 초기화할 수 있습니다.<br>
         (나중에 필요하면 최초 설정 화면의 [예전 장부 가져오기]로 되돌릴 수 있습니다.)</p>
-      <p class="error">⚠ <b>사목일지 사진</b>은 크기 때문에 백업 파일에 들어가지 않습니다. 초기화하면 사진은 되살릴 수 없습니다.</p>
+      <p class="error">⚠ <b>사목일지 사진</b>은 크기 때문에 백업 파일에 들어가지 않습니다. 초기화하기 전에 [백업] 탭의 <b>사진 모두 내려받기</b>로 받아 두세요. 초기화하면 사진은 되살릴 수 없습니다.</p>
       <p>${backupStatusHtml(backup).html}</p>
       <p><button type="button" class="secondary" data-action="backup-download">① 백업 파일 내려받기</button></p>
       <label><span>② 확인을 위해 성당 이름 <b>${esc(name)}</b> 을(를) 그대로 적으세요</span> <input id="reset-name" autocomplete="off"></label>
@@ -716,6 +733,36 @@ const actions = {
   'offering-save': async () => {
     const subjectId = panel.querySelector('#offering-subject').value || null;
     if (await attempt(() => api('/api/journal-settings/offering', { method: 'PUT', body: { subjectId } }), '주일헌금 과목을 저장했습니다.')) await reload();
+  },
+  'photos-download': async (btn) => {
+    const year = panel.querySelector('#photo-year').value;
+    const progress = panel.querySelector('#photo-progress');
+    btn.disabled = true;
+    try {
+      const { photos } = await api(`/api/journal/photos?year=${year}`);
+      const enc = new TextEncoder();
+      const files = [];
+      for (const [i, p] of photos.entries()) {
+        progress.textContent = `사진 받는 중 ${i + 1} / ${photos.length}`;
+        const { image } = await api(`/api/journal/photo?date=${p.date}&slot=${p.slot}`);
+        const bin = atob(image.slice(image.indexOf(',') + 1));
+        files.push([`${p.date}_${p.slot}.jpg`, Uint8Array.from(bin, (ch) => ch.charCodeAt(0))]);
+      }
+      const notes = photos.map((p) => `${p.date}_${p.slot}.jpg\t${p.caption}`).join('\r\n');
+      files.push(['사진 설명.txt', enc.encode(`\uFEFF파일\t설명\r\n${notes}\r\n`)]);
+      const blob = new Blob([zipStored(files)], { type: 'application/zip' });
+      const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `본당살림 사목일지 사진 ${year || '전체'}.zip` });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+      progress.textContent = `${photos.length}장을 내려받았습니다.`;
+    } catch (err) {
+      toast(err.message, 'error');
+      progress.textContent = '';
+    } finally {
+      btn.disabled = false;
+    }
   },
   'journal-start-save': async () => {
     const form = panel.querySelector('[data-form="journal-start"]');

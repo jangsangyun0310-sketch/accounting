@@ -118,7 +118,8 @@ export function crc32(bytes) {
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
 
-function zipStored(entries) {
+/** 압축 없는 zip 파일 (entries: [[이름, Uint8Array]]) — xlsx 와 사진 내려받기에서 쓴다 */
+export function zipStored(entries) {
   const enc = new TextEncoder();
   const local = [];
   const central = [];
