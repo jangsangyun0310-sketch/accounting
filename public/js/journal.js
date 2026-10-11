@@ -213,15 +213,8 @@ function docRow(x = { direction: '', docNo: '', party: '', title: '' }) {
  */
 function sundayRowHtml(s) {
   return `
-      <table class="r-table fixed sunday-sum" id="sunday-sum" data-sat="${s.saturdayAttendance}" data-offering="${s.offering}" data-subject="${s.subjectName ? 1 : ''}">
-        <colgroup><col style="width:46mm"><col style="width:34mm"><col><col style="width:38mm"></colgroup>
-        <tbody><tr>
-          <th>주일미사 (토 저녁 · 주일)</th>
-          <td>참석 <b class="s-att"></b></td>
-          <td>${esc(s.subjectName ?? '주일헌금')} (봉헌권 포함) <b class="s-off"></b></td>
-          <td>1인당 <b class="s-avg"></b></td>
-        </tr></tbody>
-      </table>
+      <p class="sunday-sum" id="sunday-sum" data-sat="${s.saturdayAttendance}" data-offering="${s.offering}" data-subject="${s.subjectName ? 1 : ''}">
+        ※ 주일미사(토 저녁 · 주일) 참석 <b class="s-att"></b> · ${esc(s.subjectName ?? '주일헌금')} <b class="s-off"></b> · 1인당 <b class="s-avg"></b></p>
       ${s.subjectName ? '' : '<p class="help no-print">1인당 헌금을 보려면 [설정 → 사목일지]에서 주일헌금 과목을 고르세요.</p>'}`;
 }
 
