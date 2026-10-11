@@ -42,7 +42,9 @@ export function reportSheet(paper, name) {
       const head = ['THEAD', 'TFOOT'].includes(tr.parentElement.tagName);
       const row = [];
       for (const cell of tr.children) {
-        const value = cellValue(cell.textContent.replace(/\s+/g, ' ').trim());
+        // 내용 없는 칸의 가운데 점(·)은 Excel 에서 금액 칸은 0, 글자 칸은 빈칸
+        const dot = cell.classList.contains('dot');
+        const value = dot ? (cell.classList.contains('amt') ? 0 : '') : cellValue(cell.textContent.replace(/\s+/g, ' ').trim());
         row.push(head ? { v: value, bold: true } : value);
         for (let k = 1; k < (cell.colSpan || 1); k++) row.push(null); // 합친 칸은 빈 칸으로 자리 맞춤
       }

@@ -5,6 +5,13 @@ import { formatWon } from './shared/money.js';
 
 export const FUND_SHORT = { GENERAL: '일반', SPECIAL: '특별' };
 
+/** 금액 칸: 0 이면 가운데 점 (내용 없는 칸) */
+const amt = (n, { cls = '', signed = false } = {}) => (n
+  ? `<td class="amt ${cls}">${signed ? signedWon(n) : formatWon(n)}</td>`
+  : '<td class="amt dot">·</td>');
+/** 글자 칸: 비어 있으면 가운데 점 */
+const txt = (v) => (v ? `<td>${esc(v)}</td>` : '<td class="dot">·</td>');
+
 /** 회계별 현황 (전일잔액 · 당일수입 · 당일지출 · 이체 · 당일잔액) */
 export function fundSummaryTable(r) {
   return `
@@ -16,9 +23,9 @@ export function fundSummaryTable(r) {
 }
 
 export function summaryRow(label, r) {
-  return `<tr><td class="label">${label}</td><td class="amt">${formatWon(r.prev)}</td><td class="amt">${formatWon(r.income)}</td>
-    <td class="amt">${formatWon(r.expense)}</td><td class="amt">${signedWon(r.transferIn - r.transferOut)}</td>
-    <td class="amt strong">${formatWon(r.end)}</td></tr>`;
+  return `<tr><td class="label">${label}</td>${amt(r.prev)}${amt(r.income)}
+    ${amt(r.expense)}${amt(r.transferIn - r.transferOut, { signed: true })}
+    ${amt(r.end, { cls: 'strong' })}</tr>`;
 }
 
 /** 수입 · 지출 내역. voucher: 증빙번호 칸 */
@@ -29,12 +36,12 @@ export function detailTable(section, label, { voucher = true } = {}) {
       <colgroup><col style="width:8mm"><col style="width:10mm"><col style="width:${voucher ? 34 : 38}mm"><col style="width:${voucher ? 26 : 30}mm"><col>${voucher ? '<col style="width:22mm">' : ''}<col style="width:${voucher ? 25 : 27}mm"></colgroup>
       <thead><tr><th class="no">No</th><th>회계</th><th>통장</th><th>예산과목</th><th>적요</th>${voucher ? '<th>증빙번호</th>' : ''}<th>금액</th></tr></thead>
       <tbody>${section.rows.length ? section.rows.map((t, i) => `
-        <tr><td class="no">${i + 1}</td><td class="fund-col">${FUND_SHORT[t.fundCode]}</td><td>${esc(t.accountName)}</td>
-          <td>${esc(t.subjectName)}</td><td>${esc(t.memo)}</td>${voucher ? `<td>${esc(t.voucherNo)}</td>` : ''}
-          <td class="amt">${formatWon(t.amount)}</td></tr>`).join('')
+        <tr><td class="no">${i + 1}</td><td class="fund-col">${FUND_SHORT[t.fundCode]}</td>${txt(t.accountName)}
+          ${txt(t.subjectName)}${txt(t.memo)}${voucher ? `${txt(t.voucherNo)}` : ''}
+          ${amt(t.amount)}</tr>`).join('')
         : `<tr><td colspan="${cols}" class="empty">${label} 내역 없음</td></tr>`}
       </tbody>
-      <tfoot><tr><td colspan="${cols - 1}">${label} 합계 (${section.rows.length}건)</td><td class="amt">${formatWon(section.total)}</td></tr></tfoot>
+      <tfoot><tr><td colspan="${cols - 1}">${label} 합계 (${section.rows.length}건)</td>${amt(section.total)}</tr></tfoot>
     </table>`;
 }
 
@@ -49,9 +56,9 @@ export function transferTable(r, { voucher = true } = {}) {
         <tr><td class="no">${i + 1}</td>
           <td>${esc(t.fromName)} <span class="fund">${FUND_SHORT[t.fromFund]}</span></td>
           <td>${esc(t.toName)} <span class="fund">${FUND_SHORT[t.toFund] ?? ''}</span></td>
-          <td>${esc(t.memo)}</td>${voucher ? `<td>${esc(t.voucherNo)}</td>` : ''}<td class="amt">${formatWon(t.amount)}</td></tr>`).join('')}
+          ${txt(t.memo)}${voucher ? `${txt(t.voucherNo)}` : ''}${amt(t.amount)}</tr>`).join('')}
       </tbody>
-      <tfoot><tr><td colspan="${voucher ? 5 : 4}">이체 합계 (${r.transfers.rows.length}건)</td><td class="amt">${formatWon(r.transfers.total)}</td></tr></tfoot>
+      <tfoot><tr><td colspan="${voucher ? 5 : 4}">이체 합계 (${r.transfers.rows.length}건)</td>${amt(r.transfers.total)}</tr></tfoot>
     </table>`;
 }
 
@@ -63,10 +70,10 @@ export function accountBalances(r) {
         <table class="r-table">
           <thead><tr><th>${esc(f.name)} 통장</th><th>전일잔액</th><th>현재잔액</th></tr></thead>
           <tbody>${r.accounts.filter((a) => a.fundCode === f.code).map((a) => `
-            <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td>
-              <td class="amt strong">${formatWon(a.end)}</td></tr>`).join('')}
+            <tr><td>${esc(a.name)}</td>${amt(a.prev)}
+              ${amt(a.end, { cls: 'strong' })}</tr>`).join('')}
           </tbody>
-          <tfoot><tr><td>소계</td><td class="amt">${formatWon(f.prev)}</td><td class="amt">${formatWon(f.end)}</td></tr></tfoot>
+          <tfoot><tr><td>소계</td>${amt(f.prev)}${amt(f.end)}</tr></tfoot>
         </table>`).join('')}
     </div>
     <table class="r-table r-grand">

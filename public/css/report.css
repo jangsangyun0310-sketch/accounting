@@ -60,6 +60,7 @@ body.report-page { background: #e9ecf0; }
 .r-table tr { break-inside: avoid; }
 .r-table .amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .r-table .amt.strong { font-weight: 700; }
+.r-table td.dot { text-align: center; } /* 내용 없는 칸의 가운데 점 */
 .r-table .no { width: 8mm; text-align: center; }
 .r-table .fund-col { width: 10mm; text-align: center; }
 .r-table .fund-cell { text-align: center; font-weight: 600; width: 18mm; }
@@ -131,6 +132,11 @@ body.report-page { background: #e9ecf0; }
   font: inherit; font-size: 9pt; color: #000; min-width: 0; height: auto;
 }
 .journal input.cell.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* 내용이 없는 칸: 가운데 점 (화면·인쇄 모두) */
+.journal input.cell::placeholder { color: #000; opacity: 1; }
+.journal input.cell:placeholder-shown { text-align: center; }
+.journal select.d-dir { text-align: center; text-align-last: center; }
+.journal .notes-print.blank { text-align: center; }
 .journal input.cell:focus, .journal select.cell:focus, .journal textarea.cell:focus { outline: 2px solid var(--accent); background: #fff; }
 .journal select.cell { padding: 0.2mm 0.5mm; }
 .journal .r-table td.inp { padding: 0.3mm 0.5mm; }
@@ -153,7 +159,6 @@ body.report-page { background: #e9ecf0; }
 @media print {
   .journal input.cell, .journal select.cell { background: none; }
   .journal select.cell { appearance: none; -webkit-appearance: none; }
-  .journal input.cell::placeholder { color: transparent; }
   .journal .notes-print { display: block; white-space: pre-wrap; min-height: 20mm; border: 0.3mm solid #222; padding: 1.5mm 2mm; line-height: 1.5; width: calc(100% - 0.6mm); }
 }
 @media screen and (max-width: 720px) {

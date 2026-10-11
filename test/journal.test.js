@@ -137,7 +137,7 @@ test('사목일지는 백업에 들어가고 복구되며, 사목일지 표가 �
   assert.equal((await b.api('GET', '/api/settings')).body.massSchedule.length, 4);
 
   const old = structuredClone(backup);
-  for (const t of ['daily_approval_steps', 'mass_schedule', 'journal_settings', 'journals', 'journal_masses']) {
+  for (const t of ['daily_approval_steps', 'mass_schedule', 'journal_settings', 'journals', 'journal_masses', 'journal_documents']) {
     delete old.tables[t];
     delete old.counts[t];
   }
@@ -145,4 +145,42 @@ test('사목일지는 백업에 들어가고 복구되며, 사목일지 표가 �
   const c = setup(createDb({ seed: false }));
   assert.equal((await c.api('POST', '/api/restore', old)).status, 200);
   assert.equal((await c.api('GET', '/api/journal?date=2026-10-11')).body.saved, false);
+});
+
+test('공문서 수발신: 빈 줄은 버리고 순서대로 저장, 구분은 비워도 되고, 백업·복구에 들어간다', async () => {
+  const a = setup();
+  const r = await a.api('PUT', '/api/journal', {
+    date: '2026-10-11',
+    documents: [
+      { direction: 'IN', docNo: '교구 2026-123', party: '교구청 사무처', title: '  견진성사 일정 안내 ' },
+      { direction: '', docNo: '', party: '', title: '' },
+      { direction: '', party: '이웃 본당', title: '협조 요청' },
+      { direction: 'OUT', docNo: '본당 26-07', party: '교구청', title: '사목 보고' },
+    ],
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const j = (await a.api('GET', '/api/journal?date=2026-10-11')).body;
+  assert.deepEqual(j.documents, [
+    { direction: 'IN', docNo: '교구 2026-123', party: '교구청 사무처', title: '견진성사 일정 안내' },
+    { direction: '', docNo: '', party: '이웃 본당', title: '협조 요청' },
+    { direction: 'OUT', docNo: '본당 26-07', party: '교구청', title: '사목 보고' },
+  ]);
+  assert.deepEqual((await a.api('GET', '/api/journal?date=2026-10-12')).body.documents, []);
+  assert.equal((await a.api('PUT', '/api/journal', { date: '2026-10-11', documents: [{ direction: 'X' }] })).status, 400);
+  assert.equal((await a.api('PUT', '/api/journal', { date: '2026-10-11', documents: [{ title: 'ㄱ'.repeat(101) }] })).status, 400);
+
+  const backup = await (await worker.fetch(new Request('http://local/api/backup'), { DB: d1Adapter(a.db), AUTH_MODE: 'dev' })).json();
+  assert.equal(backup.counts.journal_documents, 3);
+  const b = setup(createDb({ seed: false }));
+  assert.equal((await b.api('POST', '/api/restore', backup)).status, 200);
+  assert.equal((await b.api('GET', '/api/journal?date=2026-10-11')).body.documents.length, 3);
+
+  // 공문서 표가 없던 예전 백업도 복구된다
+  const old = structuredClone(backup);
+  delete old.tables.journal_documents;
+  delete old.counts.journal_documents;
+  old.checksum = await sha256Hex(JSON.stringify(old.tables));
+  const c = setup(createDb({ seed: false }));
+  assert.equal((await c.api('POST', '/api/restore', old)).status, 200);
+  assert.deepEqual((await c.api('GET', '/api/journal?date=2026-10-11')).body.documents, []);
 });

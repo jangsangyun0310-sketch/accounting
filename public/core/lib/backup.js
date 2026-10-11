@@ -32,6 +32,9 @@ export const TABLES = [
       'updated_at', 'updated_by'] },
   { name: 'journal_masses', order: 'journal_date, seq', optional: true,
     columns: ['journal_date', 'seq', 'mass_time', 'name', 'kind', 'attendance', 'confessions'] },
+  // 공문서 수발신 (2026-10-11 이전 백업에는 없다)
+  { name: 'journal_documents', order: 'journal_date, seq', optional: true,
+    columns: ['journal_date', 'seq', 'direction', 'doc_no', 'party', 'title'] },
   { name: 'transactions', order: 'id',
     columns: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount', 'memo',
       'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by', 'created_at', 'created_by'] },

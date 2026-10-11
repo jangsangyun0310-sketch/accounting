@@ -1,7 +1,8 @@
 // 사목일지: A4 종이 위 노란 칸에 바로 입력하고 [저장], 인쇄하면 입력한 글자만 나온다.
 //   1. 신자 현황 (세대·인원: 전입 · 전출 · 현재 총원 — 총원은 전날 총원 + 전입 − 전출, 직접 고칠 수 있음)
-//   2. 미사 (저장 전에는 설정의 요일별 기본 미사로 채움)  3. 성사  4. 특이사항
-//   5. 회계 (그날 일 마감을 해야 불러온다)
+//   2. 미사 (저장 전에는 설정의 요일별 기본 미사로 채움)  3. 성사  4. 공문서 수발신  5. 특이사항
+//   6. 회계 (그날 일 마감을 해야 불러온다)
+// 내용이 없는 칸에는 가운데 점(·)이 보이고 그대로 인쇄된다.
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml } from './ui.js';
@@ -13,6 +14,7 @@ const $ = (id) => document.getElementById(id);
 const paper = $('paper');
 
 const MASS_KIND = { SUNDAY: '주일', WEEKDAY: '평일', WEDDING: '혼배', FUNERAL: '장례', SPECIAL: '특별' };
+const DOC_DIRECTION = { '': '·', IN: '수신', OUT: '발신' };
 const SACRAMENTS = [['baptism', '세례'], ['confirmation', '견진'], ['anointing', '병자'], ['marriage', '혼인'], ['funeral', '장례'], ['communion', '봉성체']];
 
 let journal = null; // 불러온 사목일지
@@ -20,8 +22,9 @@ let dirty = false;  // 저장하지 않은 입력이 있음
 
 const num = (v) => Number(String(v ?? '').replace(/[^0-9]/g, '')) || 0;
 const numText = (n) => (n ? formatWon(n) : '');
+const dotWon = (n) => (n ? formatWon(n) : '·');
 const numInput = (cls, value, label, attrs = '') =>
-  `<input class="cell num ${cls}" ${attrs} inputmode="numeric" autocomplete="off" value="${numText(value)}" placeholder="0" aria-label="${label}">`;
+  `<input class="cell num ${cls}" ${attrs} inputmode="numeric" autocomplete="off" value="${numText(value)}" placeholder="·" aria-label="${label}">`;
 
 async function load(date) {
   const [j, day] = await Promise.all([api(`/api/journal?date=${date}`), api(`/api/reports/daily?date=${date}`)]);
@@ -75,11 +78,19 @@ function render(j, day) {
           `<td class="inp">${numInput('sac', j.sacraments[key], label, `data-key="${key}"`)}</td>`).join('')}</tr></tbody>
       </table>
 
-      <h2>4. 특이사항</h2>
+      <h2>4. 공문서 수발신</h2>
+      <table class="r-table fixed" id="documents">
+        <colgroup><col style="width:16mm"><col style="width:34mm"><col style="width:40mm"><col><col class="no-print" style="width:7mm"></colgroup>
+        <thead><tr><th>구분</th><th>문서번호</th><th>수신·발신처</th><th>제목</th><th class="no-print"></th></tr></thead>
+        <tbody>${(j.documents.length ? j.documents : [undefined]).map(docRow).join('')}</tbody>
+      </table>
+      <button type="button" class="secondary row-add no-print" id="add-doc">+ 공문서 추가</button>
+
+      <h2>5. 특이사항</h2>
       <textarea class="cell notes no-print" id="notes" maxlength="5000" placeholder="그날 있었던 일을 자유롭게 적습니다">${esc(j.notes)}</textarea>
       <div class="notes-print" id="notes-print"></div>
 
-      <h2>5. 회계</h2>
+      <h2>6. 회계</h2>
       ${accountingHtml(day)}
     </article>`;
   for (const t of paper.querySelectorAll('#members tbody tr')) updateTotal(t);
@@ -103,15 +114,15 @@ function updateTotal(tr) {
   const input = tr.querySelector('.total');
   if (!tr.dataset.manual) {
     const auto = Math.max(0, num(tr.dataset.prev) + num(tr.querySelector('.in').value) - num(tr.querySelector('.out').value));
-    input.value = formatWon(auto);
+    input.value = numText(auto);
   }
   tr.classList.toggle('manual', Boolean(tr.dataset.manual));
 }
 
 function massRow(m = { time: '', name: '', kind: 'WEEKDAY', attendance: 0, confessions: 0 }) {
   return `<tr>
-    <td class="inp"><input class="cell m-time" value="${esc(m.time)}" placeholder="00:00" maxlength="5" inputmode="numeric" aria-label="미사 시간"></td>
-    <td class="inp"><input class="cell m-name" value="${esc(m.name)}" placeholder="미사 이름" maxlength="30" aria-label="미사 이름"></td>
+    <td class="inp"><input class="cell m-time" value="${esc(m.time)}" placeholder="·" maxlength="5" inputmode="numeric" aria-label="미사 시간"></td>
+    <td class="inp"><input class="cell m-name" value="${esc(m.name)}" placeholder="·" maxlength="30" aria-label="미사 이름"></td>
     <td class="inp"><select class="cell m-kind" aria-label="미사 구분">${Object.entries(MASS_KIND).map(([k, v]) =>
       `<option value="${k}" ${k === m.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
     <td class="inp">${numInput('m-att', m.attendance, '참석 인원')}</td>
@@ -119,14 +130,31 @@ function massRow(m = { time: '', name: '', kind: 'WEEKDAY', attendance: 0, confe
     <td class="no-print"><button type="button" class="row-del" title="이 미사 지우기" aria-label="이 미사 지우기">✕</button></td></tr>`;
 }
 
+function docRow(x = { direction: '', docNo: '', party: '', title: '' }) {
+  return `<tr>
+    <td class="inp"><select class="cell d-dir" aria-label="수신·발신">${Object.entries(DOC_DIRECTION).map(([k, v]) =>
+      `<option value="${k}" ${k === x.direction ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+    <td class="inp"><input class="cell d-no" value="${esc(x.docNo)}" placeholder="·" maxlength="30" aria-label="문서번호"></td>
+    <td class="inp"><input class="cell d-party" value="${esc(x.party)}" placeholder="·" maxlength="40" aria-label="수신·발신처"></td>
+    <td class="inp"><input class="cell d-title" value="${esc(x.title)}" placeholder="·" maxlength="100" aria-label="공문서 제목"></td>
+    <td class="no-print"><button type="button" class="row-del" title="이 공문서 지우기" aria-label="이 공문서 지우기">✕</button></td></tr>`;
+}
+
 function sumMasses() {
   const sum = (cls) => [...paper.querySelectorAll(`#masses .${cls}`)].reduce((a, i) => a + num(i.value), 0);
-  $('sum-attendance').textContent = formatWon(sum('m-att'));
-  $('sum-confessions').textContent = formatWon(sum('m-conf'));
+  for (const [id, cls] of [['sum-attendance', 'm-att'], ['sum-confessions', 'm-conf']]) {
+    const n = sum(cls);
+    $(id).textContent = dotWon(n);
+    $(id).classList.toggle('dot', !n);
+  }
 }
 
 // 인쇄용 특이사항: 입력칸은 글이 길면 스크롤이 생겨 잘리므로, 인쇄할 때는 같은 글을 상자로 보여 준다
-function syncNotes() { $('notes-print').textContent = $('notes').value; }
+function syncNotes() {
+  const v = $('notes').value.trim();
+  $('notes-print').textContent = v ? $('notes').value : '·';
+  $('notes-print').classList.toggle('blank', !v);
+}
 function fitNotes() {
   const t = $('notes');
   t.style.height = 'auto';
@@ -177,6 +205,12 @@ function collect() {
       kind: tr.querySelector('.m-kind').value,
       attendance: num(tr.querySelector('.m-att').value),
       confessions: num(tr.querySelector('.m-conf').value),
+    })),
+    documents: [...paper.querySelectorAll('#documents tbody tr')].map((tr) => ({
+      direction: tr.querySelector('.d-dir').value,
+      docNo: tr.querySelector('.d-no').value,
+      party: tr.querySelector('.d-party').value,
+      title: tr.querySelector('.d-title').value,
     })),
     sacraments: Object.fromEntries([...paper.querySelectorAll('.sac')].map((i) => [i.dataset.key, num(i.value)])),
     notes: $('notes').value,
@@ -254,8 +288,20 @@ paper.addEventListener('click', (e) => {
     paper.querySelector('#masses tbody tr:last-child .m-time').focus();
     markDirty();
   }
+  if (e.target.id === 'add-doc') {
+    paper.querySelector('#documents tbody').insertAdjacentHTML('beforeend', docRow());
+    paper.querySelector('#documents tbody tr:last-child .d-dir').focus();
+    markDirty();
+  }
   const del = e.target.closest('.row-del');
-  if (del) { del.closest('tr').remove(); sumMasses(); markDirty(); }
+  if (del) {
+    const tbody = del.closest('tbody');
+    del.closest('tr').remove();
+    // 공문서는 마지막 줄을 지우면 빈 줄 하나를 남긴다 (인쇄하면 가운데 점)
+    if (tbody.closest('#documents') && !tbody.rows.length) tbody.insertAdjacentHTML('beforeend', docRow());
+    sumMasses();
+    markDirty();
+  }
   const auto = e.target.closest('.auto-btn');
   if (auto) {
     const tr = auto.closest('tr');

@@ -1,6 +1,6 @@
 // 사목일지
 //   GET /api/journal?date=YYYY-MM-DD : 그날의 사목일지 (저장 전이면 요일별 기본 미사로 채운 빈 일지)
-//   PUT /api/journal {date, households, members, masses, sacraments, notes} : 그날 사목일지를 통째로 저장
+//   PUT /api/journal {date, households, members, masses, sacraments, documents, notes} : 그날 사목일지를 통째로 저장
 // 회계 부분은 화면이 /api/reports/daily 로 따로 불러온다 (마감한 날만 보여 준다).
 // 총원: 직접 고친 값(households_total·members_total)이 없으면 전날 총원 + 전입 − 전출.
 //       첫 날의 전날 총원은 설정의 시작 총원.
@@ -10,6 +10,7 @@ import { array, bad, date as parseDate, oneOf, text } from '../lib/validate.js';
 import { isValidDate, todayKST } from '../../js/shared/dates.js';
 
 export const MASS_KINDS = ['SUNDAY', 'WEEKDAY', 'WEDDING', 'FUNERAL', 'SPECIAL'];
+export const DOC_DIRECTIONS = ['', 'IN', 'OUT']; // 공문서 구분: (비움) · 수신 · 발신
 export const SACRAMENTS = ['baptism', 'confirmation', 'anointing', 'marriage', 'funeral', 'communion'];
 
 /** 일일결산·사목일지 결재선 JSON 배열 (따로 정하지 않았으면 월말·연말 결재선) — 마감 기록에 남기는 SQL 조각 */
@@ -64,9 +65,10 @@ export async function get({ env, url }) {
   const db = env.DB;
   const d = url.searchParams.get('date') || todayKST();
   if (!isValidDate(d)) throw bad('날짜 형식이 올바르지 않습니다.', 'BAD_DATE');
-  const [journal, masses, schedule, parish] = await db.batch([
+  const [journal, masses, documents, schedule, parish] = await db.batch([
     db.prepare('SELECT * FROM journals WHERE journal_date = ?').bind(d),
     db.prepare('SELECT mass_time, name, kind, attendance, confessions FROM journal_masses WHERE journal_date = ? ORDER BY seq').bind(d),
+    db.prepare('SELECT direction, doc_no, party, title FROM journal_documents WHERE journal_date = ? ORDER BY seq').bind(d),
     db.prepare('SELECT mass_time, name, kind FROM mass_schedule WHERE weekday = ? ORDER BY mass_time, id').bind(weekdayOf(d)),
     db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1'),
   ]);
@@ -86,6 +88,7 @@ export async function get({ env, url }) {
       ? masses.results.map((r) => row(r, { attendance: r.attendance, confessions: r.confessions }))
       : schedule.results.map((r) => row(r)),
     sacraments: Object.fromEntries(SACRAMENTS.map((k) => [k, j?.[k] ?? 0])),
+    documents: documents.results.map((r) => ({ direction: r.direction, docNo: r.doc_no, party: r.party, title: r.title })),
     notes: j?.notes ?? '',
     updatedAt: j?.updated_at ?? null,
   });
@@ -113,6 +116,13 @@ export async function save({ request, env, actor }) {
     confessions: count(m?.confessions, `${i + 1}번째 미사 고해성사`, 1000000),
   }));
   const sacraments = Object.fromEntries(SACRAMENTS.map((k) => [k, count(body?.sacraments?.[k], '성사 건수')]));
+  // 공문서: 모든 칸이 빈 줄은 버린다
+  const documents = array(body?.documents ?? [], '공문서', { max: 50 }).map((x, i) => ({
+    direction: oneOf(x?.direction ?? '', DOC_DIRECTIONS, `${i + 1}번째 공문서 구분`),
+    docNo: text(x?.docNo, `${i + 1}번째 공문서 문서번호`, { max: 30, required: false }),
+    party: text(x?.party, `${i + 1}번째 공문서 수신·발신처`, { max: 40, required: false }),
+    title: text(x?.title, `${i + 1}번째 공문서 제목`, { max: 100, required: false }),
+  })).filter((x) => x.direction || x.docNo || x.party || x.title);
   const notes = typeof body?.notes === 'string' ? body.notes.replace(/\r\n/g, '\n').trim() : '';
   if (notes.length > 5000) throw bad('특이사항은 5,000자 이내로 입력하세요.');
 
@@ -133,9 +143,13 @@ export async function save({ request, env, actor }) {
       `INSERT INTO journal_masses (journal_date, seq, mass_time, name, kind, attendance, confessions)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).bind(d, i + 1, m.time, m.name, m.kind, m.attendance, m.confessions)),
+    db.prepare('DELETE FROM journal_documents WHERE journal_date = ?').bind(d),
+    ...documents.map((x, i) => db.prepare(
+      'INSERT INTO journal_documents (journal_date, seq, direction, doc_no, party, title) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(d, i + 1, x.direction, x.docNo, x.party, x.title)),
     auditStatement(db, {
       actor: actor.email, entity: 'journals', entityId: d, action: existed ? 'UPDATE' : 'CREATE',
-      after: { households, members, masses: masses.length, sacraments },
+      after: { households, members, masses: masses.length, sacraments, documents: documents.length },
     }),
   ]);
   return json({ ok: true, updatedAt: now });
