@@ -1,8 +1,8 @@
 // 사목일지: A4 종이 위 노란 칸에 바로 입력하고 [저장], 인쇄하면 입력한 글자만 나온다.
 //   1. 신자 현황 (세대·인원: 전입 · 전출 · 현재 총원 — 총원은 전날 총원 + 전입 − 전출, 직접 고칠 수 있음)
-//   2. 미사 (저장 전에는 설정의 요일별 기본 미사로 채움)  3. 성사  4. 공문서 수발신  5. 특이사항
-//   6. 사진 (두 장, 고르는 즉시 저장 — 설명은 [저장] 때)
-//   7. 회계 (그날 일 마감을 해야 불러온다) — 2쪽에 따로 (인쇄하면 새 장)
+//   2. 미사 (저장 전에는 설정의 요일별 기본 미사로 채움)  3. 성사  4. 공문서 수발신
+//   5. 특이사항 + 사진 (두 장까지, 고르는 즉시 저장 — 설명은 [저장] 때. 사진이 없으면 인쇄에 안 나옴)
+//   6. 회계 (그날 일 마감을 해야 불러온다) — 2쪽에 따로 (인쇄하면 새 장)
 // 인쇄: 1쪽(사진까지)과 2쪽(회계)이 각각 A4 한 장에 들어가도록, 넘치면 사진 → 전체 순서로 줄인다.
 // 내용이 없는 칸에는 가운데 점(·)이 보이고 그대로 인쇄된다.
 import { api, esc } from './api.js';
@@ -92,9 +92,7 @@ function render(j, day, info) {
       <h2>5. 특이사항</h2>
       <textarea class="cell notes no-print" id="notes" maxlength="5000" placeholder="그날 있었던 일을 자유롭게 적습니다">${esc(j.notes)}</textarea>
       <div class="notes-print" id="notes-print"></div>
-
-      <h2>6. 사진</h2>
-      <div class="photos" id="photos">${[1, 2].map((slot) => photoSlot(slot, j.photos.find((x) => x.slot === slot))).join('')}</div>
+      <div id="photos">${photosHtml(j.photos)}</div>
     </article>`;
   renderPage2(day, info);
   for (const t of paper.querySelectorAll('#members tbody tr')) updateTotal(t);
@@ -103,16 +101,20 @@ function render(j, day, info) {
   fitNotes();
 }
 
-/** 사진 한 자리: 사진이 있으면 사진 + 설명 칸, 없으면 가운데 점과 [+ 사진 추가] */
-function photoSlot(slot, photo) {
-  return `<div class="photo" data-slot="${slot}">
-    <div class="frame">${photo
-      ? `<img src="${photo.image}" alt="사진 ${slot}">
-         <span class="tools no-print"><button type="button" class="secondary photo-pick">바꾸기</button><button type="button" class="secondary photo-del">✕ 지우기</button></span>`
-      : `<span class="nil">·</span><button type="button" class="photo-pick add no-print">+ 사진 추가</button>`}</div>
-    <div class="caption-row"><input class="cell photo-caption" maxlength="60" placeholder="·" title="사진 설명 (선택)" ${photo ? '' : 'disabled'}
-      value="${esc(photo?.caption ?? '')}" aria-label="사진 ${slot} 설명"></div>
-  </div>`;
+/**
+ * 특이사항 아래 사진: 넣은 사진만 나란히 (사진마다 설명 한 줄). 사진이 없으면 인쇄할 때 아무것도 나오지 않는다.
+ * 2장보다 적으면 화면에만 [+ 사진 추가]. keep: 다시 그릴 때 입력 중인 설명 {자리: 글}
+ */
+function photosHtml(photos, keep = {}) {
+  const list = [...photos].sort((x, y) => x.slot - y.slot);
+  return `${list.length ? `<div class="photos">${list.map((p) => `
+    <div class="photo" data-slot="${p.slot}">
+      <div class="frame"><img src="${p.image}" alt="사진">
+        <span class="tools no-print"><button type="button" class="secondary photo-pick">바꾸기</button><button type="button" class="secondary photo-del">✕ 지우기</button></span></div>
+      <div class="caption-row"><input class="cell photo-caption" maxlength="60" placeholder="·" title="사진 설명 (선택)"
+        value="${esc(keep[p.slot] ?? p.caption ?? '')}" aria-label="사진 설명"></div>
+    </div>`).join('')}</div>` : ''}
+    ${list.length < 2 ? '<button type="button" class="secondary row-add no-print photo-pick photo-add">+ 사진 추가 <small>(2장까지)</small></button>' : ''}`;
 }
 
 /** 휴대폰 사진(수 MB)을 긴 쪽 1600px JPEG 로 줄인다 (약 0.3MB) */
@@ -142,10 +144,12 @@ async function setPhoto(slot, image) {
   const date = journal.date;
   await api('/api/journal/photo', { method: 'PUT', body: { date, slot, image } });
   if (journal.date !== date) return;
-  const keep = paper.querySelector(`.photo[data-slot="${slot}"] .photo-caption`)?.value ?? '';
+  // 입력 중인 설명은 그대로 두고 사진 칸만 다시 그린다
+  const keep = Object.fromEntries([...paper.querySelectorAll('.photo')].map((el) => [el.dataset.slot, el.querySelector('.photo-caption').value]));
+  const old = journal.photos.find((x) => x.slot === slot);
   journal.photos = journal.photos.filter((x) => x.slot !== slot);
-  if (image) journal.photos.push({ slot, image, caption: keep });
-  paper.querySelector(`.photo[data-slot="${slot}"]`).outerHTML = photoSlot(slot, image ? { image, caption: keep } : null);
+  if (image) journal.photos.push({ slot, image, caption: keep[slot] ?? old?.caption ?? '' });
+  $('photos').innerHTML = photosHtml(journal.photos, keep);
   toast(image ? '사진을 저장했습니다.' : '사진을 지웠습니다.');
 }
 
@@ -253,7 +257,7 @@ function renderPage2(day, info) {
   paper2.hidden = false;
   paper2.innerHTML = `
     <article class="report journal page2-sheet">
-      <h2>7. 회계</h2>
+      <h2>6. 회계</h2>
       ${accountingHtml(day, info)}
     </article>`;
 }
@@ -398,7 +402,9 @@ paper.addEventListener('click', (e) => {
   }
   const pick = e.target.closest('.photo-pick');
   if (pick) {
-    photoSlotPicking = Number(pick.closest('.photo').dataset.slot);
+    // [바꾸기]는 그 자리, [+ 사진 추가]는 빈 자리 (1 → 2)
+    const box = pick.closest('.photo');
+    photoSlotPicking = box ? Number(box.dataset.slot) : [1, 2].find((s) => !journal.photos.some((x) => x.slot === s));
     photoInput.click();
     return;
   }
