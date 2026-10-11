@@ -1,4 +1,4 @@
-// 일일결산서와 사목일지가 함께 쓰는 하루 회계 표 (/api/reports/daily 응답으로 그린다)
+// 사목일지 2쪽(회계)의 하루 회계 표 (/api/reports/daily 응답으로 그린다)
 import { esc } from './api.js';
 import { signedWon } from './ui.js';
 import { formatWon } from './shared/money.js';
@@ -28,16 +28,16 @@ export function summaryRow(label, r) {
     ${amt(r.end, { cls: 'strong' })}</tr>`;
 }
 
-/** 수입 · 지출 내역. voucher: 증빙번호 칸 */
-export function detailTable(section, label, { voucher = true } = {}) {
-  const cols = voucher ? 7 : 6;
+/** 수입 · 지출 내역 */
+export function detailTable(section, label) {
+  const cols = 6;
   return `
     <table class="r-table fixed">
-      <colgroup><col style="width:8mm"><col style="width:10mm"><col style="width:${voucher ? 34 : 38}mm"><col style="width:${voucher ? 26 : 30}mm"><col>${voucher ? '<col style="width:22mm">' : ''}<col style="width:${voucher ? 25 : 27}mm"></colgroup>
-      <thead><tr><th class="no">No</th><th>회계</th><th>통장</th><th>예산과목</th><th>적요</th>${voucher ? '<th>증빙번호</th>' : ''}<th>금액</th></tr></thead>
+      <colgroup><col style="width:8mm"><col style="width:10mm"><col style="width:38mm"><col style="width:30mm"><col><col style="width:27mm"></colgroup>
+      <thead><tr><th class="no">No</th><th>회계</th><th>통장</th><th>예산과목</th><th>적요</th><th>금액</th></tr></thead>
       <tbody>${section.rows.length ? section.rows.map((t, i) => `
         <tr><td class="no">${i + 1}</td><td class="fund-col">${FUND_SHORT[t.fundCode]}</td>${txt(t.accountName)}
-          ${txt(t.subjectName)}${txt(t.memo)}${voucher ? `${txt(t.voucherNo)}` : ''}
+          ${txt(t.subjectName)}${txt(t.memo)}
           ${amt(t.amount)}</tr>`).join('')
         : `<tr><td colspan="${cols}" class="empty">${label} 내역 없음</td></tr>`}
       </tbody>
@@ -46,51 +46,38 @@ export function detailTable(section, label, { voucher = true } = {}) {
 }
 
 /** 통장 간 이체 내역 (이체가 없으면 빈 글자) */
-export function transferTable(r, { voucher = true } = {}) {
+export function transferTable(r) {
   if (!r.transfers.rows.length) return '';
   return `
     <table class="r-table fixed">
-      <colgroup><col style="width:8mm"><col style="width:37mm"><col style="width:37mm"><col>${voucher ? '<col style="width:22mm">' : ''}<col style="width:25mm"></colgroup>
-      <thead><tr><th class="no">No</th><th>출금 통장</th><th>입금 통장</th><th>적요</th>${voucher ? '<th>증빙번호</th>' : ''}<th>금액</th></tr></thead>
+      <colgroup><col style="width:8mm"><col style="width:37mm"><col style="width:37mm"><col><col style="width:25mm"></colgroup>
+      <thead><tr><th class="no">No</th><th>출금 통장</th><th>입금 통장</th><th>적요</th><th>금액</th></tr></thead>
       <tbody>${r.transfers.rows.map((t, i) => `
         <tr><td class="no">${i + 1}</td>
           <td>${esc(t.fromName)} <span class="fund">${FUND_SHORT[t.fromFund]}</span></td>
           <td>${esc(t.toName)} <span class="fund">${FUND_SHORT[t.toFund] ?? ''}</span></td>
-          ${txt(t.memo)}${voucher ? `${txt(t.voucherNo)}` : ''}${amt(t.amount)}</tr>`).join('')}
+          ${txt(t.memo)}${amt(t.amount)}</tr>`).join('')}
       </tbody>
-      <tfoot><tr><td colspan="${voucher ? 5 : 4}">이체 합계 (${r.transfers.rows.length}건)</td>${amt(r.transfers.total)}</tr></tfoot>
+      <tfoot><tr><td colspan="4">이체 합계 (${r.transfers.rows.length}건)</td>${amt(r.transfers.total)}</tr></tfoot>
     </table>`;
 }
 
 /** 현금이 등록되어 있나 (보유 현금 표를 따로 보여 줄지) */
 export const hasCash = (r) => r.accounts.some((a) => a.isCash);
 
-/**
- * 보유 현금 (사무실 현금마다 전일잔액 · 당일 입금 · 당일 출금 · 현재잔액 · 금고에서 센 금액 · 차이).
- * 입금·출금에는 이체도 들어간다. 일일결산서·사목일지용. 현금이 없으면 빈 글자.
- */
+/** 보유 현금 (사무실 현금마다 전일잔액 · 당일 입금 · 당일 출금 · 현재잔액). 입금·출금에는 이체도 들어간다. 현금이 없으면 빈 글자 */
 export function cashTable(r) {
   const rows = r.accounts.filter((a) => a.isCash);
   if (!rows.length) return '';
-  const counts = r.cashCounts ?? {};
-  const line = (a) => {
-    const counted = counts[a.id];
-    const diff = counted == null ? null : counted - a.end;
-    return { prev: a.prev, in: a.income + a.transferIn, out: a.expense + a.transferOut, end: a.end, counted, diff };
-  };
+  const line = (a) => ({ prev: a.prev, in: a.income + a.transferIn, out: a.expense + a.transferOut, end: a.end });
   const lines = rows.map(line);
-  const sum = (k) => lines.reduce((s, x) => s + (x[k] ?? 0), 0);
-  const anyCount = lines.some((x) => x.counted != null);
-  const diffCell = (d) => (d ? `<td class="amt ng">${signedWon(d)}</td>` : '<td class="amt nil">·</td>');
-  const countCell = (x) => (x.counted == null ? '<td class="amt nil">·</td>' : `<td class="amt">${formatWon(x.counted)}</td>`);
+  const sum = (k) => lines.reduce((s, x) => s + x[k], 0);
   return `
     <table class="r-table cash-table">
-      <thead><tr><th>현금</th><th>전일잔액</th><th>당일 입금</th><th>당일 출금</th><th>현재잔액</th><th>금고 확인</th><th>차이</th></tr></thead>
+      <thead><tr><th>현금</th><th>전일잔액</th><th>당일 입금</th><th>당일 출금</th><th>현재잔액</th></tr></thead>
       <tbody>${rows.map((a, i) => `
-        <tr><td>${esc(a.name)}</td>${amt(lines[i].prev)}${amt(lines[i].in)}${amt(lines[i].out)}${amt(lines[i].end, { cls: 'strong' })}
-          ${countCell(lines[i])}${diffCell(lines[i].diff)}</tr>`).join('')}</tbody>
-      ${rows.length > 1 ? `<tfoot><tr><td>보유 현금 합계</td>${amt(sum('prev'))}${amt(sum('in'))}${amt(sum('out'))}${amt(sum('end'))}
-        ${anyCount ? `<td class="amt">${formatWon(sum('counted'))}</td>` : '<td class="amt nil">·</td>'}${diffCell(sum('diff'))}</tr></tfoot>` : ''}
+        <tr><td>${esc(a.name)}</td>${amt(lines[i].prev)}${amt(lines[i].in)}${amt(lines[i].out)}${amt(lines[i].end, { cls: 'strong' })}</tr>`).join('')}</tbody>
+      ${rows.length > 1 ? `<tfoot><tr><td>보유 현금 합계</td>${amt(sum('prev'))}${amt(sum('in'))}${amt(sum('out'))}${amt(sum('end'))}</tr></tfoot>` : ''}
     </table>`;
 }
 

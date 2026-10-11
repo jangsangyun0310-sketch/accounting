@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDb, d1Adapter, accountId, subjectId, closeDate, closeThrough, worker } from './helpers.js';
-import { nextVoucher } from '../public/js/shared/voucher.js';
 
 function setup() {
   const db = createDb();
@@ -196,15 +195,6 @@ test('거래 조회: 기간·통장별 잔액 흐름, 검색어, 삭제한 거�
   assert.equal(r.rows.length, 2);
   r = await api('GET', '/api/transactions?from=2026-10-31&to=2026-10-01');
   assert.equal(r.status, 400);
-});
-
-test('증빙번호 자동 제안', () => {
-  assert.equal(nextVoucher('2026-015'), '2026-016');
-  assert.equal(nextVoucher('A-9'), 'A-10');
-  assert.equal(nextVoucher('099'), '100');
-  assert.equal(nextVoucher('12번'), '13번');
-  assert.equal(nextVoucher('영수증'), '');
-  assert.equal(nextVoucher(''), '');
 });
 
 test('수정해도 목록 순서(번호)가 그대로', async () => {

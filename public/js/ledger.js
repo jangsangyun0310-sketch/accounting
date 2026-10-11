@@ -57,7 +57,7 @@ function payerCell(r) {
 function render(data, byAccount) {
   last = { data, byAccount };
   const showBalance = byAccount && data.rows.some((r) => r.balanceAfter != null);
-  const cols = showBalance ? 10 : 9;
+  const cols = showBalance ? 9 : 8;
   const rows = data.rows.map((r) => {
     const isIn = r.direction === 'IN';
     const target = r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${esc(r.counterpartName ?? '')}` : esc(r.subjectName ?? '');
@@ -68,7 +68,6 @@ function render(data, byAccount) {
         <td>${esc(r.accountName)} <span class="muted small">${FUND_LABEL[r.fundCode]}</span></td>
         <td>${target}</td>
         <td>${esc(r.memo)}${payerCell(r)}</td>
-        <td>${esc(r.voucherNo)}</td>
         <td class="num ${r.deduction ? 'minus' : ''}">${isIn ? formatWon(r.amount) : r.deduction ? formatWon(-r.amount) : ''}</td>
         <td class="num">${!isIn && !r.deduction ? formatWon(r.amount) : ''}</td>
         ${showBalance ? `<td class="num">${r.balanceAfter == null ? '' : formatWon(r.balanceAfter)}</td>` : ''}
@@ -87,11 +86,11 @@ function render(data, byAccount) {
       ${data.rows.length ? '<button type="button" class="secondary small" id="excel">Excel로 내려받기</button>' : ''}
     </p>
     <table class="grid tx-list">
-      <thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>과목·상대통장</th><th>적요</th><th>증빙</th>
+      <thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>과목·상대통장</th><th>적요</th>
         <th class="num">입금</th><th class="num">출금</th>${showBalance ? '<th class="num">잔액</th>' : ''}<th>입력자</th></tr></thead>
       <tbody>
         ${data.openingBalance == null ? '' : showBalance
-          ? `<tr class="subtotal"><td colspan="8">이월 잔액 (${esc($('from').value)} 이전)</td>
+          ? `<tr class="subtotal"><td colspan="7">이월 잔액 (${esc($('from').value)} 이전)</td>
               <td class="num">${formatWon(data.openingBalance)}</td><td></td></tr>`
           : `<tr class="subtotal"><td colspan="${cols}">이월 잔액 (${esc($('from').value)} 이전): ${formatWon(data.openingBalance)}원</td></tr>`}
         ${rows || `<tr><td colspan="${cols}" class="muted">조건에 맞는 거래가 없습니다.</td></tr>`}
@@ -141,16 +140,16 @@ $('result').addEventListener('keydown', (e) => {
   }
 });
 
-// 조회 결과를 Excel 로: 날짜·구분·통장·회계·과목·적요·증빙·입금·출금·(잔액)·입력자, 맨 아래 합계
+// 조회 결과를 Excel 로: 날짜·구분·통장·회계·과목·적요·납부자·입금·출금·(잔액)·입력자, 맨 아래 합계
 $('result').addEventListener('click', (e) => {
   if (!e.target.closest('#excel') || !last) return;
   const { data, byAccount } = last;
   const showBalance = byAccount && data.rows.some((r) => r.balanceAfter != null);
-  const head = ['날짜', '구분', '통장', '회계', '과목·상대통장', '적요', '납부자', '증빙', '입금', '출금', ...(showBalance ? ['잔액'] : []), '입력자'];
+  const head = ['날짜', '구분', '통장', '회계', '과목·상대통장', '적요', '납부자', '입금', '출금', ...(showBalance ? ['잔액'] : []), '입력자'];
   const rows = [head];
   if (data.openingBalance != null) {
     rows.push(showBalance
-      ? [`이월 잔액 (${$('from').value} 이전)`, null, null, null, null, null, null, null, null, null, data.openingBalance]
+      ? [`이월 잔액 (${$('from').value} 이전)`, null, null, null, null, null, null, null, null, data.openingBalance]
       : [`이월 잔액 (${$('from').value} 이전): ${formatWon(data.openingBalance)}원`]);
   }
   for (const r of data.rows) {
@@ -158,7 +157,7 @@ $('result').addEventListener('click', (e) => {
     rows.push([
       r.date, typeLabel(r), r.accountName, FUND_LABEL[r.fundCode],
       r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${r.counterpartName ?? ''}` : (r.subjectName ?? ''),
-      r.memo ?? '', r.payer ?? '', r.voucherNo ?? '', isIn ? r.amount : r.deduction ? -r.amount : null, isIn || r.deduction ? null : r.amount,
+      r.memo ?? '', r.payer ?? '', isIn ? r.amount : r.deduction ? -r.amount : null, isIn || r.deduction ? null : r.amount,
       ...(showBalance ? [r.balanceAfter] : []), r.createdBy ?? '',
     ]);
   }
@@ -168,7 +167,7 @@ $('result').addEventListener('click', (e) => {
     { v: `수입 ${formatWon(t.income)} · 지출 ${formatWon(t.expense)} · 이체입금 ${formatWon(t.transferIn)} · 이체출금 ${formatWon(t.transferOut)}`, bold: true }]);
   downloadXlsx(`본당살림 거래조회 ${$('from').value}~${$('to').value}.xlsx`, [{
     name: '거래 조회', header: 1, rows,
-    widths: [12, 10, 16, 10, 18, 30, 16, 10, 13, 13, ...(showBalance ? [14] : []), 24],
+    widths: [12, 10, 16, 10, 18, 30, 16, 13, 13, ...(showBalance ? [14] : []), 24],
   }]);
 });
 $('filters').addEventListener('keydown', (e) => {

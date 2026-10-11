@@ -207,7 +207,7 @@ function orderButtons(type, id, i, count) {
 // ---------------------------------------------------------------- 결재선
 
 const APPROVAL_LINES = [
-  { key: 'daily', title: '일일결산 · 사목일지', help: '날마다 인쇄하는 일일결산서와 사목일지의 결재란입니다.' },
+  { key: 'daily', title: '사목일지', help: '날마다 인쇄하는 사목일지의 결재란입니다.' },
   { key: 'main', title: '월말 · 연말결산 · 예산 대비', help: '월말결산서 · 연말결산서 · 예산 대비 집행의 결재란입니다.' },
 ];
 
@@ -234,7 +234,7 @@ function renderApproval() {
       <div class="approval-preview">${approvalBoxHtml(steps.map((t) => t.trim() || '　'))}</div>
       <button type="button" data-action="approval-save" data-line="${key}">${title} 결재선 저장</button>
     </div>`;
-  }).join('<hr class="line-sep">') + '<p class="help">이미 마감된 날짜의 일일결산서는 마감 당시 결재선으로 출력됩니다.</p>';
+  }).join('<hr class="line-sep">') + '<p class="help">이미 마감된 날짜의 회계(사목일지 2쪽)는 마감 당시 결재선으로 남습니다.</p>';
 }
 
 // 통장 / 현금: 현금이면 은행·계좌번호를 비우고 막는다

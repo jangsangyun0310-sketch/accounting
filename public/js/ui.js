@@ -162,3 +162,35 @@ export function typeLabel(t) {
 
 export const FUND_LABEL = { GENERAL: '일반회계', SPECIAL: '특별회계' };
 export const KIND_LABEL = { INCOME: '수입', EXPENSE: '지출' };
+
+// ---------------------------------------------------------------- 그날 마감 (거래 입력 · 사목일지에서 바로)
+
+/**
+ * 마감 안내: info = GET /api/closings/:date 응답.
+ * 마감할 수 있는 날이면 [이 날짜 마감하기], 앞 날짜가 남았으면 그 날짜 안내, 이미 마감했으면 빈 글자.
+ */
+export function closeBarHtml(info, { hint = '마감하면 이 날짜 거래는 잠기고, 사목일지 2쪽에 회계가 나옵니다.' } = {}) {
+  const d = info.date;
+  if (info.closing?.status === 'CLOSED' || (info.lastClosed && d <= info.lastClosed) || d > info.today || d < info.startDate) return '';
+  if (info.canClose) {
+    return `<div class="close-bar no-print"><span><b>${formatDay(d)} 입력을 마쳤으면</b> <span class="muted">— ${hint}</span></span>
+      <button type="button" data-close-day="${d}">이 날짜 마감하기</button></div>`;
+  }
+  return `<div class="close-bar pending no-print"><span>마감은 하루씩 순서대로 합니다. 먼저 <b>${formatDay(info.nextRequired)}</b>을(를) 마감하세요.</span>
+    <a class="button secondary" href="${href(`/closing?date=${info.nextRequired}`)}">일 마감 화면</a></div>`;
+}
+
+const formatDay = (d) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
+
+/** 확인을 받고 그날을 마감한다 (결산서 작성자는 설정의 기본 작성자). 마감했으면 true */
+export async function closeDay(date) {
+  if (!confirm(`${formatDay(date)}을(를) 마감할까요?\n\n마감하면 이 날짜와 그 이전 거래는 고칠 수 없습니다.\n(고칠 때는 일 마감 화면에서 마감취소)`)) return false;
+  try {
+    await api(`/api/closings/${date}/close`, { method: 'POST', body: {} });
+    toast(`${formatDay(date)}을(를) 마감했습니다.`);
+    return true;
+  } catch (err) {
+    toast(err.message, 'error');
+    return false;
+  }
+}

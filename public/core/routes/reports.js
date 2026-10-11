@@ -8,14 +8,13 @@ import { bad } from '../lib/validate.js';
 import { sumAmounts } from '../../js/shared/money.js';
 import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
 import { dailyApprovalSteps } from './journal.js';
-import { cashCountsOn } from './cash.js';
 
 /** GET /api/reports/daily?date= */
 export async function daily({ env, url }) {
   const date = url.searchParams.get('date') || todayKST();
   if (!isValidDate(date)) throw bad('날짜 형식이 올바르지 않습니다.', 'BAD_DATE');
   const db = env.DB;
-  const [day, parish, closing, dailySteps, cashCounts] = await Promise.all([
+  const [day, parish, closing, dailySteps] = await Promise.all([
     computeDay(db, date),
     db.prepare('SELECT parish_name, writer_name, start_date FROM parish_settings WHERE id = 1').first(),
     db.prepare(
@@ -23,7 +22,6 @@ export async function daily({ env, url }) {
        FROM daily_closings WHERE close_date = ?`
     ).bind(date).first(),
     dailyApprovalSteps(db),
-    cashCountsOn(db, date),
   ]);
   // 자동 마감: 이 날의 마감 기록은 없지만 이후 날짜가 마감되어 함께 잠긴 날 (마감 순서 규칙상 거래가 없는 날)
   const cover = closing?.status === 'CLOSED' || (parish && date < parish.start_date) ? null : await db.prepare(
@@ -75,7 +73,6 @@ export async function daily({ env, url }) {
     funds: day.funds,
     total: day.total,
     accounts: day.accounts,
-    cashCounts, // 금고에서 센 금액 {통장 id: 금액}
     income: { rows: income, total: sumAmounts(income.map((r) => r.amount)) },
     expense: { rows: expense, total: sumAmounts(expense.map((r) => r.amount)) },
     transfers: { rows: transfers, total: sumAmounts(transfers.map((r) => r.amount)) },

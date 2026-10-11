@@ -1,4 +1,4 @@
-// 사무실 현금: 현금 등록(은행·계좌번호 없음), 결산서에 현금 표시, 금고 현금 확인 저장·지우기, 백업·복구 (예전 백업도)
+// 사무실 현금: 현금 등록(은행·계좌번호 없음), 결산서에 현금 표시, 백업·복구 (예전 백업도)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDb, d1Adapter, worker } from './helpers.js';
@@ -15,7 +15,7 @@ function setup(db = createDb()) {
   return { db, api };
 }
 
-test('현금 등록 → 거래·이체 → 결산서에 현금 표시, 금고 확인 저장과 지우기', async () => {
+test('현금 등록 → 거래·이체 → 결산서에 현금 표시', async () => {
   const { api } = setup();
   const s0 = (await api('GET', '/api/settings')).body;
   const bank = s0.accounts.find((a) => a.fundCode === 'GENERAL' && a.isActive);
@@ -39,19 +39,6 @@ test('현금 등록 → 거래·이체 → 결산서에 현금 표시, 금고 �
   const c = day.accounts.find((a) => a.id === cash.id);
   assert.equal(c.isCash, true);
   assert.equal(c.end, 120000);
-  assert.deepEqual(day.cashCounts, {});
-
-  let cc = (await api('GET', `/api/cash-counts?date=${date}`)).body;
-  assert.deepEqual(cc.items, [{ accountId: cash.id, name: '일반회계 현금', fundCode: 'GENERAL', balance: 120000, counted: null }]);
-  assert.equal((await api('PUT', '/api/cash-counts', { date, counts: [{ accountId: cash.id, counted: '110,000' }] })).status, 200);
-  assert.deepEqual((await api('GET', `/api/reports/daily?date=${date}`)).body.cashCounts, { [cash.id]: 110000 });
-  cc = (await api('GET', `/api/cash-counts?date=${date}`)).body;
-  assert.equal(cc.items[0].counted, 110000);
-  // 통장은 금고 확인 대상이 아니다
-  assert.equal((await api('PUT', '/api/cash-counts', { date, counts: [{ accountId: bank.id, counted: 1 }] })).status, 400);
-  // 빈칸이면 지운다
-  await api('PUT', '/api/cash-counts', { date, counts: [{ accountId: cash.id, counted: '' }] });
-  assert.equal((await api('GET', `/api/cash-counts?date=${date}`)).body.items[0].counted, null);
 
   // 통장별 내역: 현금이 맨 위
   const acc = (await api('GET', `/api/reports/accounts?from=${date}&to=${date}`)).body;
@@ -59,12 +46,13 @@ test('현금 등록 → 거래·이체 → 결산서에 현금 표시, 금고 �
   assert.equal(acc.accounts[0].isCash, true);
 });
 
-test('현금·금고 확인이 백업·복구되고, 현금 칸이 없던 예전 백업도 복구된다', async () => {
+test('현금이 백업·복구되고, 현금 칸이 없던 예전 백업도 복구된다 (예전 금고 확인 기록도 그대로)', async () => {
   const a = setup();
   const s0 = (await a.api('GET', '/api/settings')).body;
   await a.api('POST', '/api/accounts', { fundCode: 'SPECIAL', name: '특별회계 현금', openingBalance: 0, isCash: true });
   const cash = (await a.api('GET', '/api/settings')).body.accounts.find((x) => x.isCash);
-  await a.api('PUT', '/api/cash-counts', { date: s0.parish.startDate, counts: [{ accountId: cash.id, counted: 0 }] });
+  // 금고 확인 기능은 뺐지만 예전에 저장한 기록은 장부에 남아 백업·복구된다
+  a.db.prepare("INSERT INTO cash_counts (count_date, account_id, counted, updated_at, updated_by) VALUES (?, ?, 0, 'x', 'x')").run(s0.parish.startDate, cash.id);
   const backup = await (await worker.fetch(new Request('http://local/api/backup'), { DB: d1Adapter(a.db), AUTH_MODE: 'dev' })).json();
   assert.equal(backup.counts.cash_counts, 1);
 
@@ -72,7 +60,7 @@ test('현금·금고 확인이 백업·복구되고, 현금 칸이 없던 예전
   const r = await b.api('POST', '/api/restore', backup);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal((await b.api('GET', '/api/settings')).body.accounts.find((x) => x.id === cash.id).isCash, true);
-  assert.equal((await b.api('GET', `/api/cash-counts?date=${s0.parish.startDate}`)).body.items[0].counted, 0);
+
 
   const old = structuredClone(backup);
   delete old.tables.cash_counts;

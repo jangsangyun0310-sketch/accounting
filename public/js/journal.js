@@ -5,9 +5,8 @@
 //   7. 회계 (그날 일 마감을 해야 불러온다) — 2쪽에 따로 (인쇄하면 새 장)
 // 인쇄: 1쪽(사진까지)과 2쪽(회계)이 각각 A4 한 장에 들어가도록, 넘치면 사진 → 전체 순서로 줄인다.
 // 내용이 없는 칸에는 가운데 점(·)이 보이고 그대로 인쇄된다.
-import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, toast, approvalBoxHtml } from './ui.js';
+import { initPage, toast, approvalBoxHtml, closeBarHtml, closeDay } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, transferTable } from './daily-tables.js';
@@ -30,15 +29,15 @@ const numInput = (cls, value, label, attrs = '') =>
   `<input class="cell num ${cls}" ${attrs} inputmode="numeric" autocomplete="off" value="${numText(value)}" placeholder="·" aria-label="${label}">`;
 
 async function load(date) {
-  const [j, day] = await Promise.all([api(`/api/journal?date=${date}`), api(`/api/reports/daily?date=${date}`)]);
+  const [j, day, info] = await Promise.all([api(`/api/journal?date=${date}`), api(`/api/reports/daily?date=${date}`), api(`/api/closings/${date}`)]);
   if (j.date !== $('date').value) return; // 그사이 다른 날짜로 넘어감
   journal = j;
   dirty = false;
-  render(j, day);
+  render(j, day, info);
   history.replaceState(null, '', `?date=${date}`);
 }
 
-function render(j, day) {
+function render(j, day, info) {
   document.title = `사목일지 ${j.date} - 본당살림`;
   setState();
   paper.innerHTML = `
@@ -97,12 +96,7 @@ function render(j, day) {
       <h2>6. 사진</h2>
       <div class="photos" id="photos">${[1, 2].map((slot) => photoSlot(slot, j.photos.find((x) => x.slot === slot))).join('')}</div>
     </article>`;
-  paper2.hidden = false;
-  paper2.innerHTML = `
-    <article class="report journal page2-sheet">
-      <h2>7. 회계</h2>
-      ${accountingHtml(day)}
-    </article>`;
+  renderPage2(day, info);
   for (const t of paper.querySelectorAll('#members tbody tr')) updateTotal(t);
   sumMasses();
   syncNotes();
@@ -254,18 +248,28 @@ function fitNotes() {
   t.style.height = `${Math.max(t.scrollHeight + 2, 100)}px`;
 }
 
-function accountingHtml(day) {
+/** 2쪽(회계)만 다시 그린다 — 여기서 마감해도 1쪽에 입력 중인 내용은 그대로 */
+function renderPage2(day, info) {
+  paper2.hidden = false;
+  paper2.innerHTML = `
+    <article class="report journal page2-sheet">
+      <h2>7. 회계</h2>
+      ${accountingHtml(day, info)}
+    </article>`;
+}
+
+function accountingHtml(day, info) {
   if (day.status !== 'CLOSED') {
-    return `<div class="wait">이 날짜는 아직 일 마감 전입니다. <b>일 마감</b>을 하면 그날 회계 내용이 여기에 나옵니다.
-      <a class="no-print" href="${href(`/closing?date=${day.date}`)}">마감하러 가기</a></div>`;
+    return `<div class="wait">이 날짜는 아직 일 마감 전입니다. 마감하면 그날 회계 내용이 여기에 나옵니다.</div>
+      ${closeBarHtml(info, { hint: '마감하면 이 날짜 거래는 잠기고 여기에 회계가 나옵니다.' })}`;
   }
   const warn = day.verification && !day.verification.ok
     ? `<p class="lock-banner no-print">마감 시점 잔액과 현재 잔액이 다릅니다: ${day.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>` : '';
   return `${warn}
     <div class="sub-h">회계별 현황</div>${fundSummaryTable(day)}
-    <div class="sub-h">수입 내역</div>${detailTable(day.income, '수입', { voucher: false })}
-    <div class="sub-h">지출 내역</div>${detailTable(day.expense, '지출', { voucher: false })}
-    ${day.transfers.rows.length ? `<div class="sub-h">통장 간 이체</div>${transferTable(day, { voucher: false })}` : ''}
+    <div class="sub-h">수입 내역</div>${detailTable(day.income, '수입')}
+    <div class="sub-h">지출 내역</div>${detailTable(day.expense, '지출')}
+    ${day.transfers.rows.length ? `<div class="sub-h">통장 간 이체</div>${transferTable(day)}` : ''}
     ${hasCash(day) ? `<div class="sub-h">보유 현금</div>${cashTable(day)}` : ''}
     <div class="sub-h">통장별 현재잔액</div>${accountBalances(day)}`;
 }
@@ -433,6 +437,15 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
 });
 window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
+
+// 2쪽에서 바로 마감 → 2쪽만 새로 불러온다
+paper2.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-close-day]');
+  if (!b || !(await closeDay(b.dataset.closeDay))) return;
+  const date = b.dataset.closeDay;
+  const [day, info] = await Promise.all([api(`/api/reports/daily?date=${date}`), api(`/api/closings/${date}`)]);
+  if (journal?.date === date) renderPage2(day, info);
+});
 
 $('save').addEventListener('click', save);
 $('print').addEventListener('click', () => window.print());

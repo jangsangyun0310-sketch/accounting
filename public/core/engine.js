@@ -14,7 +14,6 @@ import * as reports from './routes/reports.js';
 import * as backup from './routes/backup.js';
 import * as budgets from './routes/budgets.js';
 import * as journal from './routes/journal.js';
-import * as cash from './routes/cash.js';
 
 const routes = [
   ['GET', '/api/health', system.health],
@@ -58,8 +57,6 @@ const routes = [
   ['GET', '/api/journal', journal.get],
   ['PUT', '/api/journal', journal.save],
   ['PUT', '/api/journal/photo', journal.savePhoto],
-  ['GET', '/api/cash-counts', cash.get],
-  ['PUT', '/api/cash-counts', cash.save],
   ['GET', '/api/backup', backup.download],
   ['GET', '/api/backup/status', backup.status],
   ['POST', '/api/backup/log', backup.log],

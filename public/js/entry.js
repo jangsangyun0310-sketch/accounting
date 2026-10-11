@@ -1,10 +1,9 @@
 // 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제, 하루 현황
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, bindAmountInput, toast, signedWon, FUND_LABEL } from './ui.js';
+import { initPage, bindAmountInput, toast, signedWon, closeBarHtml, closeDay, FUND_LABEL } from './ui.js';
 import { formatWon, parseAmount, sumAmounts } from './shared/money.js';
 import { addDays, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
-import { nextVoucher } from './shared/voucher.js';
 
 const PREF_KEY = 'bondang.entryPrefs.v1';
 const $ = (id) => document.getElementById(id);
@@ -101,8 +100,11 @@ function setKind(next, values = prefs[next] ?? {}) {
 async function loadDay() {
   const date = $('date').value;
   if (!isValidDate(date)) return;
-  day = await api(`/api/day?date=${date}`);
-  if (day.date !== $('date').value) return; // 그 사이 날짜가 바뀜
+  const [next, info] = await Promise.all([api(`/api/day?date=${date}`), api(`/api/closings/${date}`)]);
+  if (next.date !== $('date').value) return; // 그 사이 날짜가 바뀜
+  day = next;
+  // 거래 내역 아래: 입력을 마쳤으면 여기서 바로 마감
+  $('close-bar').innerHTML = closeBarHtml(info);
   $('date-label').textContent = formatKoreanDate(date);
   $('summary-date').textContent = formatKoreanDate(date);
   renderLock();
@@ -114,7 +116,7 @@ function renderLock() {
   const locked = day.locked;
   $('lock-banner').hidden = !locked;
   $('lock-link').href = href(`/closing?date=${day.date}`);
-  $('report-link').href = href(`/report?date=${day.date}`);
+  $('report-link').href = href(`/journal?date=${day.date}`);
   $('fields').querySelectorAll('input, select, button').forEach((el) => { el.disabled = locked; });
   document.querySelectorAll('.kind-toggle button').forEach((b) => { b.disabled = locked || isKindLocked(b.dataset.kind); });
 }
@@ -187,10 +189,10 @@ function renderList() {
   }
   $('list').innerHTML = `
     <table class="grid tx-list">
-      <thead><tr><th class="no">No</th><th>구분</th><th>회계</th><th>통장</th><th>과목</th><th>적요</th><th>증빙</th>
+      <thead><tr><th class="no">No</th><th>구분</th><th>회계</th><th>통장</th><th>과목</th><th>적요</th>
         <th class="num">수입</th><th class="num">지출</th><th class="num">이체</th><th class="actions"></th></tr></thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody>
-      <tfoot><tr class="total"><td colspan="7">합계 (${rows.length}건)</td>
+      <tfoot><tr class="total"><td colspan="6">합계 (${rows.length}건)</td>
         <td class="num">${formatWon(sum('IN'))}</td><td class="num">${formatWon(sum('OUT'))}</td>
         <td class="num">${formatWon(sum('TRANSFER'))}</td><td></td></tr></tfoot>
     </table>`;
@@ -212,7 +214,6 @@ function rowHtml(r, index) {
       <td>${isTransfer ? `${esc(r.fromName)} → ${esc(r.toName ?? '')}` : esc(r.accountName)}</td>
       <td>${esc(r.subjectName ?? '')}</td>
       <td>${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : ''}${esc(r.memo)}</td>
-      <td>${esc(r.voucherNo)}</td>
       <td class="num ${r.deduction ? 'minus' : ''}">${r.type === 'IN' ? formatWon(r.deduction ? -r.amount : r.amount) : ''}</td>
       <td class="num">${r.type === 'OUT' ? formatWon(r.amount) : ''}</td>
       <td class="num">${isTransfer ? formatWon(r.amount) : ''}</td>
@@ -229,12 +230,11 @@ function visibleFields() {
     .filter((el) => !el.disabled && el.offsetParent !== null);
 }
 
-function resetForNext(voucher = nextVoucher($('voucher').value)) {
+function resetForNext() {
   $('amount').value = '';
   $('memo').value = '';
   $('payer').value = '';
   $('deduct').checked = false;
-  $('voucher').value = voucher;
   $('amount').focus();
 }
 
@@ -244,7 +244,8 @@ async function save() {
     date: $('date').value,
     amount: $('amount').value,
     memo: $('memo').value,
-    voucherNo: $('voucher').value,
+    // 증빙번호 칸은 없앴다. 예전에 적은 번호는 고쳐 저장해도 그대로 둔다
+    voucherNo: editing?.voucherNo ?? '',
   };
   try {
     parseAmount(body.amount);
@@ -283,7 +284,7 @@ async function save() {
       const restore = beforeEdit;
       endEdit(false);
       setKind(restore.kind);
-      resetForNext(restore.voucher);
+      resetForNext();
     } else {
       await api(kind === 'TRANSFER' ? '/api/transfers' : '/api/transactions', { method: 'POST', body });
       toast('저장했습니다.');
@@ -302,7 +303,7 @@ async function save() {
 }
 
 function startEdit(row) {
-  if (!editing) beforeEdit = { kind, voucher: $('voucher').value };
+  if (!editing) beforeEdit = { kind };
   editing = row;
   setKind(row.type, row.type === 'TRANSFER'
     ? { fromAccountId: row.fromAccountId, toAccountId: row.toAccountId }
@@ -311,7 +312,6 @@ function startEdit(row) {
   $('memo').value = row.memo;
   $('payer').value = row.payer ?? '';
   $('deduct').checked = Boolean(row.deduction);
-  $('voucher').value = row.voucherNo;
   $('edit-label').textContent = `#${row.id} ${{ IN: '수입', OUT: '지출', TRANSFER: '이체' }[row.type]} 거래를`;
   $('edit-banner').hidden = false;
   $('entry').classList.add('editing');
@@ -330,7 +330,6 @@ function endEdit(restore = true) {
     $('amount').value = '';
     $('memo').value = '';
     $('payer').value = '';
-    $('voucher').value = beforeEdit?.voucher ?? '';
     renderLock();
     renderList();
   }
@@ -365,6 +364,10 @@ function changeDate(next) {
 
 $('date').addEventListener('change', () => changeDate($('date').value));
 $('account').addEventListener('change', updatePayerField);
+$('close-bar').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-close-day]');
+  if (b && await closeDay(b.dataset.closeDay)) await loadDay();
+});
 $('subject').addEventListener('change', updateDeductField);
 $('prev-day').addEventListener('click', () => changeDate(addDays($('date').value, -1)));
 $('next-day').addEventListener('click', () => changeDate(addDays($('date').value, 1)));

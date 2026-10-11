@@ -1,27 +1,27 @@
-// 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 · 통장별 입출금 내역 · 개인별 납부 A4 미리보기와 인쇄
+// 결산서: 월말결산 · 연말결산 · 예산 대비 집행 · 통장별 입출금 내역 · 개인별 납부 A4 미리보기와 인쇄
+// (날짜별 회계는 사목일지 2쪽에 나온다 — 예전 일일결산 주소로 오면 사목일지로 보낸다)
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, monthStart, todayKST } from './shared/dates.js';
 import { downloadXlsx, reportSheet } from './excel.js';
-import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, summaryRow, transferTable } from './daily-tables.js';
+import { summaryRow } from './daily-tables.js';
 
 const $ = (id) => document.getElementById(id);
 
 const TYPES = {
-  day: { now: '오늘' },
   month: { now: '이번 달' },
   year: { now: '올해' },
   budget: { now: '올해' }, // 예산 대비 집행 (연도 고르기는 연말결산과 같은 칸)
   accounts: { now: '이번 달' }, // 통장별 입출금 내역 (시작일~종료일)
   donors: { now: '올해' }, // 개인별 납부 (특별회계 납부자별, 연말정산 준비)
 };
-let type = 'day';
+let type = 'month';
 
 function currentValue() {
   if (type === 'accounts') return `${$('from').value}~${$('to').value}`;
-  return { day: $('date').value, month: $('month').value, year: $('year').value, budget: $('year').value, donors: $('year').value }[type];
+  return { month: $('month').value, year: $('year').value, budget: $('year').value, donors: $('year').value }[type];
 }
 
 /** 결산 종류와 날짜(일: YYYY-MM-DD, 월: YYYY-MM, 연: YYYY, 통장별: { from, to })를 정하고 결산서를 불러온다 */
@@ -44,17 +44,15 @@ async function load(nextType, value) {
     fitPaper();
     return;
   }
-  $('date').hidden = type !== 'day';
   $('month').hidden = type !== 'month';
   $('year').hidden = type !== 'year' && type !== 'budget' && type !== 'donors';
   $('now').textContent = TYPES[type].now;
-  if (type === 'day') $('date').value = value;
   if (type === 'month') $('month').value = value;
   if (type === 'year' || type === 'budget' || type === 'donors') {
     if (![...$('year').options].some((o) => o.value === value)) $('year').append(new Option(`${value}년`, value));
     $('year').value = value;
   }
-  history.replaceState(null, '', `?type=${type}&${type === 'day' ? 'date' : type}=${value}`);
+  history.replaceState(null, '', `?type=${type}&${type}=${value}`);
 
   if (type === 'donors') {
     const r = await api(`/api/reports/donors?year=${value}`);
@@ -66,9 +64,6 @@ async function load(nextType, value) {
   } else if (type === 'budget') {
     const r = await api(`/api/budgets?year=${value}`);
     if (type === 'budget' && String(r.year) === currentValue()) renderBudget(r);
-  } else if (type === 'day') {
-    const r = await api(`/api/reports/daily?date=${value}`);
-    if (type === 'day' && r.date === $('date').value) render(r);
   } else {
     const r = await api(`/api/reports/period?type=${type}&${type}=${value}`);
     if (r.type === type && value === currentValue()) renderPeriod(r);
@@ -90,62 +85,13 @@ addEventListener('afterprint', fitPaper);
 /** 이전·다음 (하루 / 한 달 / 한 해) */
 function shift(dir) {
   const v = currentValue();
-  if (type === 'day') return addDays(v, dir);
   if (type === 'month') return addDays(`${v}-01`, dir > 0 ? 31 : -1).slice(0, 7);
   return String(Number(v) + dir);
 }
 
 function nowValue() {
   const t = todayKST();
-  return { day: t, month: t.slice(0, 7), year: t.slice(0, 4), budget: t.slice(0, 4), donors: t.slice(0, 4) }[type];
-}
-
-function render(r) {
-  const closed = r.status === 'CLOSED';
-  document.title = `일일결산 ${r.date} - 본당살림`;
-  $('state').innerHTML = closed
-    ? (r.autoClosedBy
-      ? `<span class="pill closed">자동 마감</span> <span class="muted">거래가 없어 ${formatKoreanDate(r.autoClosedBy)} 마감 때 함께 마감되었습니다</span>`
-      : `<span class="pill closed">마감</span> <span class="muted">${formatDateTimeKST(r.closedAt)} · ${esc(r.closedBy)}</span>`)
-    : `<span class="pill open">미마감</span> <span class="muted">가결산으로 출력됩니다. <a href="${href(`/closing?date=${r.date}`)}">마감하러 가기</a></span>`;
-  $('warning').innerHTML = r.verification && !r.verification.ok
-    ? `<p class="lock-banner">마감 시점 잔액과 현재 잔액이 다릅니다: ${r.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>`
-    : '';
-
-  const n = r.transfers.rows.length ? 4 : 3; // 잔액 앞 마지막 번호
-  const manySteps = r.approvalSteps.length > 4; // 5단계부터는 결재란을 제목 아래 한 줄로 (칸이 넓어 옆에 다 들어가지 않음)
-  $('paper').innerHTML = `
-    <article class="report ${closed ? '' : 'provisional'}">
-      ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
-      <div class="r-head ${manySteps ? 'stacked' : ''}">
-        <div class="r-title">
-          <h1>일 일 결 산 서${closed ? '' : ' <small>(가결산)</small>'}</h1>
-          <table class="r-meta">
-            <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
-            <tr><th>결산일</th><td>${formatKoreanDate(r.date)}</td></tr>
-            <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
-          </table>
-        </div>
-        <div class="r-approval">${approvalBoxHtml(r.approvalSteps)}</div>
-      </div>
-
-      <h2>1. 회계별 현황</h2>
-      ${fundSummaryTable(r)}
-
-      <h2>2. 당일 수입 내역</h2>
-      ${detailTable(r.income, '수입')}
-
-      <h2>3. 당일 지출 내역</h2>
-      ${detailTable(r.expense, '지출')}
-
-      ${r.transfers.rows.length ? `<h2>4. 통장 간 이체 내역</h2>${transferTable(r)}` : ''}
-
-      ${hasCash(r) ? `<h2>${n + 1}. 보유 현금</h2>${cashTable(r)}` : ''}
-
-      <h2>${n + (hasCash(r) ? 2 : 1)}. 통장별 현재잔액</h2>
-      ${accountBalances(r)}
-
-    </article>`;
+  return { month: t.slice(0, 7), year: t.slice(0, 4), budget: t.slice(0, 4), donors: t.slice(0, 4) }[type];
 }
 
 // ---------------------------------------------------------------- 월말·연말결산
@@ -538,7 +484,7 @@ $('paper').addEventListener('input', (e) => {
 // ---------------------------------------------------------------- 이벤트
 
 const run = (p) => p.catch((err) => toast(err.message, 'error'));
-const valid = (v) => (type === 'day' ? isValidDate(v) : type === 'month' ? /^\d{4}-\d{2}$/.test(v) : /^\d{4}$/.test(v));
+const valid = (v) => (type === 'month' ? /^\d{4}-\d{2}$/.test(v) : /^\d{4}$/.test(v));
 const go = (v) => { if (valid(v)) run(load(type, v)); };
 
 $('report-tabs').addEventListener('click', (e) => {
@@ -549,9 +495,9 @@ $('report-tabs').addEventListener('click', (e) => {
   const prefix = type === 'accounts' ? $('to').value : currentValue();
   const today = todayKST();
   const base = today.startsWith(prefix) ? today
-    : type === 'day' || type === 'accounts' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
+    : type === 'accounts' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
   const accounts = { from: monthStart(base), to: base.slice(0, 7) === today.slice(0, 7) ? today : monthEnd(base) };
-  run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), donors: base.slice(0, 4), accounts }[b.dataset.type]));
+  run(load(b.dataset.type, { month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), donors: base.slice(0, 4), accounts }[b.dataset.type]));
 });
 // 통장별 내역: 기간·통장을 고르고 [조회] (Enter 도 됨). 빠른 기간 버튼은 바로 조회
 function searchAccounts() {
@@ -568,14 +514,14 @@ $('range-nav').addEventListener('click', (e) => {
   const b = e.target.closest('[data-range]');
   if (b) run(load('accounts', quickRange(b.dataset.range)));
 });
-for (const id of ['date', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
+for (const id of ['month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
 $('prev').addEventListener('click', () => go(shift(-1)));
 $('next').addEventListener('click', () => go(shift(1)));
 $('now').addEventListener('click', () => go(nowValue()));
 $('print').addEventListener('click', () => window.print());
 
 // 보고 있는 결산서를 Excel 로 (표 내용 그대로, 금액은 숫자로)
-const SHEET_NAME = { day: '일일결산', month: '월말결산', year: '연말결산', budget: '예산 대비 집행' };
+const SHEET_NAME = { month: '월말결산', year: '연말결산', budget: '예산 대비 집행' };
 $('excel').addEventListener('click', () => {
   if (!$('paper').querySelector('.report')) return;
   if (type === 'accounts') {
@@ -606,13 +552,18 @@ initPage('report').then(({ settings }) => {
       `<option value="${a.id}" ${a.isCash ? 'class="cash-opt"' : ''}>${esc(a.name)}${a.isCash && !a.name.includes('현금') ? ' (현금)' : ''}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>` : '';
   }).join('');
   const p = new URLSearchParams(location.search);
-  type = TYPES[p.get('type')] ? p.get('type') : 'day';
+  // 예전 일일결산 주소 (?date= 또는 ?type=day) → 그날 사목일지 (2쪽이 회계)
+  if (p.get('type') === 'day' || (!p.get('type') && isValidDate(p.get('date')))) {
+    location.replace(href(`/journal?date=${isValidDate(p.get('date')) ? p.get('date') : todayKST()}`));
+    return null;
+  }
+  type = TYPES[p.get('type')] ? p.get('type') : 'month';
   if (type === 'accounts') {
     $('account').value = p.get('account') ?? '';
     const [from, to] = [p.get('from'), p.get('to')];
     return load(type, isValidDate(from) && isValidDate(to) && from <= to ? { from, to } : quickRange('month'));
   }
-  const v = p.get(type === 'day' ? 'date' : type);
+  const v = p.get(type);
   return load(type, v && valid(v) ? v : nowValue());
 }).catch((err) => {
   $('paper').innerHTML = `<p class="error">${esc(err.message)}</p>`;

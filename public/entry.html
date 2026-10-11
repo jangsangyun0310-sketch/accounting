@@ -45,7 +45,6 @@
         <label class="f-payer" id="payer-field" hidden>납부자 <input id="payer" maxlength="30" list="payer-list" autocomplete="off" placeholder="예) 홍길동(베드로)"></label>
         <datalist id="payer-list"></datalist>
         <label class="f-memo">적요 <input id="memo" maxlength="100" placeholder="예) 홍길동 10월 교무금"></label>
-        <label class="f-voucher">증빙번호 <input id="voucher" maxlength="30"></label>
         <button type="button" id="save" class="save">저장 <kbd>Enter</kbd></button>
       </div>
       <p class="help f-transfer transfer-help">💡 <b>이체·입금</b>은 사무실 현금을 통장에 입금하거나 통장끼리 돈을 옮길 때 씁니다. 성당의 돈이 늘거나 줄지 않으므로 <b>수입·지출에 잡히지 않습니다.</b> 예) 사무실 현금 → 보통예금 3,000,000</p>
@@ -53,7 +52,7 @@
     </section>
 
     <section>
-      <div class="section-head"><h2>하루 현황 <small id="summary-date" class="muted"></small></h2><a id="report-link" href="/report">결산서 보기·인쇄 →</a></div>
+      <div class="section-head"><h2>하루 현황 <small id="summary-date" class="muted"></small></h2><a id="report-link" href="/journal">사목일지 보기·인쇄 →</a></div>
       <div id="summary"></div>
     </section>
 
@@ -62,6 +61,7 @@
         <h2>거래 내역</h2>
       </div>
       <div id="list"></div>
+      <div id="close-bar"></div>
     </section>
   </main>
   <script type="module" src="/js/entry.js"></script>
