@@ -160,6 +160,12 @@ body.report-page { background: #e9ecf0; }
 .journal .wait { border: 0.3mm dashed #888; padding: 6mm; text-align: center; color: #444; }
 .journal .wait a { margin-left: 6px; }
 .journal .sub-h { font-size: 9.5pt; margin: 2.5mm 0 1mm; font-weight: 600; }
+/* 2쪽(회계): 위에 성당 · 날짜만 한 줄, 인쇄하면 새 장에서 시작 */
+.journal .r-head2 { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 0.4mm solid #222; padding-bottom: 1.5mm; margin-bottom: 2mm; }
+.journal .r-head2 h1 { font-size: 13pt; margin: 0; letter-spacing: 0.5mm; }
+.journal .r-head2 h1 small { font-size: 10pt; letter-spacing: 0; font-weight: 600; }
+.journal .r-head2 span { font-size: 9.5pt; }
+.journal-page .paper.page2 { margin-top: 0; }
 .journal-page .report-toolbar #save { padding: 8px 22px; }
 .journal-page .report-toolbar #print { padding: 8px 18px; }
 @media print {
@@ -197,6 +203,7 @@ body.report-page { background: #e9ecf0; }
   .journal .r-title h1 { font-size: 16pt; margin-bottom: 1mm; }
   .journal .r-meta th, .journal .r-meta td { padding-top: 0.3mm; padding-bottom: 0.3mm; }
   .journal .r-grand { margin-top: 1mm; }
-  .journal .notes-print { min-height: 10mm; padding: 1mm 2mm; }
+  .journal .notes-print { min-height: 80mm; padding: 1mm 2mm; } /* 회계가 2쪽으로 가서 1쪽에 자리가 넉넉하다 */
+  .journal-page .paper.page2 { break-before: page; }
   .journal .r-cols { break-inside: avoid; }
 }

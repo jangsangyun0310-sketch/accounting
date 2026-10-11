@@ -1,7 +1,7 @@
 // 사목일지: A4 종이 위 노란 칸에 바로 입력하고 [저장], 인쇄하면 입력한 글자만 나온다.
 //   1. 신자 현황 (세대·인원: 전입 · 전출 · 현재 총원 — 총원은 전날 총원 + 전입 − 전출, 직접 고칠 수 있음)
 //   2. 미사 (저장 전에는 설정의 요일별 기본 미사로 채움)  3. 성사  4. 공문서 수발신  5. 특이사항
-//   6. 회계 (그날 일 마감을 해야 불러온다)
+//   6. 회계 (그날 일 마감을 해야 불러온다) — 2쪽에 따로 (인쇄하면 새 장)
 // 내용이 없는 칸에는 가운데 점(·)이 보이고 그대로 인쇄된다.
 import { href } from './base.js';
 import { api, esc } from './api.js';
@@ -12,6 +12,7 @@ import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, tra
 
 const $ = (id) => document.getElementById(id);
 const paper = $('paper');
+const paper2 = $('paper2'); // 2쪽: 회계
 
 const MASS_KIND = { SUNDAY: '주일', WEEKDAY: '평일', WEDDING: '혼배', FUNERAL: '장례', SPECIAL: '특별' };
 const DOC_DIRECTION = { '': '·', IN: '수신', OUT: '발신' };
@@ -90,6 +91,14 @@ function render(j, day) {
       <textarea class="cell notes no-print" id="notes" maxlength="5000" placeholder="그날 있었던 일을 자유롭게 적습니다">${esc(j.notes)}</textarea>
       <div class="notes-print" id="notes-print"></div>
 
+    </article>`;
+  paper2.hidden = false;
+  paper2.innerHTML = `
+    <article class="report journal">
+      <div class="r-head2">
+        <h1>사 목 일 지 <small>(회계)</small></h1>
+        <span>${esc(j.parishName)} · ${formatKoreanDate(j.date)}</span>
+      </div>
       <h2>6. 회계</h2>
       ${accountingHtml(day)}
     </article>`;

@@ -25,7 +25,11 @@
     <span id="state"></span>
   </div>
   <p class="print-guide no-print">노란 칸에 입력하고 <b>[저장]</b>을 누릅니다. 인쇄하면 입력한 글자만 나옵니다. 인쇄 창 설정: 용지 <b>A4</b> · 여백 <b>기본값</b> · 배율 <b>기본값(100)</b> · 머리글과 바닥글 <b>해제</b></p>
-  <div class="paper-scroll"><div class="paper" id="paper"><p class="muted">불러오는 중…</p></div></div>
+  <div class="paper-scroll">
+    <div class="paper" id="paper"><p class="muted">불러오는 중…</p></div>
+    <!-- 2쪽: 회계 (인쇄하면 새 장에서 시작) -->
+    <div class="paper page2" id="paper2" hidden></div>
+  </div>
   <script type="module" src="/js/journal.js"></script>
 </body>
 </html>
