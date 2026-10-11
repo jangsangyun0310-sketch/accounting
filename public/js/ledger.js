@@ -64,13 +64,13 @@ function render(data, byAccount) {
     return `
       <tr>
         <td>${esc(r.date)}</td>
-        <td><span class="badge ${r.kind === 'TRANSFER' ? 'transfer' : isIn ? 'in' : 'out'}">${typeLabel(r)}</span></td>
+        <td><span class="badge ${r.kind === 'TRANSFER' ? 'transfer' : r.deduction ? 'deduct' : isIn ? 'in' : 'out'}">${typeLabel(r)}</span></td>
         <td>${esc(r.accountName)} <span class="muted small">${FUND_LABEL[r.fundCode]}</span></td>
         <td>${target}</td>
         <td>${esc(r.memo)}${payerCell(r)}</td>
         <td>${esc(r.voucherNo)}</td>
-        <td class="num">${isIn ? formatWon(r.amount) : ''}</td>
-        <td class="num">${!isIn ? formatWon(r.amount) : ''}</td>
+        <td class="num ${r.deduction ? 'minus' : ''}">${isIn ? formatWon(r.amount) : r.deduction ? formatWon(-r.amount) : ''}</td>
+        <td class="num">${!isIn && !r.deduction ? formatWon(r.amount) : ''}</td>
         ${showBalance ? `<td class="num">${r.balanceAfter == null ? '' : formatWon(r.balanceAfter)}</td>` : ''}
         <td class="small muted">${esc(r.createdBy)}</td>
       </tr>`;
@@ -158,7 +158,7 @@ $('result').addEventListener('click', (e) => {
     rows.push([
       r.date, typeLabel(r), r.accountName, FUND_LABEL[r.fundCode],
       r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${r.counterpartName ?? ''}` : (r.subjectName ?? ''),
-      r.memo ?? '', r.payer ?? '', r.voucherNo ?? '', isIn ? r.amount : null, isIn ? null : r.amount,
+      r.memo ?? '', r.payer ?? '', r.voucherNo ?? '', isIn ? r.amount : r.deduction ? -r.amount : null, isIn || r.deduction ? null : r.amount,
       ...(showBalance ? [r.balanceAfter] : []), r.createdBy ?? '',
     ]);
   }

@@ -6,7 +6,7 @@ import { assertInteger, sumAmounts } from '../../js/shared/money.js';
 
 export const TX_SELECT = `
   SELECT t.id, t.tx_date, t.kind, t.direction, t.account_id, a.name AS account_name, f.code AS fund_code,
-         t.subject_id, s.name AS subject_name, t.transfer_group,
+         t.subject_id, s.name AS subject_name, s.kind AS subject_kind, t.transfer_group,
          (SELECT p.account_id FROM transactions p
            WHERE p.transfer_group = t.transfer_group AND p.id <> t.id) AS counterpart_account_id,
          (SELECT pa.name FROM transactions p JOIN accounts pa ON pa.id = p.account_id
@@ -31,6 +31,8 @@ export function mapTx(r) {
     fundCode: r.fund_code,
     subjectId: r.subject_id,
     subjectName: r.subject_name,
+    // 수입 차감 (봉헌권 등): 수입 과목인데 통장에서 빠지는 거래. 결산에서는 마이너스 수입
+    deduction: r.kind === 'NORMAL' && r.direction === 'OUT' && r.subject_kind === 'INCOME',
     transferGroup: r.transfer_group,
     counterpartAccountId: r.counterpart_account_id,
     counterpartName: r.counterpart_name,
@@ -49,6 +51,11 @@ export function mapTx(r) {
   };
 }
 
+// 집계용 SQL 조각 (transactions t LEFT JOIN budget_subjects s): 수입 = 수입 − 수입 차감, 지출 = 지출 과목만
+export const INCOME_SQL = `CASE WHEN t.kind = 'NORMAL' AND t.direction = 'IN' THEN t.amount
+  WHEN t.kind = 'NORMAL' AND t.direction = 'OUT' AND s.kind = 'INCOME' THEN -t.amount ELSE 0 END`;
+export const EXPENSE_SQL = `CASE WHEN t.kind = 'NORMAL' AND t.direction = 'OUT' AND s.kind = 'EXPENSE' THEN t.amount ELSE 0 END`;
+
 const LOCKED_SQL = `SELECT EXISTS (SELECT 1 FROM daily_closings WHERE status = 'CLOSED' AND close_date >= ?) AS locked`;
 
 export async function isDateLocked(db, date) {
@@ -66,11 +73,11 @@ export async function computePeriod(db, from, to) {
     db.prepare(BALANCES_SQL).bind(to),
     db.prepare(
       `SELECT t.account_id,
-              SUM(CASE WHEN t.kind = 'NORMAL'   AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS income,
-              SUM(CASE WHEN t.kind = 'NORMAL'   AND t.direction = 'OUT' THEN t.amount ELSE 0 END) AS expense,
+              SUM(${INCOME_SQL}) AS income,
+              SUM(${EXPENSE_SQL}) AS expense,
               SUM(CASE WHEN t.kind = 'TRANSFER' AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS transfer_in,
               SUM(CASE WHEN t.kind = 'TRANSFER' AND t.direction = 'OUT' THEN t.amount ELSE 0 END) AS transfer_out
-       FROM transactions t
+       FROM transactions t LEFT JOIN budget_subjects s ON s.id = t.subject_id
        WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED'
        GROUP BY t.account_id`
     ).bind(from, to),
@@ -125,7 +132,8 @@ export async function computeDay(db, date) {
  */
 export async function subjectTotals(db, from, to, kind) {
   const { results } = await db.prepare(
-    `SELECT s.id, s.name, s.sort_order, f.code AS fund_code, SUM(t.amount) AS amount
+    `SELECT s.id, s.name, s.sort_order, f.code AS fund_code,
+            SUM(CASE WHEN t.direction = 'OUT' AND s.kind = 'INCOME' THEN -t.amount ELSE t.amount END) AS amount
      FROM transactions t
      JOIN budget_subjects s ON s.id = t.subject_id
      JOIN accounts a ON a.id = t.account_id
@@ -152,9 +160,9 @@ export async function periodBreakdown(db, from, to, unit, openingTotal) {
   const key = unit === 'month' ? 'substr(t.tx_date, 1, 7)' : 't.tx_date';
   const { results } = await db.prepare(
     `SELECT ${key} AS k,
-            SUM(CASE WHEN t.kind = 'NORMAL' AND t.direction = 'IN'  THEN t.amount ELSE 0 END) AS income,
-            SUM(CASE WHEN t.kind = 'NORMAL' AND t.direction = 'OUT' THEN t.amount ELSE 0 END) AS expense
-     FROM transactions t
+            SUM(${INCOME_SQL}) AS income,
+            SUM(${EXPENSE_SQL}) AS expense
+     FROM transactions t LEFT JOIN budget_subjects s ON s.id = t.subject_id
      WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED'
      GROUP BY k ORDER BY k`
   ).bind(from, to).all();
@@ -189,7 +197,9 @@ export async function searchTransactions(db, f, limit = 2000) {
   const binds = [f.from, f.to];
   if (f.accountId) { where.push('t.account_id = ?'); binds.push(f.accountId); }
   if (f.subjectId) { where.push('t.subject_id = ?'); binds.push(f.subjectId); }
-  if (f.kind === 'IN' || f.kind === 'OUT') { where.push("t.kind = 'NORMAL' AND t.direction = ?"); binds.push(f.kind); }
+  // 수입에는 수입 차감도 함께, 지출은 지출 과목만
+  if (f.kind === 'IN') where.push("t.kind = 'NORMAL' AND (t.direction = 'IN' OR s.kind = 'INCOME')");
+  if (f.kind === 'OUT') where.push("t.kind = 'NORMAL' AND t.direction = 'OUT' AND s.kind = 'EXPENSE'");
   if (f.kind === 'TRANSFER') where.push("t.kind = 'TRANSFER'");
   where.push("t.status = 'POSTED'");
   if (f.q) {
@@ -228,8 +238,8 @@ export async function searchTransactions(db, f, limit = 2000) {
     truncated,
     openingBalance,
     totals: {
-      income: sumAmounts(posted.filter((r) => r.kind === 'NORMAL' && r.direction === 'IN').map((r) => r.amount)),
-      expense: sumAmounts(posted.filter((r) => r.kind === 'NORMAL' && r.direction === 'OUT').map((r) => r.amount)),
+      income: sumAmounts(posted.filter((r) => r.kind === 'NORMAL' && (r.direction === 'IN' || r.deduction)).map((r) => (r.deduction ? -r.amount : r.amount))),
+      expense: sumAmounts(posted.filter((r) => r.kind === 'NORMAL' && r.direction === 'OUT' && !r.deduction).map((r) => r.amount)),
       transferIn: sumAmounts(posted.filter((r) => r.kind === 'TRANSFER' && r.direction === 'IN').map((r) => r.amount)),
       transferOut: sumAmounts(posted.filter((r) => r.kind === 'TRANSFER' && r.direction === 'OUT').map((r) => r.amount)),
     },

@@ -16,4 +16,5 @@ export const MIGRATIONS = [
   '0013_cash.sql',
   '0014_journal_photos.sql',
   '0015_tx_payers.sql',
+  '0016_income_deduction.sql',
 ];

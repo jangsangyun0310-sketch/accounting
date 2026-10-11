@@ -327,6 +327,7 @@ function accountRowCells(t) {
   if (t.kind === 'TRANSFER') {
     return { kind: '이체', what: `${t.direction === 'OUT' ? '→' : '←'} ${t.counterpartName ?? ''}` };
   }
+  if (t.deduction) return { kind: '차감', what: t.subjectName ?? '' };
   return { kind: t.direction === 'IN' ? '수입' : '지출', what: t.subjectName ?? '' };
 }
 
@@ -361,8 +362,8 @@ function renderAccounts() {
           ${a.rows.length ? a.rows.map((t) => {
             const c = accountRowCells(t);
             return `<tr><td>${day(t.date)}</td><td>${c.kind}</td><td class="${t.kind === 'TRANSFER' ? 'xfer' : ''}">${esc(c.what)}</td>
-              <td>${esc(t.memo ?? '')}</td><td class="amt">${t.direction === 'IN' ? formatWon(t.amount) : ''}</td>
-              <td class="amt">${t.direction === 'OUT' ? formatWon(t.amount) : ''}</td><td class="amt">${formatWon(t.balance)}</td></tr>`;
+              <td>${esc(t.memo ?? '')}</td><td class="amt">${t.direction === 'IN' ? formatWon(t.amount) : t.deduction ? formatWon(-t.amount) : ''}</td>
+              <td class="amt">${t.direction === 'OUT' && !t.deduction ? formatWon(t.amount) : ''}</td><td class="amt">${formatWon(t.balance)}</td></tr>`;
           }).join('') : '<tr><td colspan="7" class="empty">기간 안에 입출금 없음</td></tr>'}
         </tbody>
         <tfoot><tr><td colspan="4">소계 (${a.rows.length}건)</td><td class="amt">${formatWon(a.in)}</td>
@@ -421,7 +422,8 @@ function accountsSheets() {
       [`이월 잔액 (${r.from} 이전)`, null, null, null, null, null, a.prev],
       ...a.rows.map((t) => {
         const c = accountRowCells(t);
-        return [t.date, c.kind, c.what, t.memo ?? '', t.direction === 'IN' ? t.amount : null, t.direction === 'OUT' ? t.amount : null, t.balance];
+        return [t.date, c.kind, c.what, t.memo ?? '', t.direction === 'IN' ? t.amount : t.deduction ? -t.amount : null,
+          t.direction === 'OUT' && !t.deduction ? t.amount : null, t.balance];
       }),
       [b(`소계 (${a.rows.length}건)`), null, null, null, b(a.in), b(a.out), b(a.end)]],
   }));

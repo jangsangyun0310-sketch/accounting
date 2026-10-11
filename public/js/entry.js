@@ -58,6 +58,14 @@ function updatePayerField() {
   if (!show) $('payer').value = '';
 }
 
+/** 차감(−) 칸: 수입에서 "차감 허용" 과목(봉헌권 등)을 골랐을 때만 */
+function updateDeductField() {
+  const subject = settings.subjects.find((s) => s.id === Number($('subject').value));
+  const show = kind === 'IN' && Boolean(subject?.allowDeduction);
+  $('deduct-field').hidden = !show;
+  if (!show) $('deduct').checked = false;
+}
+
 /** 전에 적은 납부자 이름 (자동 완성) */
 async function loadPayers() {
   const { payers } = await api('/api/payers');
@@ -85,6 +93,7 @@ function setKind(next, values = prefs[next] ?? {}) {
     setSelect($('subject'), subjectOptions(kind === 'IN' ? 'INCOME' : 'EXPENSE', values.subjectId), values.subjectId);
   }
   updatePayerField();
+  updateDeductField();
 }
 
 // ---------------------------------------------------------------- 하루 현황
@@ -148,7 +157,8 @@ function mergedRows(txs) {
   const rows = [];
   const seen = new Set();
   for (const t of txs) {
-    if (t.kind !== 'TRANSFER') { rows.push({ ...t, type: t.direction }); continue; }
+    // 수입 차감은 수입 줄로 (금액은 − 로 보임)
+    if (t.kind !== 'TRANSFER') { rows.push({ ...t, type: t.deduction ? 'IN' : t.direction }); continue; }
     if (seen.has(t.transferGroup)) continue;
     seen.add(t.transferGroup);
     const pair = txs.filter((x) => x.transferGroup === t.transferGroup);
@@ -170,7 +180,7 @@ function mergedRows(txs) {
 
 function renderList() {
   const rows = mergedRows(day.transactions);
-  const sum = (type) => sumAmounts(rows.filter((r) => r.type === type).map((r) => r.amount));
+  const sum = (type) => sumAmounts(rows.filter((r) => r.type === type).map((r) => (r.deduction ? -r.amount : r.amount)));
   if (!rows.length) {
     $('list').innerHTML = '<p class="muted">거래가 없습니다.</p>';
     return;
@@ -188,7 +198,8 @@ function renderList() {
 
 function rowHtml(r, index) {
   const isTransfer = r.type === 'TRANSFER';
-  const badge = { IN: '<span class="badge in">수입</span>', OUT: '<span class="badge out">지출</span>', TRANSFER: '<span class="badge transfer">이체</span>' }[r.type];
+  const badge = r.deduction ? '<span class="badge deduct">수입차감</span>'
+    : { IN: '<span class="badge in">수입</span>', OUT: '<span class="badge out">지출</span>', TRANSFER: '<span class="badge transfer">이체</span>' }[r.type];
   const fund = isTransfer
     ? (r.fromFund === r.toFund ? FUND_LABEL[r.fromFund] : `${FUND_LABEL[r.fromFund]}→${FUND_LABEL[r.toFund] ?? ''}`)
     : FUND_LABEL[r.fundCode];
@@ -202,7 +213,7 @@ function rowHtml(r, index) {
       <td>${esc(r.subjectName ?? '')}</td>
       <td>${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : ''}${esc(r.memo)}</td>
       <td>${esc(r.voucherNo)}</td>
-      <td class="num">${r.type === 'IN' ? formatWon(r.amount) : ''}</td>
+      <td class="num ${r.deduction ? 'minus' : ''}">${r.type === 'IN' ? formatWon(r.deduction ? -r.amount : r.amount) : ''}</td>
       <td class="num">${r.type === 'OUT' ? formatWon(r.amount) : ''}</td>
       <td class="num">${isTransfer ? formatWon(r.amount) : ''}</td>
       <td class="actions">${day.locked ? '' : `
@@ -222,6 +233,7 @@ function resetForNext(voucher = nextVoucher($('voucher').value)) {
   $('amount').value = '';
   $('memo').value = '';
   $('payer').value = '';
+  $('deduct').checked = false;
   $('voucher').value = voucher;
   $('amount').focus();
 }
@@ -252,10 +264,10 @@ async function save() {
     }
     pref = { fromAccountId: body.fromAccountId, toAccountId: body.toAccountId };
   } else {
-    body.direction = kind;
+    body.direction = kind === 'IN' && $('deduct').checked ? 'OUT' : kind; // 수입 차감은 통장에서 빠지는 쪽
     body.accountId = Number($('account').value);
     body.subjectId = Number($('subject').value);
-    if (!$('payer-field').hidden) body.payer = $('payer').value;
+    if (!$('payer-field').hidden && body.direction === 'IN') body.payer = $('payer').value;
     if (!body.accountId || !body.subjectId) {
       toast('통장과 예산과목을 선택하세요.', 'error');
       return;
@@ -298,6 +310,7 @@ function startEdit(row) {
   $('amount').value = formatWon(row.amount);
   $('memo').value = row.memo;
   $('payer').value = row.payer ?? '';
+  $('deduct').checked = Boolean(row.deduction);
   $('voucher').value = row.voucherNo;
   $('edit-label').textContent = `#${row.id} ${{ IN: '수입', OUT: '지출', TRANSFER: '이체' }[row.type]} 거래를`;
   $('edit-banner').hidden = false;
@@ -352,6 +365,7 @@ function changeDate(next) {
 
 $('date').addEventListener('change', () => changeDate($('date').value));
 $('account').addEventListener('change', updatePayerField);
+$('subject').addEventListener('change', updateDeductField);
 $('prev-day').addEventListener('click', () => changeDate(addDays($('date').value, -1)));
 $('next-day').addEventListener('click', () => changeDate(addDays($('date').value, 1)));
 $('today').addEventListener('click', () => changeDate(todayKST()));

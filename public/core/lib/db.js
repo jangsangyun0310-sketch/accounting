@@ -72,7 +72,7 @@ export function auditStatement(db, { actor, entity, entityId, action, before = n
 const SNAPSHOT_COLUMNS = {
   parish_settings: ['parish_name', 'start_date', 'writer_name', 'setup_completed'],
   accounts: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active', 'is_cash'],
-  budget_subjects: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active'],
+  budget_subjects: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active', 'allow_deduction'],
   transactions: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount',
     'memo', 'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by'],
 };

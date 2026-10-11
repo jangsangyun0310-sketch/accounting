@@ -17,7 +17,7 @@ export const TABLES = [
       'created_at', 'created_by', 'updated_at', 'updated_by', 'is_cash'], defaults: { is_cash: 0 } },
   { name: 'budget_subjects', order: 'parent_id IS NOT NULL, id',
     columns: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active',
-      'created_at', 'created_by', 'updated_at', 'updated_by'] },
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'allow_deduction'], defaults: { allow_deduction: 0 } },
   { name: 'approval_steps', order: 'seq', columns: ['seq', 'title'] },
   // optional: 이 표가 생기기 전(2026-10-08 이전)의 백업 파일에는 없다 → 빈 표로 본다
   { name: 'budgets', order: 'year, subject_id', optional: true,
@@ -26,7 +26,7 @@ export const TABLES = [
   { name: 'daily_approval_steps', order: 'seq', optional: true, columns: ['seq', 'title'] },
   { name: 'mass_schedule', order: 'id', optional: true, columns: ['id', 'weekday', 'mass_time', 'name', 'kind'] },
   { name: 'journal_settings', order: 'id', optional: true,
-    columns: ['id', 'start_households', 'start_members', 'updated_at', 'updated_by'] },
+    columns: ['id', 'start_households', 'start_members', 'updated_at', 'updated_by', 'offering_subject_id'], defaults: { offering_subject_id: null } },
   { name: 'journals', order: 'journal_date', optional: true,
     columns: ['journal_date', 'households_in', 'households_out', 'households_total', 'members_in', 'members_out',
       'members_total', 'baptism', 'confirmation', 'anointing', 'marriage', 'funeral', 'communion', 'notes',
@@ -117,7 +117,7 @@ export async function validateBackup(backup) {
 
   // 회계 정합성: 파일 안의 데이터만으로 다시 계산해 본다
   const accounts = new Map(tables.accounts.map((a) => [a.id, a]));
-  const subjects = new Map(tables.budget_subjects.map((s) => [s.id, s]));
+  const subjects = new Map(tables.budget_subjects.map((s) => [s.id, { allow_deduction: 0, ...s }]));
   const txs = tables.transactions;
   for (const x of tables.budgets ?? []) {
     if (!subjects.has(x.subject_id)) throw invalid(`예산의 과목(#${x.subject_id})이 백업에 없습니다.`);
@@ -127,7 +127,8 @@ export async function validateBackup(backup) {
     if (!accounts.has(t.account_id)) throw invalid(`거래 #${t.id} 의 통장이 백업에 없습니다.`);
     if (t.kind === 'NORMAL') {
       const s = subjects.get(t.subject_id);
-      if (!s || s.kind !== (t.direction === 'IN' ? 'INCOME' : 'EXPENSE')) {
+      const deduction = s && t.direction === 'OUT' && s.kind === 'INCOME' && s.allow_deduction === 1; // 수입 차감
+      if (!s || (s.kind !== (t.direction === 'IN' ? 'INCOME' : 'EXPENSE') && !deduction)) {
         throw invalid(`거래 #${t.id} 의 예산과목이 맞지 않습니다.`);
       }
     }

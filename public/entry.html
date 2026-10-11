@@ -41,6 +41,7 @@
         <label class="f-transfer">보내는 곳 (출금) <select id="from-account"></select></label>
         <label class="f-transfer">받는 곳 (입금) <select id="to-account"></select></label>
         <label class="f-amount">금액(원) <input id="amount" placeholder="0"></label>
+        <label class="f-deduct" id="deduct-field" hidden title="봉헌권처럼 미리 수입으로 잡은 금액을 빼는 줄 (수입 내역에 − 로 들어감)"><input type="checkbox" id="deduct"> 차감(−)</label>
         <label class="f-payer" id="payer-field" hidden>납부자 <input id="payer" maxlength="30" list="payer-list" autocomplete="off" placeholder="예) 홍길동(베드로)"></label>
         <datalist id="payer-list"></datalist>
         <label class="f-memo">적요 <input id="memo" maxlength="100" placeholder="예) 홍길동 10월 교무금"></label>

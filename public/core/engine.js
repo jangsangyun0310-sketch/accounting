@@ -35,6 +35,7 @@ const routes = [
   ['PUT', '/api/approval-steps/daily', settings.updateDailyApprovalSteps],
   ['PUT', '/api/mass-schedule', settings.updateMassSchedule],
   ['PUT', '/api/journal-settings', settings.updateJournalSettings],
+  ['PUT', '/api/journal-settings/offering', settings.updateOfferingSubject],
   ['GET', '/api/day', transactions.getDay],
   ['GET', '/api/transactions', transactions.search],
   ['POST', '/api/transactions', transactions.create],

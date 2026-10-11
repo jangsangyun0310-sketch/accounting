@@ -8,7 +8,7 @@
 import { json, readJson } from '../lib/http.js';
 import { auditStatement } from '../lib/db.js';
 import { array, bad, date as parseDate, oneOf, text } from '../lib/validate.js';
-import { isValidDate, todayKST } from '../../js/shared/dates.js';
+import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
 
 export const MASS_KINDS = ['SUNDAY', 'WEEKDAY', 'WEDDING', 'FUNERAL', 'SPECIAL'];
 export const DOC_DIRECTIONS = ['', 'IN', 'OUT']; // 공문서 구분: (비움) · 수신 · 발신
@@ -62,6 +62,25 @@ async function totalsBefore(db, date) {
 
 const weekdayOf = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
 
+/**
+ * 주일 사목일지의 주일미사 줄: 토요일 주일미사(저녁) 참석 인원과 토·일 주일헌금(봉헌권 포함, 수입 차감 전) 합계.
+ * 주일의 미사 인원은 화면이 입력 중인 값으로 더한다. 주일헌금 과목은 설정 → 사목일지에서 고른다.
+ */
+async function sundaySummary(db, d) {
+  if (weekdayOf(d) !== 0) return null;
+  const sat = addDays(d, -1);
+  const [att, setting] = await db.batch([
+    db.prepare(`SELECT COALESCE(SUM(attendance), 0) AS n FROM journal_masses WHERE journal_date = ? AND kind = 'SUNDAY'`).bind(sat),
+    db.prepare(`SELECT s.id, s.name FROM journal_settings j JOIN budget_subjects s ON s.id = j.offering_subject_id WHERE j.id = 1`),
+  ]);
+  const subject = setting.results[0] ?? null;
+  const offering = subject ? await db.prepare(
+    `SELECT COALESCE(SUM(amount), 0) AS n FROM transactions
+     WHERE status = 'POSTED' AND kind = 'NORMAL' AND direction = 'IN' AND subject_id = ? AND tx_date IN (?, ?)`
+  ).bind(subject.id, sat, d).first('n') : 0;
+  return { saturdayAttendance: att.results[0].n, offering, subjectName: subject?.name ?? null };
+}
+
 export async function get({ env, url }) {
   const db = env.DB;
   const d = url.searchParams.get('date') || todayKST();
@@ -93,6 +112,7 @@ export async function get({ env, url }) {
     documents: documents.results.map((r) => ({ direction: r.direction, docNo: r.doc_no, party: r.party, title: r.title })),
     photos: photos.results.map((r) => ({ slot: r.slot, image: r.image, caption: r.caption })),
     notes: j?.notes ?? '',
+    sunday: await sundaySummary(db, d),
     updatedAt: j?.updated_at ?? null,
   });
 }

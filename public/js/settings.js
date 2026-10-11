@@ -151,14 +151,15 @@ function renderSubjects() {
       </div>`;
     }).join('')}
     </div>
-    <p class="help">사용된 과목은 삭제할 수 없습니다. 더 이상 쓰지 않는 과목은 [수정]에서 "사용"을 해제하세요.</p>`;
+    <p class="help">사용된 과목은 삭제할 수 없습니다. 더 이상 쓰지 않는 과목은 [수정]에서 "사용"을 해제하세요.</p>
+    <p class="help">💡 <b>차감(−) 허용</b>: 봉헌권처럼 미리 수입으로 잡은 금액을 주일헌금에서 빼야 하는 수입 과목은 [수정]에서 체크합니다. 거래 입력에서 그 과목을 고르면 [차감(−)] 칸이 나오고, 수입 내역에 마이너스로 들어갑니다.</p>`;
 }
 
 function subjectViewRow(s, i, count) {
   return `
     <tr class="${s.isActive ? '' : 'inactive'}">
       <td class="order">${orderButtons('subject', s.id, i, count)}</td>
-      <td>${esc(s.name)}</td>
+      <td>${esc(s.name)}${s.allowDeduction ? ' <span class="tag-deduct" title="수입 내역에 − 로 넣을 수 있음">차감(−)</span>' : ''}</td>
       <td class="status">${s.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
       <td class="actions">
         <button type="button" class="secondary small" data-action="edit" data-key="subject:${s.id}">수정</button>
@@ -172,7 +173,8 @@ function subjectEditRow(s) {
   return `
     <tr data-form="subject-edit" data-id="${s.id}" data-kind="${s.kind}" class="editing">
       <td></td>
-      <td><input name="name" value="${esc(s.name)}" maxlength="30" autofocus></td>
+      <td><input name="name" value="${esc(s.name)}" maxlength="30" autofocus>
+        ${s.kind === 'INCOME' ? `<label class="check small" title="봉헌권처럼 미리 수입으로 잡은 금액을 빼는 줄(−)을 넣을 수 있게"><input type="checkbox" name="allowDeduction" ${s.allowDeduction ? 'checked' : ''}> 차감(−) 허용</label>` : ''}</td>
       <td><label class="check"><input type="checkbox" name="isActive" ${s.isActive ? 'checked' : ''}> 사용</label></td>
       <td class="actions">
         <button type="button" class="small" data-action="subject-save" data-id="${s.id}">저장</button>
@@ -305,7 +307,18 @@ function renderJournalTab() {
       <label>세대 <input name="households" inputmode="numeric" value="${start.households ? formatWon(start.households) : ''}" placeholder="0"></label>
       <label>인원 (명) <input name="members" inputmode="numeric" value="${start.members ? formatWon(start.members) : ''}" placeholder="0"></label>
     </div>
-    <button type="button" data-action="journal-start-save">시작 총원 저장</button>`;
+    <button type="button" data-action="journal-start-save">시작 총원 저장</button>
+    <hr class="line-sep">
+    <h3>주일미사 1인당 헌금</h3>
+    <p class="help">주일 사목일지의 미사 표 아래에 <b>주일미사(토 저녁 · 주일 새벽 · 교중 등 구분이 "주일"인 미사) 참석 인원</b>과 <b>토 · 일 주일헌금</b>으로 1인당 헌금을 보여 줍니다. 주일헌금은 봉헌권을 포함한 금액(차감 전)으로 셉니다.</p>
+    <div class="form-grid">
+      <label>주일헌금 과목 <select id="offering-subject">
+        <option value="">(쓰지 않음)</option>
+        ${settings.subjects.filter((s) => s.kind === 'INCOME' && (s.isActive || s.id === start.offeringSubjectId)).map((s) =>
+          `<option value="${s.id}" ${s.id === start.offeringSubjectId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
+      </select></label>
+    </div>
+    <button type="button" data-action="offering-save">주일헌금 과목 저장</button>`;
 }
 
 /** 편집 중인 기본 미사를 토요일 → 주일 → 월~금, 시간 순으로 */
@@ -627,6 +640,7 @@ const actions = {
   'subject-save': async (btn) => {
     const row = btn.closest('tr');
     const body = { kind: row.dataset.kind, name: field(row, 'name').value, isActive: field(row, 'isActive').checked };
+    if (field(row, 'allowDeduction')) body.allowDeduction = field(row, 'allowDeduction').checked;
     if (await attempt(() => api(`/api/subjects/${btn.dataset.id}`, { method: 'PUT', body }), '저장했습니다.')) {
       editing = null;
       await reload();
@@ -684,6 +698,10 @@ const actions = {
     }
   },
 
+  'offering-save': async () => {
+    const subjectId = panel.querySelector('#offering-subject').value || null;
+    if (await attempt(() => api('/api/journal-settings/offering', { method: 'PUT', body: { subjectId } }), '주일헌금 과목을 저장했습니다.')) await reload();
+  },
   'journal-start-save': async () => {
     const form = panel.querySelector('[data-form="journal-start"]');
     const body = { households: field(form, 'households').value, members: field(form, 'members').value };

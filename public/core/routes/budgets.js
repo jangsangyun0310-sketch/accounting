@@ -26,7 +26,7 @@ export async function list({ env, url }) {
   const { results } = await db.prepare(
     `SELECT s.id, s.kind, s.name, s.is_active, s.sort_order,
             COALESCE(b.amount, 0) AS budget,
-            COALESCE((SELECT SUM(t.amount) FROM transactions t
+            COALESCE((SELECT SUM(CASE WHEN s.kind = 'INCOME' AND t.direction = 'OUT' THEN -t.amount ELSE t.amount END) FROM transactions t
                        WHERE t.subject_id = s.id AND t.kind = 'NORMAL' AND t.status = 'POSTED'
                          AND t.tx_date BETWEEN ?2 AND ?3), 0) AS actual
        FROM budget_subjects s LEFT JOIN budgets b ON b.subject_id = s.id AND b.year = ?1

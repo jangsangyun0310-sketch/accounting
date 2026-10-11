@@ -557,3 +557,10 @@ select:has(option.cash-opt:checked) { background-color: var(--cash-bg); }
 .payer-row { margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .payer-row .payer-input { width: 150px; padding: 2px 6px; }
 .link-btn { background: none; border: none; color: var(--accent); text-decoration: underline; font-size: 12px; padding: 0; cursor: pointer; }
+
+/* 수입 차감(−): 봉헌권 등 */
+.tag-deduct { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 4px; background: #fde8e7; color: #b42318; font-weight: 700; }
+.badge.deduct { background: #fde8e7; color: #b42318; }
+.entry-fields .f-deduct { flex: 0 0 auto; align-self: end; padding-bottom: 8px; color: #b42318; font-weight: 700; }
+.entry-fields .f-deduct[hidden] { display: none; }
+td.num.minus { color: #b42318; }

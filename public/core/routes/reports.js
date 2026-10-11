@@ -34,11 +34,12 @@ export async function daily({ env, url }) {
   const closed = Boolean(record);
 
   const posted = day.transactions.filter((t) => t.status === 'POSTED');
-  const pick = ({ id, accountName, fundCode, subjectName, memo, voucherNo, amount }) =>
-    ({ id, accountName, fundCode, subjectName, memo, voucherNo, amount });
+  const pick = ({ id, accountName, fundCode, subjectName, memo, voucherNo, amount, deduction }) =>
+    ({ id, accountName, fundCode, subjectName, memo, voucherNo, amount: deduction ? -amount : amount, deduction });
   const byFund = (a, b) => (a.fundCode === b.fundCode ? a.id - b.id : a.fundCode === 'GENERAL' ? -1 : 1);
-  const income = posted.filter((t) => t.kind === 'NORMAL' && t.direction === 'IN').map(pick).sort(byFund);
-  const expense = posted.filter((t) => t.kind === 'NORMAL' && t.direction === 'OUT').map(pick).sort(byFund);
+  // 수입 내역에는 수입 차감(봉헌권 등)이 마이너스 금액으로 함께 나온다
+  const income = posted.filter((t) => t.kind === 'NORMAL' && (t.direction === 'IN' || t.deduction)).map(pick).sort(byFund);
+  const expense = posted.filter((t) => t.kind === 'NORMAL' && t.direction === 'OUT' && !t.deduction).map(pick).sort(byFund);
 
   // 이체는 출금·입금 한 쌍을 한 줄로
   const transfers = posted
@@ -157,7 +158,7 @@ export async function accounts({ env, url }) {
     const items = rows.filter((t) => t.accountId === a.id).map((t) => {
       balance = sumAmounts([balance, t.direction === 'IN' ? t.amount : -t.amount]);
       return {
-        id: t.id, date: t.date, kind: t.kind, direction: t.direction,
+        id: t.id, date: t.date, kind: t.kind, direction: t.direction, deduction: t.deduction,
         subjectName: t.subjectName, counterpartName: t.counterpartName,
         memo: t.memo, voucherNo: t.voucherNo, amount: t.amount, balance,
       };

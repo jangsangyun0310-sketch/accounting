@@ -72,6 +72,7 @@ function render(j, day) {
         <tbody>${j.masses.map(massRow).join('')}</tbody>
         <tfoot><tr><td colspan="3">합 계</td><td class="amt" id="sum-attendance"></td><td class="amt" id="sum-confessions"></td><td class="no-print"></td></tr></tfoot>
       </table>
+      ${j.sunday ? sundayRowHtml(j.sunday) : ''}
       <button type="button" class="secondary row-add no-print" id="add-mass">+ 미사 추가</button>
 
       <h2>3. 성사</h2>
@@ -206,6 +207,38 @@ function docRow(x = { direction: '', docNo: '', party: '', title: '' }) {
     <td class="no-print"><button type="button" class="row-del" title="이 공문서 지우기" aria-label="이 공문서 지우기">✕</button></td></tr>`;
 }
 
+/**
+ * 주일(일요일) 일지에만: 주일미사(토 저녁 + 주일, 구분이 "주일"인 미사) 참석 인원, 토 · 일 주일헌금(봉헌권 포함), 1인당 헌금.
+ * 주일 인원은 지금 입력 중인 미사 표에서, 토요일 인원 · 헌금은 서버가 준 값으로.
+ */
+function sundayRowHtml(s) {
+  return `
+      <table class="r-table fixed sunday-sum" id="sunday-sum" data-sat="${s.saturdayAttendance}" data-offering="${s.offering}" data-subject="${s.subjectName ? 1 : ''}">
+        <colgroup><col style="width:46mm"><col style="width:34mm"><col><col style="width:38mm"></colgroup>
+        <tbody><tr>
+          <th>주일미사 (토 저녁 · 주일)</th>
+          <td>참석 <b class="s-att"></b></td>
+          <td>${esc(s.subjectName ?? '주일헌금')} (봉헌권 포함) <b class="s-off"></b></td>
+          <td>1인당 <b class="s-avg"></b></td>
+        </tr></tbody>
+      </table>
+      ${s.subjectName ? '' : '<p class="help no-print">1인당 헌금을 보려면 [설정 → 사목일지]에서 주일헌금 과목을 고르세요.</p>'}`;
+}
+
+function updateSunday() {
+  const box = $('sunday-sum');
+  if (!box) return;
+  const sunday = [...paper.querySelectorAll('#masses tbody tr')]
+    .filter((tr) => tr.querySelector('.m-kind').value === 'SUNDAY')
+    .reduce((n, tr) => n + num(tr.querySelector('.m-att').value), 0);
+  const people = sunday + Number(box.dataset.sat);
+  const offering = Number(box.dataset.offering);
+  const hasSubject = Boolean(box.dataset.subject);
+  box.querySelector('.s-att').textContent = people ? `${formatWon(people)}명` : '·';
+  box.querySelector('.s-off').textContent = hasSubject && offering ? `${formatWon(offering)}원` : '·';
+  box.querySelector('.s-avg').textContent = hasSubject && offering && people ? `${formatWon(Math.round(offering / people))}원` : '·';
+}
+
 function sumMasses() {
   const sum = (cls) => [...paper.querySelectorAll(`#masses .${cls}`)].reduce((a, i) => a + num(i.value), 0);
   for (const [id, cls] of [['sum-attendance', 'm-att'], ['sum-confessions', 'm-conf']]) {
@@ -213,6 +246,7 @@ function sumMasses() {
     $(id).textContent = dotWon(n);
     $(id).classList.toggle('nil', !n);
   }
+  updateSunday();
 }
 
 // 인쇄용 특이사항: 입력칸은 글이 길면 스크롤이 생겨 잘리므로, 인쇄할 때는 같은 글을 상자로 보여 준다
@@ -340,7 +374,11 @@ paper.addEventListener('input', (e) => {
   if (t.id === 'notes') { syncNotes(); fitNotes(); }
   markDirty();
 });
-paper.addEventListener('change', (e) => { if (e.target.tagName === 'SELECT') markDirty(); });
+paper.addEventListener('change', (e) => {
+  if (e.target.tagName !== 'SELECT') return;
+  if (e.target.classList.contains('m-kind')) updateSunday();
+  markDirty();
+});
 
 // 시간: 0600 → 06:00, 6:0 → 06:00
 paper.addEventListener('focusout', (e) => {

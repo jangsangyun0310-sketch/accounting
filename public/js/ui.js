@@ -156,6 +156,7 @@ export const signedWon = (n) => (n > 0 ? `+${formatWon(n)}` : formatWon(n));
 /** 거래 구분 이름 (통장 기준: 이체는 들어온 쪽/나간 쪽 구분) */
 export function typeLabel(t) {
   if (t.kind === 'TRANSFER') return t.direction === 'OUT' ? '이체출금' : '이체입금';
+  if (t.deduction) return '수입차감';
   return t.direction === 'IN' ? '수입' : '지출';
 }
 

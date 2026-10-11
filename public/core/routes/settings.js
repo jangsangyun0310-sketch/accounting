@@ -3,7 +3,7 @@
 import { ApiError, json, readJson } from '../lib/http.js';
 import { auditRowStatement, auditStatement, readRowJson } from '../lib/db.js';
 import {
-  accountInput, approvalTitles, array, bool, id as parseId, noDuplicates, oneOf, parishInput,
+  accountInput, approvalTitles, array, bad, bool, id as parseId, noDuplicates, oneOf, parishInput,
   subjectInput, text, FUND_CODES, SUBJECT_KINDS,
 } from '../lib/validate.js';
 
@@ -24,7 +24,7 @@ export async function getSettings({ env }) {
        ORDER BY f.sort_order, a.sort_order, a.id`
     ),
     db.prepare(
-      `SELECT s.id, s.kind, s.parent_id, s.code, s.name, s.sort_order, s.is_active,
+      `SELECT s.id, s.kind, s.parent_id, s.code, s.name, s.sort_order, s.is_active, s.allow_deduction,
               (SELECT COUNT(*) FROM transactions t WHERE t.subject_id = s.id) AS tx_count
        FROM budget_subjects s ORDER BY s.kind DESC, s.sort_order, s.id`
     ),
@@ -35,7 +35,7 @@ export async function getSettings({ env }) {
     ),
     db.prepare('SELECT seq, title FROM daily_approval_steps ORDER BY seq'),
     db.prepare('SELECT id, weekday, mass_time, name, kind FROM mass_schedule ORDER BY weekday, mass_time, id'),
-    db.prepare('SELECT start_households, start_members FROM journal_settings WHERE id = 1'),
+    db.prepare('SELECT start_households, start_members, offering_subject_id FROM journal_settings WHERE id = 1'),
   ]);
   const p = parish.results[0] ?? null;
   const f = flags.results[0];
@@ -51,6 +51,7 @@ export async function getSettings({ env }) {
     subjects: subjects.results.map((s) => ({
       id: s.id, kind: s.kind, parentId: s.parent_id, code: s.code, name: s.name,
       sortOrder: s.sort_order, isActive: s.is_active === 1, txCount: s.tx_count,
+      allowDeduction: s.allow_deduction === 1, // 수입 차감(−) 허용 (봉헌권 등)
     })),
     approvalSteps: steps.results,
     // 일일결산·사목일지 결재선. 비어 있으면 approvalSteps 를 그대로 쓴다
@@ -59,6 +60,7 @@ export async function getSettings({ env }) {
     journalStart: {
       households: journalStart.results[0]?.start_households ?? 0,
       members: journalStart.results[0]?.start_members ?? 0,
+      offeringSubjectId: journalStart.results[0]?.offering_subject_id ?? null, // 주일미사 1인당 헌금에 쓰는 주일헌금 과목
       saved: Boolean(journalStart.results[0]),
     },
     // 화면에서 잠긴 항목을 미리 안내하기 위한 정보 (실제 차단은 DB 트리거)
@@ -180,11 +182,15 @@ export async function updateSubject({ request, env, actor, params }) {
   const body = await readJson(request);
   const s = subjectInput(body);
   const isActive = bool(body.isActive, '사용 여부');
+  // 수입 차감(−) 허용: 수입 과목만. 보내지 않으면 그대로 둔다
+  const allowDeduction = body.allowDeduction == null ? null : (bool(body.allowDeduction, '차감 허용') && s.kind === 'INCOME' ? 1 : 0);
   const before = await requireRow(db, 'budget_subjects', id, '과목');
   await db.batch([
     db.prepare(
-      `UPDATE budget_subjects SET kind = ?, name = ?, is_active = ?, updated_at = ?, updated_by = ? WHERE id = ?`
-    ).bind(s.kind, s.name, isActive ? 1 : 0, new Date().toISOString(), actor.email, id),
+      `UPDATE budget_subjects SET kind = ?, name = ?, is_active = ?,
+              allow_deduction = CASE WHEN ? = 'EXPENSE' THEN 0 ELSE COALESCE(?, allow_deduction) END,
+              updated_at = ?, updated_by = ? WHERE id = ?`
+    ).bind(s.kind, s.name, isActive ? 1 : 0, s.kind, allowDeduction, new Date().toISOString(), actor.email, id),
     auditRowStatement(db, { actor: actor.email, action: 'UPDATE', table: 'budget_subjects', id, beforeJson: before }),
   ]);
   return json({ ok: true });
@@ -287,6 +293,27 @@ export async function updateJournalSettings({ request, env, actor }) {
          updated_at = excluded.updated_at, updated_by = excluded.updated_by`
     ).bind(households, members, now, actor.email),
     auditStatement(db, { actor: actor.email, entity: 'journal_settings', entityId: 1, action: 'UPDATE', before, after: { households, members } }),
+  ]);
+  return json({ ok: true });
+}
+
+/** PUT /api/journal-settings/offering {subjectId} : 주일미사 1인당 헌금에 쓰는 주일헌금 과목 (null 이면 안 씀) */
+export async function updateOfferingSubject({ request, env, actor }) {
+  const db = env.DB;
+  await requireSetup(db);
+  const body = await readJson(request);
+  const subjectId = body?.subjectId == null || body.subjectId === '' ? null : parseId(body.subjectId, '주일헌금 과목');
+  if (subjectId != null) {
+    const kind = await db.prepare('SELECT kind FROM budget_subjects WHERE id = ?').bind(subjectId).first('kind');
+    if (kind !== 'INCOME') throw bad('주일헌금 과목은 수입 과목에서 고르세요.');
+  }
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare(
+      `INSERT INTO journal_settings (id, offering_subject_id, updated_at, updated_by) VALUES (1, ?, ?, ?)
+       ON CONFLICT (id) DO UPDATE SET offering_subject_id = excluded.offering_subject_id, updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+    ).bind(subjectId, now, actor.email),
+    auditStatement(db, { actor: actor.email, entity: 'journal_settings', entityId: 1, action: 'UPDATE', after: { offeringSubjectId: subjectId } }),
   ]);
   return json({ ok: true });
 }

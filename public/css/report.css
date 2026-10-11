@@ -200,6 +200,12 @@ body.printing.journal-page #paper::after, body.printing.journal-page #paper2::af
   .journal-page .toolbar-actions { width: 100%; }
   .journal-page .toolbar-actions button { flex: 1; }
 }
+/* 주일미사 줄 (주일 일지, 미사 표 바로 아래) */
+.journal .sunday-sum { margin-top: -0.3mm; }
+.journal .sunday-sum th { background: #eceef1; text-align: center; white-space: nowrap; }
+.journal .sunday-sum td { text-align: center; white-space: nowrap; }
+.journal .sunday-sum b { margin-left: 1.5mm; font-variant-numeric: tabular-nums; }
+
 /* ---- 사목일지 사진 (1쪽 6번): 두 장 나란히, 사진 아래 설명 한 줄 ---- */
 .journal .photos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4mm; width: calc(100% - 0.6mm); }
 .journal .photo { border: 0.3mm solid #222; display: flex; flex-direction: column; min-width: 0; }
