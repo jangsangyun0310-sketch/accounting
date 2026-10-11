@@ -53,6 +53,7 @@ const routes = [
   ['PUT', '/api/budgets', budgets.save],
   ['GET', '/api/journal', journal.get],
   ['PUT', '/api/journal', journal.save],
+  ['PUT', '/api/journal/photo', journal.savePhoto],
   ['GET', '/api/cash-counts', cash.get],
   ['PUT', '/api/cash-counts', cash.save],
   ['GET', '/api/backup', backup.download],

@@ -1,6 +1,7 @@
 // 사목일지
 //   GET /api/journal?date=YYYY-MM-DD : 그날의 사목일지 (저장 전이면 요일별 기본 미사로 채운 빈 일지)
-//   PUT /api/journal {date, households, members, masses, sacraments, documents, notes} : 그날 사목일지를 통째로 저장
+//   PUT /api/journal {date, households, members, masses, sacraments, documents, notes, photoCaptions} : 그날 사목일지를 통째로 저장
+//   PUT /api/journal/photo {date, slot, image} : 사진 한 장 올리기 (image 가 null 이면 지우기). 고르는 즉시 저장된다
 // 회계 부분은 화면이 /api/reports/daily 로 따로 불러온다 (마감한 날만 보여 준다).
 // 총원: 직접 고친 값(households_total·members_total)이 없으면 전날 총원 + 전입 − 전출.
 //       첫 날의 전날 총원은 설정의 시작 총원.
@@ -65,10 +66,11 @@ export async function get({ env, url }) {
   const db = env.DB;
   const d = url.searchParams.get('date') || todayKST();
   if (!isValidDate(d)) throw bad('날짜 형식이 올바르지 않습니다.', 'BAD_DATE');
-  const [journal, masses, documents, schedule, parish] = await db.batch([
+  const [journal, masses, documents, photos, schedule, parish] = await db.batch([
     db.prepare('SELECT * FROM journals WHERE journal_date = ?').bind(d),
     db.prepare('SELECT mass_time, name, kind, attendance, confessions FROM journal_masses WHERE journal_date = ? ORDER BY seq').bind(d),
     db.prepare('SELECT direction, doc_no, party, title FROM journal_documents WHERE journal_date = ? ORDER BY seq').bind(d),
+    db.prepare('SELECT slot, image, caption FROM journal_photos WHERE journal_date = ? ORDER BY slot').bind(d),
     db.prepare('SELECT mass_time, name, kind FROM mass_schedule WHERE weekday = ? ORDER BY mass_time, id').bind(weekdayOf(d)),
     db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1'),
   ]);
@@ -89,6 +91,7 @@ export async function get({ env, url }) {
       : schedule.results.map((r) => row(r)),
     sacraments: Object.fromEntries(SACRAMENTS.map((k) => [k, j?.[k] ?? 0])),
     documents: documents.results.map((r) => ({ direction: r.direction, docNo: r.doc_no, party: r.party, title: r.title })),
+    photos: photos.results.map((r) => ({ slot: r.slot, image: r.image, caption: r.caption })),
     notes: j?.notes ?? '',
     updatedAt: j?.updated_at ?? null,
   });
@@ -123,6 +126,7 @@ export async function save({ request, env, actor }) {
     party: text(x?.party, `${i + 1}번째 공문서 수신·발신처`, { max: 40, required: false }),
     title: text(x?.title, `${i + 1}번째 공문서 제목`, { max: 100, required: false }),
   })).filter((x) => x.direction || x.docNo || x.party || x.title);
+  const captions = [1, 2].map((slot) => ({ slot, caption: text(body?.photoCaptions?.[slot], `${slot}번째 사진 설명`, { max: 60, required: false }) }));
   const notes = typeof body?.notes === 'string' ? body.notes.replace(/\r\n/g, '\n').trim() : '';
   if (notes.length > 5000) throw bad('특이사항은 5,000자 이내로 입력하세요.');
 
@@ -147,10 +151,34 @@ export async function save({ request, env, actor }) {
     ...documents.map((x, i) => db.prepare(
       'INSERT INTO journal_documents (journal_date, seq, direction, doc_no, party, title) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(d, i + 1, x.direction, x.docNo, x.party, x.title)),
+    ...captions.map((c) => db.prepare('UPDATE journal_photos SET caption = ? WHERE journal_date = ? AND slot = ?').bind(c.caption, d, c.slot)),
     auditStatement(db, {
       actor: actor.email, entity: 'journals', entityId: d, action: existed ? 'UPDATE' : 'CREATE',
       after: { households, members, masses: masses.length, sacraments, documents: documents.length },
     }),
   ]);
   return json({ ok: true, updatedAt: now });
+}
+
+const MAX_IMAGE = 1500000; // data URL 글자 수 (화면이 약 0.3MB 로 줄여서 보낸다)
+
+export async function savePhoto({ request, env, actor }) {
+  const db = env.DB;
+  const body = await readJson(request);
+  const d = parseDate(body?.date, '사진');
+  const slot = oneOf(body?.slot, [1, 2], '사진 자리');
+  const image = body?.image ?? null;
+  if (image !== null && (typeof image !== 'string' || !image.startsWith('data:image/jpeg;base64,'))) throw bad('사진 형식이 올바르지 않습니다.', 'BAD_IMAGE');
+  if (image && image.length > MAX_IMAGE) throw bad('사진이 너무 큽니다.', 'IMAGE_TOO_LARGE');
+  const now = new Date().toISOString();
+  await db.batch([
+    image === null
+      ? db.prepare('DELETE FROM journal_photos WHERE journal_date = ? AND slot = ?').bind(d, slot)
+      : db.prepare(
+        `INSERT INTO journal_photos (journal_date, slot, image, updated_at, updated_by) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (journal_date, slot) DO UPDATE SET image = excluded.image, updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+      ).bind(d, slot, image, now, actor.email),
+    auditStatement(db, { actor: actor.email, entity: 'journal_photos', entityId: `${d}#${slot}`, action: image === null ? 'DELETE' : 'UPDATE' }),
+  ]);
+  return json({ ok: true });
 }

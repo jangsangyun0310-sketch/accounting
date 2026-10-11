@@ -184,3 +184,27 @@ test('공문서 수발신: 빈 줄은 버리고 순서대로 저장, 구분은 �
   assert.equal((await c.api('POST', '/api/restore', old)).status, 200);
   assert.deepEqual((await c.api('GET', '/api/journal?date=2026-10-11')).body.documents, []);
 });
+
+test('사진: 두 자리에 올리고 바꾸고 지우기, 설명은 [저장] 때, 형식·자리 검증, 장부 백업에는 넣지 않는다', async () => {
+  const { api, db } = setup();
+  const img = 'data:image/jpeg;base64,' + 'A'.repeat(1000);
+  assert.equal((await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 1, image: img })).status, 200);
+  assert.equal((await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 2, image: img })).status, 200);
+  assert.equal((await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 3, image: img })).status, 400);
+  assert.equal((await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 1, image: 'data:image/png;base64,AAAA' })).status, 400);
+  assert.equal((await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 1, image: 'data:image/jpeg;base64,' + 'A'.repeat(1_500_001) })).status, 400);
+
+  await api('PUT', '/api/journal', { date: '2026-10-11', photoCaptions: { 1: ' 견진성사 ', 2: '' } });
+  let j = (await api('GET', '/api/journal?date=2026-10-11')).body;
+  assert.deepEqual(j.photos.map((p) => [p.slot, p.caption, p.image.length]), [[1, '견진성사', img.length], [2, '', img.length]]);
+
+  // 바꿔도 설명은 그대로, 지우면 그 자리만
+  await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 1, image: img + 'B' });
+  await api('PUT', '/api/journal/photo', { date: '2026-10-11', slot: 2, image: null });
+  j = (await api('GET', '/api/journal?date=2026-10-11')).body;
+  assert.deepEqual(j.photos.map((p) => [p.slot, p.caption]), [[1, '견진성사']]);
+  assert.equal(j.photos[0].image, img + 'B');
+
+  const backup = await (await worker.fetch(new Request('http://local/api/backup'), { DB: d1Adapter(db), AUTH_MODE: 'dev' })).json();
+  assert.equal('journal_photos' in backup.tables, false);
+});

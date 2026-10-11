@@ -160,22 +160,25 @@ body.report-page { background: #e9ecf0; }
 .journal .wait { border: 0.3mm dashed #888; padding: 6mm; text-align: center; color: #444; }
 .journal .wait a { margin-left: 6px; }
 .journal .sub-h { font-size: 9.5pt; margin: 2.5mm 0 1mm; font-weight: 600; }
-/* 2쪽(회계): 위에 성당 · 날짜만 한 줄, 인쇄하면 새 장에서 시작 */
-.journal .r-head2 { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 0.4mm solid #222; padding-bottom: 1.5mm; margin-bottom: 2mm; }
-.journal .r-head2 h1 { font-size: 13pt; margin: 0; letter-spacing: 0.5mm; }
+/* 2쪽(회계): 머리띠에 제목 · 성당 · 날짜, 인쇄하면 새 장에서 시작 */
+.journal .r-head2 { display: flex; align-items: baseline; justify-content: space-between; }
+.journal .r-head2 h1 { margin: 0; }
 .journal .r-head2 h1 small { font-size: 10pt; letter-spacing: 0; font-weight: 600; }
-.journal .r-head2 span { font-size: 9.5pt; }
 .journal-page .paper.page2 { margin-top: 0; }
+/* 쪽 번호: 인쇄하면 용지 아래 여백(@page)에 "1 / 2" 가 찍히고, 화면에서도 종이 아래에 같은 모양으로 보여 준다 */
+.journal-page .paper { position: relative; }
+.journal-page #paper::after, .journal-page #paper2::after {
+  position: absolute; left: 0; right: 0; bottom: 7mm; text-align: center; font-size: 8pt; color: #555;
+}
+.journal-page #paper::after { content: "1 / 2"; }
+.journal-page #paper2::after { content: "2 / 2"; }
+body.printing.journal-page #paper::after, body.printing.journal-page #paper2::after { content: none; }
+@media print { .journal-page #paper::after, .journal-page #paper2::after { content: none; } }
 .journal-page .report-toolbar #save { padding: 8px 22px; }
 .journal-page .report-toolbar #print { padding: 8px 18px; }
-@media print {
-  .journal input.cell, .journal select.cell { background: none; }
-  .journal select.cell { appearance: none; -webkit-appearance: none; }
-  .journal .notes-print { display: block; white-space: pre-wrap; min-height: 20mm; border: 0.3mm solid #222; padding: 1.5mm 2mm; line-height: 1.5; width: calc(100% - 0.6mm); }
-}
 @media screen and (max-width: 720px) {
   /* 휴대폰: 종이를 줄이지 않고 화면 폭에 맞춰 입력하기 좋게 */
-  .journal-page .paper { width: auto; min-height: 0; padding: 12px; margin: 8px; }
+  .journal-page .paper { width: auto; min-height: 0; padding: 12px 12px 30px; margin: 8px; }
   .journal-page .r-head { flex-direction: column; gap: 3mm; }
   .journal-page .r-cols { grid-template-columns: 1fr; }
   .journal-page .report { font-size: 13px; }
@@ -193,17 +196,45 @@ body.report-page { background: #e9ecf0; }
   .journal-page .toolbar-actions { width: 100%; }
   .journal-page .toolbar-actions button { flex: 1; }
 }
-/* 사목일지 인쇄: 보통 하루치가 A4 한 장에 들어가도록 간격을 조금 줄인다 */
+/* ---- 사목일지 사진 (1쪽 6번): 두 장 나란히, 사진 아래 설명 한 줄 ---- */
+.journal .photos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4mm; width: calc(100% - 0.6mm); }
+.journal .photo { border: 0.3mm solid #222; display: flex; flex-direction: column; min-width: 0; }
+.journal .photo .frame { height: var(--photo-h, 62mm); min-width: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff; position: relative; }
+.journal .photo .frame img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.journal .photo .frame .nil { font-size: 14pt; }
+.journal .photo .frame .add { position: absolute; inset: 0; margin: auto; width: max-content; height: max-content; }
+.journal .photo .caption-row { border-top: 0.3mm solid #222; }
+.journal .photo .caption-row input.cell { text-align: left; }
+.journal .photo .tools { position: absolute; right: 1.5mm; top: 1.5mm; display: flex; gap: 4px; }
+.journal .photo .tools button { font-size: 11px; padding: 2px 8px; background: rgba(255, 255, 255, .9); }
+
+/* ---- 2쪽(회계): 1쪽과 분명히 구별되는 머리띠, 줄 간격 넉넉하게 ---- */
+.journal .r-head2 { border: 0.5mm solid #222; background: #eceef1; padding: 2.5mm 4mm; margin-bottom: 4mm; }
+.journal .r-head2 h1 { font-size: 15pt; letter-spacing: 1mm; }
+.journal .r-head2 span { font-size: 10pt; font-weight: 600; }
+.journal .page2-sheet h2 { margin: 4mm 0 1.5mm; }
+.journal .page2-sheet .sub-h { margin: 3.5mm 0 1.2mm; font-size: 10pt; }
+.journal .page2-sheet .r-table th, .journal .page2-sheet .r-table td { padding-top: 1.1mm; padding-bottom: 1.1mm; }
+
+/*
+ * 사목일지 인쇄: 인쇄 직전 화면이 body 에 printing 을 붙인다 (journal.js).
+ * @media print 대신 이 표시에 맞춘 규칙이라, 인쇄 모양 그대로 높이를 재서 각 장이 A4 한 장을 넘으면 줄인다.
+ */
+body.printing .no-print { display: none !important; }
+body.printing .journal input.cell, body.printing .journal select.cell { background: none; }
+body.printing .journal select.cell { appearance: none; -webkit-appearance: none; }
+body.printing .journal .notes-print { display: block; white-space: pre-wrap; min-height: 24mm; border: 0.3mm solid #222; padding: 1mm 2mm; line-height: 1.5; width: calc(100% - 0.6mm); } /* 4줄 정도 */
+body.printing .journal .sheet1 h2 { margin: 2mm 0 0.6mm; font-size: 10pt; }
+body.printing .journal .sheet1 .r-table th, body.printing .journal .sheet1 .r-table td { padding-top: 0.25mm; padding-bottom: 0.25mm; }
+body.printing .journal .r-head { margin-bottom: 2mm; }
+body.printing .journal table.approval-box td { height: 15mm; }
+body.printing .journal .r-title h1 { font-size: 16pt; margin-bottom: 1mm; }
+body.printing .journal .r-meta th, body.printing .journal .r-meta td { padding-top: 0.3mm; padding-bottom: 0.3mm; }
+body.printing .journal .r-grand { margin-top: 1mm; }
+body.printing .journal .photo .caption-row input.cell::placeholder { color: #000; }
+body.printing .journal .r-head2 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 @media print {
-  .journal h2 { margin: 2mm 0 0.6mm; font-size: 10pt; }
-  .journal .sub-h { margin: 1.2mm 0 0.5mm; font-size: 9pt; }
-  .journal .r-table th, .journal .r-table td { padding-top: 0.25mm; padding-bottom: 0.25mm; }
-  .journal .r-head { margin-bottom: 2mm; }
-  .journal table.approval-box td { height: 15mm; }
-  .journal .r-title h1 { font-size: 16pt; margin-bottom: 1mm; }
-  .journal .r-meta th, .journal .r-meta td { padding-top: 0.3mm; padding-bottom: 0.3mm; }
-  .journal .r-grand { margin-top: 1mm; }
-  .journal .notes-print { min-height: 80mm; padding: 1mm 2mm; } /* 회계가 2쪽으로 가서 1쪽에 자리가 넉넉하다 */
   .journal-page .paper.page2 { break-before: page; }
   .journal .r-cols { break-inside: avoid; }
+}
 }

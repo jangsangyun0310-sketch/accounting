@@ -1,7 +1,9 @@
 // 사목일지: A4 종이 위 노란 칸에 바로 입력하고 [저장], 인쇄하면 입력한 글자만 나온다.
 //   1. 신자 현황 (세대·인원: 전입 · 전출 · 현재 총원 — 총원은 전날 총원 + 전입 − 전출, 직접 고칠 수 있음)
 //   2. 미사 (저장 전에는 설정의 요일별 기본 미사로 채움)  3. 성사  4. 공문서 수발신  5. 특이사항
-//   6. 회계 (그날 일 마감을 해야 불러온다) — 2쪽에 따로 (인쇄하면 새 장)
+//   6. 사진 (두 장, 고르는 즉시 저장 — 설명은 [저장] 때)
+//   7. 회계 (그날 일 마감을 해야 불러온다) — 2쪽에 따로 (인쇄하면 새 장)
+// 인쇄: 1쪽(사진까지)과 2쪽(회계)이 각각 A4 한 장에 들어가도록, 넘치면 사진 → 전체 순서로 줄인다.
 // 내용이 없는 칸에는 가운데 점(·)이 보이고 그대로 인쇄된다.
 import { href } from './base.js';
 import { api, esc } from './api.js';
@@ -40,7 +42,7 @@ function render(j, day) {
   document.title = `사목일지 ${j.date} - 본당살림`;
   setState();
   paper.innerHTML = `
-    <article class="report journal">
+    <article class="report journal sheet1">
       <div class="r-head ${j.approvalSteps.length > 4 ? 'stacked' : ''}">
         <div class="r-title">
           <h1>사 목 일 지</h1>
@@ -91,15 +93,17 @@ function render(j, day) {
       <textarea class="cell notes no-print" id="notes" maxlength="5000" placeholder="그날 있었던 일을 자유롭게 적습니다">${esc(j.notes)}</textarea>
       <div class="notes-print" id="notes-print"></div>
 
+      <h2>6. 사진</h2>
+      <div class="photos" id="photos">${[1, 2].map((slot) => photoSlot(slot, j.photos.find((x) => x.slot === slot))).join('')}</div>
     </article>`;
   paper2.hidden = false;
   paper2.innerHTML = `
-    <article class="report journal">
+    <article class="report journal page2-sheet">
       <div class="r-head2">
-        <h1>사 목 일 지 <small>(회계)</small></h1>
+        <h1>사 목 일 지 <small>· 회계</small></h1>
         <span>${esc(j.parishName)} · ${formatKoreanDate(j.date)}</span>
       </div>
-      <h2>6. 회계</h2>
+      <h2>7. 회계</h2>
       ${accountingHtml(day)}
     </article>`;
   for (const t of paper.querySelectorAll('#members tbody tr')) updateTotal(t);
@@ -107,6 +111,63 @@ function render(j, day) {
   syncNotes();
   fitNotes();
 }
+
+/** 사진 한 자리: 사진이 있으면 사진 + 설명 칸, 없으면 가운데 점과 [+ 사진 추가] */
+function photoSlot(slot, photo) {
+  return `<div class="photo" data-slot="${slot}">
+    <div class="frame">${photo
+      ? `<img src="${photo.image}" alt="사진 ${slot}">
+         <span class="tools no-print"><button type="button" class="secondary photo-pick">바꾸기</button><button type="button" class="secondary photo-del">✕ 지우기</button></span>`
+      : `<span class="nil">·</span><button type="button" class="photo-pick add no-print">+ 사진 추가</button>`}</div>
+    <div class="caption-row"><input class="cell photo-caption" maxlength="60" placeholder="·" title="사진 설명 (선택)" ${photo ? '' : 'disabled'}
+      value="${esc(photo?.caption ?? '')}" aria-label="사진 ${slot} 설명"></div>
+  </div>`;
+}
+
+/** 휴대폰 사진(수 MB)을 긴 쪽 1600px JPEG 로 줄인다 (약 0.3MB) */
+async function shrinkPhoto(file) {
+  const bitmap = await createImageBitmap(file).catch(() => { throw new Error('사진 파일을 열 수 없습니다. JPG · PNG 사진을 골라 주세요.'); });
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  for (const q of [0.82, 0.7, 0.55]) {
+    const url = canvas.toDataURL('image/jpeg', q);
+    if (url.length < 1_400_000) return url;
+  }
+  throw new Error('사진이 너무 큽니다.');
+}
+
+const photoInput = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
+document.body.append(photoInput);
+let photoSlotPicking = null;
+
+/** 사진 바꾸기·지우기는 바로 저장하고 그 자리만 다시 그린다 (다른 칸에 입력 중인 내용은 그대로) */
+async function setPhoto(slot, image) {
+  const date = journal.date;
+  await api('/api/journal/photo', { method: 'PUT', body: { date, slot, image } });
+  if (journal.date !== date) return;
+  const keep = paper.querySelector(`.photo[data-slot="${slot}"] .photo-caption`)?.value ?? '';
+  journal.photos = journal.photos.filter((x) => x.slot !== slot);
+  if (image) journal.photos.push({ slot, image, caption: keep });
+  paper.querySelector(`.photo[data-slot="${slot}"]`).outerHTML = photoSlot(slot, image ? { image, caption: keep } : null);
+  toast(image ? '사진을 저장했습니다.' : '사진을 지웠습니다.');
+}
+
+photoInput.addEventListener('change', async () => {
+  const file = photoInput.files[0];
+  photoInput.value = '';
+  if (!file || !photoSlotPicking) return;
+  try {
+    await setPhoto(photoSlotPicking, await shrinkPhoto(file));
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+});
 
 function totalRow(key, label, t) {
   const manual = t.total != null;
@@ -222,6 +283,7 @@ function collect() {
       party: tr.querySelector('.d-party').value,
       title: tr.querySelector('.d-title').value,
     })),
+    photoCaptions: Object.fromEntries([...paper.querySelectorAll('.photo')].map((el) => [el.dataset.slot, el.querySelector('.photo-caption').value])),
     sacraments: Object.fromEntries([...paper.querySelectorAll('.sac')].map((i) => [i.dataset.key, num(i.value)])),
     notes: $('notes').value,
   };
@@ -303,6 +365,17 @@ paper.addEventListener('click', (e) => {
     paper.querySelector('#documents tbody tr:last-child .d-dir').focus();
     markDirty();
   }
+  const pick = e.target.closest('.photo-pick');
+  if (pick) {
+    photoSlotPicking = Number(pick.closest('.photo').dataset.slot);
+    photoInput.click();
+    return;
+  }
+  const photoDel = e.target.closest('.photo-del');
+  if (photoDel) {
+    if (confirm('이 사진을 지울까요?')) setPhoto(Number(photoDel.closest('.photo').dataset.slot), null).catch((err) => toast(err.message, 'error'));
+    return;
+  }
   const del = e.target.closest('.row-del');
   if (del) {
     const tbody = del.closest('tbody');
@@ -346,7 +419,42 @@ const printedAt = document.createElement('style');
 document.head.append(printedAt);
 window.addEventListener('beforeprint', () => {
   printedAt.textContent = `@page { @bottom-right { content: "출력 일시 ${formatDateTimeKST(new Date().toISOString())}"; font-size: 8pt; color: #555; } }`;
+  fitForPrint();
 });
+window.addEventListener('afterprint', clearPrintFit);
+
+// ---------------------------------------------------------------- 인쇄: 장마다 A4 한 장
+// A4(297mm)에서 위·아래 여백(15mm + 17mm)을 뺀 높이보다 조금 작게 잡는다.
+const PAGE_MM = 260;
+const PHOTO_MM = { normal: 62, min: 38 };
+const mm = (n) => (n * 96) / 25.4;
+
+/** body.printing (인쇄 모양) 으로 바꾼 뒤 각 장의 높이를 재서, 넘치면 사진을 줄이고 그래도 넘치면 장 전체를 줄인다 */
+function fitForPrint() {
+  document.body.classList.add('printing');
+  for (const sheet of document.querySelectorAll('.journal-page .paper .report')) {
+    sheet.style.zoom = '';
+    sheet.style.removeProperty('--photo-h');
+    const limit = mm(PAGE_MM);
+    let h = sheet.getBoundingClientRect().height;
+    if (h <= limit) continue;
+    const photos = sheet.querySelector('.photos');
+    if (photos) {
+      const room = mm(PHOTO_MM.normal) - (h - limit); // 사진을 이만큼 줄이면 들어간다
+      sheet.style.setProperty('--photo-h', `${Math.max(mm(PHOTO_MM.min), room)}px`);
+      h = sheet.getBoundingClientRect().height;
+    }
+    if (h > limit) sheet.style.zoom = String(Math.floor((limit / h) * 1000) / 1000);
+  }
+}
+
+function clearPrintFit() {
+  document.body.classList.remove('printing');
+  for (const sheet of document.querySelectorAll('.journal-page .paper .report')) {
+    sheet.style.zoom = '';
+    sheet.style.removeProperty('--photo-h');
+  }
+}
 
 initPage('journal').then(() => {
   const d = new URLSearchParams(location.search).get('date');
