@@ -99,10 +99,6 @@ function render(j, day) {
   paper2.hidden = false;
   paper2.innerHTML = `
     <article class="report journal page2-sheet">
-      <div class="r-head2">
-        <h1>사 목 일 지 <small>· 회계</small></h1>
-        <span>${esc(j.parishName)} · ${formatKoreanDate(j.date)}</span>
-      </div>
       <h2>7. 회계</h2>
       ${accountingHtml(day)}
     </article>`;
