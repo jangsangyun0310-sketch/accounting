@@ -9,8 +9,6 @@ export const FUND_SHORT = { GENERAL: '일반', SPECIAL: '특별' };
 const amt = (n, { cls = '', signed = false } = {}) => (n
   ? `<td class="amt ${cls}">${signed ? signedWon(n) : formatWon(n)}</td>`
   : '<td class="amt nil">·</td>');
-/** 통장 칸이 사무실 현금이면 금색 칸 */
-const cashName = (name) => `<td class="cash-cell">${esc(name)}</td>`;
 /** 글자 칸: 비어 있으면 가운데 점 */
 const txt = (v) => (v ? `<td>${esc(v)}</td>` : '<td class="nil">·</td>');
 
@@ -38,7 +36,7 @@ export function detailTable(section, label, { voucher = true } = {}) {
       <colgroup><col style="width:8mm"><col style="width:10mm"><col style="width:${voucher ? 34 : 38}mm"><col style="width:${voucher ? 26 : 30}mm"><col>${voucher ? '<col style="width:22mm">' : ''}<col style="width:${voucher ? 25 : 27}mm"></colgroup>
       <thead><tr><th class="no">No</th><th>회계</th><th>통장</th><th>예산과목</th><th>적요</th>${voucher ? '<th>증빙번호</th>' : ''}<th>금액</th></tr></thead>
       <tbody>${section.rows.length ? section.rows.map((t, i) => `
-        <tr><td class="no">${i + 1}</td><td class="fund-col">${FUND_SHORT[t.fundCode]}</td>${t.accountIsCash ? cashName(t.accountName) : txt(t.accountName)}
+        <tr><td class="no">${i + 1}</td><td class="fund-col">${FUND_SHORT[t.fundCode]}</td>${txt(t.accountName)}
           ${txt(t.subjectName)}${txt(t.memo)}${voucher ? `${txt(t.voucherNo)}` : ''}
           ${amt(t.amount)}</tr>`).join('')
         : `<tr><td colspan="${cols}" class="empty">${label} 내역 없음</td></tr>`}
@@ -56,8 +54,8 @@ export function transferTable(r, { voucher = true } = {}) {
       <thead><tr><th class="no">No</th><th>출금 통장</th><th>입금 통장</th><th>적요</th>${voucher ? '<th>증빙번호</th>' : ''}<th>금액</th></tr></thead>
       <tbody>${r.transfers.rows.map((t, i) => `
         <tr><td class="no">${i + 1}</td>
-          <td class="${t.fromIsCash ? 'cash-cell' : ''}">${esc(t.fromName)} <span class="fund">${FUND_SHORT[t.fromFund]}</span></td>
-          <td class="${t.toIsCash ? 'cash-cell' : ''}">${esc(t.toName)} <span class="fund">${FUND_SHORT[t.toFund] ?? ''}</span></td>
+          <td>${esc(t.fromName)} <span class="fund">${FUND_SHORT[t.fromFund]}</span></td>
+          <td>${esc(t.toName)} <span class="fund">${FUND_SHORT[t.toFund] ?? ''}</span></td>
           ${txt(t.memo)}${voucher ? `${txt(t.voucherNo)}` : ''}${amt(t.amount)}</tr>`).join('')}
       </tbody>
       <tfoot><tr><td colspan="${voucher ? 5 : 4}">이체 합계 (${r.transfers.rows.length}건)</td>${amt(r.transfers.total)}</tr></tfoot>
