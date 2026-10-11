@@ -20,6 +20,7 @@ function commonFields(body) {
 function normalInput(body) {
   return {
     ...commonFields(body),
+    payer: text(body?.payer, '납부자', { max: 30, required: false }),
     direction: oneOf(body?.direction, ['IN', 'OUT'], '수입/지출 구분'),
     accountId: parseId(body?.accountId, '통장'),
     subjectId: parseId(body?.subjectId, '예산과목'),
@@ -54,6 +55,18 @@ function insertTransferHalf(db, t, direction, accountId, group, actor, now, id =
                                created_at, created_by)
      VALUES (?, ?, 'TRANSFER', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   ).bind(id, t.date, direction, accountId, group, t.amount, t.memo, t.voucherNo, now, actor);
+}
+
+/**
+ * 납부자: 특별회계 통장의 수입일 때만 넣는다 (그 밖이면 이름을 적어 보내도 넣지 않음).
+ * id 가 없으면 바로 앞에서 넣은 거래 (last_insert_rowid). tx_payers 의 tx_id 가 rowid 라 다음 내부 기록의 'last' 도 같은 거래 번호다.
+ */
+function insertPayer(db, payer, actor, now, id = null) {
+  return db.prepare(
+    `INSERT INTO tx_payers (tx_id, payer, updated_at, updated_by)
+     SELECT t.id, ?, ?, ? FROM transactions t JOIN accounts a ON a.id = t.account_id JOIN funds f ON f.id = a.fund_id
+     WHERE t.id = COALESCE(?, last_insert_rowid()) AND t.kind = 'NORMAL' AND t.direction = 'IN' AND f.code = 'SPECIAL'`
+  ).bind(payer, now, actor, id);
 }
 
 const createAudit = (db, actor) => auditRowStatement(db, { actor, action: 'CREATE', table: 'transactions', id: 'last' });
@@ -117,7 +130,12 @@ export async function search({ env, url }) {
 export async function create({ request, env, actor }) {
   const t = normalInput(await readJson(request));
   const db = env.DB;
-  const [created] = await db.batch([insertNormal(db, t, actor.email, new Date().toISOString()), createAudit(db, actor.email)]);
+  const now = new Date().toISOString();
+  const [created] = await db.batch([
+    insertNormal(db, t, actor.email, now),
+    ...(t.payer ? [insertPayer(db, t.payer, actor.email, now)] : []),
+    createAudit(db, actor.email),
+  ]);
   return json({ ok: true, id: created.results[0].id }, 201);
 }
 
@@ -145,8 +163,50 @@ export async function update({ request, env, actor, params }) {
   const input = target.kind === 'NORMAL' ? normalInput(body) : transferInput(body);
   const now = new Date().toISOString();
   const statements = await deleteStatements(db, target, actor.email);
-  if (target.kind === 'NORMAL') statements.push(insertNormal(db, input, actor.email, now, target.ids[0]), createAudit(db, actor.email));
+  if (target.kind === 'NORMAL') {
+    statements.push(insertNormal(db, input, actor.email, now, target.ids[0]));
+    if (input.payer) statements.push(insertPayer(db, input.payer, actor.email, now, target.ids[0]));
+    statements.push(createAudit(db, actor.email));
+  }
   else statements.push(...transferStatements(db, input, actor.email, now, target.ids));
   await db.batch(statements);
   return json({ ok: true });
+}
+
+/**
+ * PUT /api/transactions/:id/payer {payer} : 납부자 이름만 고치기. 마감한 날도 된다 (금액·통장·날짜는 그대로).
+ * 비우면 지운다. 특별회계 수입이 아니면 거부.
+ */
+export async function setPayer({ request, env, actor, params }) {
+  const db = env.DB;
+  const id = parseId(params.id, '거래 번호');
+  const payer = text((await readJson(request))?.payer, '납부자', { max: 30, required: false });
+  const row = await db.prepare(
+    `SELECT t.kind, t.direction, f.code AS fund_code FROM transactions t
+     JOIN accounts a ON a.id = t.account_id JOIN funds f ON f.id = a.fund_id WHERE t.id = ? AND t.status = 'POSTED'`
+  ).bind(id).first();
+  if (!row) throw new ApiError(404, 'NOT_FOUND', '거래를 찾을 수 없습니다. 화면을 새로고침하세요.');
+  if (row.kind !== 'NORMAL' || row.direction !== 'IN' || row.fund_code !== 'SPECIAL') {
+    throw bad('납부자는 특별회계 수입에만 적을 수 있습니다.', 'PAYER_NOT_ALLOWED');
+  }
+  const before = await db.prepare('SELECT payer FROM tx_payers WHERE tx_id = ?').bind(id).first('payer');
+  const now = new Date().toISOString();
+  await db.batch([
+    payer
+      ? db.prepare(
+        `INSERT INTO tx_payers (tx_id, payer, updated_at, updated_by) VALUES (?, ?, ?, ?)
+         ON CONFLICT (tx_id) DO UPDATE SET payer = excluded.payer, updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+      ).bind(id, payer, now, actor.email)
+      : db.prepare('DELETE FROM tx_payers WHERE tx_id = ?').bind(id),
+    auditStatement(db, { actor: actor.email, entity: 'tx_payers', entityId: id, action: 'UPDATE', before: { payer: before ?? '' }, after: { payer } }),
+  ]);
+  return json({ ok: true });
+}
+
+/** GET /api/payers : 지금까지 적은 납부자 이름 (최근에 쓴 순, 입력 칸 자동 완성용) */
+export async function payers({ env }) {
+  const { results } = await env.DB.prepare(
+    'SELECT payer FROM tx_payers GROUP BY payer ORDER BY MAX(tx_id) DESC LIMIT 2000'
+  ).all();
+  return json({ payers: results.map((r) => r.payer) });
 }

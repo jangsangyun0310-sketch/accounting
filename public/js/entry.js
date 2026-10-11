@@ -47,6 +47,23 @@ function setSelect(select, html, value) {
   if (value != null && select.querySelector(`option[value="${value}"]`)) select.value = String(value);
 }
 
+/**
+ * 납부자 칸: 특별회계 통장의 수입일 때만 (교무금·봉헌권 등 일반회계는 양업시스템에서 관리).
+ * 개인별 납부(연말정산 준비)에 쓰인다.
+ */
+function updatePayerField() {
+  const account = settings.accounts.find((a) => a.id === Number($('account').value));
+  const show = kind === 'IN' && account?.fundCode === 'SPECIAL';
+  $('payer-field').hidden = !show;
+  if (!show) $('payer').value = '';
+}
+
+/** 전에 적은 납부자 이름 (자동 완성) */
+async function loadPayers() {
+  const { payers } = await api('/api/payers');
+  $('payer-list').innerHTML = payers.map((p) => `<option value="${esc(p)}">`).join('');
+}
+
 /** 구분 전환: 해당 구분에 맞는 입력칸과 마지막으로 쓴 통장·과목을 보여준다 */
 function setKind(next, values = prefs[next] ?? {}) {
   kind = next;
@@ -67,6 +84,7 @@ function setKind(next, values = prefs[next] ?? {}) {
     setSelect($('account'), accountOptions(values.accountId), values.accountId);
     setSelect($('subject'), subjectOptions(kind === 'IN' ? 'INCOME' : 'EXPENSE', values.subjectId), values.subjectId);
   }
+  updatePayerField();
 }
 
 // ---------------------------------------------------------------- 하루 현황
@@ -182,7 +200,7 @@ function rowHtml(r, index) {
       <td class="small">${fund}</td>
       <td>${isTransfer ? `${esc(r.fromName)} → ${esc(r.toName ?? '')}` : esc(r.accountName)}</td>
       <td>${esc(r.subjectName ?? '')}</td>
-      <td>${esc(r.memo)}</td>
+      <td>${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : ''}${esc(r.memo)}</td>
       <td>${esc(r.voucherNo)}</td>
       <td class="num">${r.type === 'IN' ? formatWon(r.amount) : ''}</td>
       <td class="num">${r.type === 'OUT' ? formatWon(r.amount) : ''}</td>
@@ -203,6 +221,7 @@ function visibleFields() {
 function resetForNext(voucher = nextVoucher($('voucher').value)) {
   $('amount').value = '';
   $('memo').value = '';
+  $('payer').value = '';
   $('voucher').value = voucher;
   $('amount').focus();
 }
@@ -236,6 +255,7 @@ async function save() {
     body.direction = kind;
     body.accountId = Number($('account').value);
     body.subjectId = Number($('subject').value);
+    if (!$('payer-field').hidden) body.payer = $('payer').value;
     if (!body.accountId || !body.subjectId) {
       toast('통장과 예산과목을 선택하세요.', 'error');
       return;
@@ -260,6 +280,7 @@ async function save() {
       resetForNext();
     }
     await loadDay();
+    if (body.payer) loadPayers().catch(() => {});
   } catch (err) {
     toast(err.message, 'error');
   } finally {
@@ -276,6 +297,7 @@ function startEdit(row) {
     : { accountId: row.accountId, subjectId: row.subjectId });
   $('amount').value = formatWon(row.amount);
   $('memo').value = row.memo;
+  $('payer').value = row.payer ?? '';
   $('voucher').value = row.voucherNo;
   $('edit-label').textContent = `#${row.id} ${{ IN: '수입', OUT: '지출', TRANSFER: '이체' }[row.type]} 거래를`;
   $('edit-banner').hidden = false;
@@ -294,6 +316,7 @@ function endEdit(restore = true) {
     setKind(beforeEdit?.kind ?? kind);
     $('amount').value = '';
     $('memo').value = '';
+    $('payer').value = '';
     $('voucher').value = beforeEdit?.voucher ?? '';
     renderLock();
     renderList();
@@ -328,6 +351,7 @@ function changeDate(next) {
 }
 
 $('date').addEventListener('change', () => changeDate($('date').value));
+$('account').addEventListener('change', updatePayerField);
 $('prev-day').addEventListener('click', () => changeDate(addDays($('date').value, -1)));
 $('next-day').addEventListener('click', () => changeDate(addDays($('date').value, 1)));
 $('today').addEventListener('click', () => changeDate(todayKST()));
@@ -385,6 +409,7 @@ initPage('entry').then(async (ctx) => {
   $('date').value = start;
   $('date').min = settings.parish.startDate;
   setKind('IN');
+  loadPayers().catch(() => {});
   await loadDay();
   visibleFields()[0]?.focus();
 }).catch((err) => {

@@ -13,7 +13,8 @@ export const TX_SELECT = `
            WHERE p.transfer_group = t.transfer_group AND p.id <> t.id) AS counterpart_name,
          t.amount, t.memo, t.voucher_no, t.status, t.replaces_id,
          (SELECT r.id FROM transactions r WHERE r.replaces_id = t.id) AS replaced_by_id,
-         t.void_reason, t.voided_at, t.voided_by, t.created_at, t.created_by
+         t.void_reason, t.voided_at, t.voided_by, t.created_at, t.created_by,
+         (SELECT py.payer FROM tx_payers py WHERE py.tx_id = t.id) AS payer
   FROM transactions t
   JOIN accounts a ON a.id = t.account_id
   JOIN funds f ON f.id = a.fund_id
@@ -36,6 +37,7 @@ export function mapTx(r) {
     amount: assertInteger(r.amount),
     memo: r.memo,
     voucherNo: r.voucher_no,
+    payer: r.payer ?? '', // 납부자 (특별회계 수입만)
     status: r.status,
     replacesId: r.replaces_id,
     replacedById: r.replaced_by_id,
@@ -192,8 +194,9 @@ export async function searchTransactions(db, f, limit = 2000) {
   where.push("t.status = 'POSTED'");
   if (f.q) {
     const like = `%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    where.push("(t.memo LIKE ? ESCAPE '\\' OR t.voucher_no LIKE ? ESCAPE '\\')");
-    binds.push(like, like);
+    where.push("(t.memo LIKE ? ESCAPE '\\' OR t.voucher_no LIKE ? ESCAPE '\\'"
+      + " OR EXISTS (SELECT 1 FROM tx_payers py WHERE py.tx_id = t.id AND py.payer LIKE ? ESCAPE '\\'))");
+    binds.push(like, like, like);
   }
   const { results } = await db.prepare(`${TX_SELECT} WHERE ${where.join(' AND ')} ORDER BY t.tx_date, t.id LIMIT ?`)
     .bind(...binds, limit + 1).all();

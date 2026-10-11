@@ -45,6 +45,15 @@ async function search() {
 
 let last = null; // Excel 로 내려받을 마지막 조회 결과
 
+/** 특별회계 수입이면 납부자 + [이름 고치기] (마감한 날도 이름만은 고칠 수 있다) */
+const canHavePayer = (r) => r.kind === 'NORMAL' && r.direction === 'IN' && r.fundCode === 'SPECIAL';
+function payerCell(r) {
+  if (!canHavePayer(r)) return '';
+  return `<div class="payer-row" data-id="${r.id}">
+    ${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : '<span class="muted small">납부자 없음</span>'}
+    <button type="button" class="link-btn payer-edit">이름 고치기</button></div>`;
+}
+
 function render(data, byAccount) {
   last = { data, byAccount };
   const showBalance = byAccount && data.rows.some((r) => r.balanceAfter != null);
@@ -58,7 +67,7 @@ function render(data, byAccount) {
         <td><span class="badge ${r.kind === 'TRANSFER' ? 'transfer' : isIn ? 'in' : 'out'}">${typeLabel(r)}</span></td>
         <td>${esc(r.accountName)} <span class="muted small">${FUND_LABEL[r.fundCode]}</span></td>
         <td>${target}</td>
-        <td>${esc(r.memo)}</td>
+        <td>${esc(r.memo)}${payerCell(r)}</td>
         <td>${esc(r.voucherNo)}</td>
         <td class="num">${isIn ? formatWon(r.amount) : ''}</td>
         <td class="num">${!isIn ? formatWon(r.amount) : ''}</td>
@@ -96,16 +105,52 @@ $('filters').addEventListener('click', (e) => {
 });
 $('search').addEventListener('click', search);
 
+// 납부자 이름 고치기: 그 자리에서 입력칸으로 바꿔 저장
+$('result').addEventListener('click', async (e) => {
+  const box = e.target.closest('.payer-row');
+  if (!box) return;
+  const row = last?.data.rows.find((r) => r.id === Number(box.dataset.id));
+  if (e.target.closest('.payer-edit')) {
+    box.innerHTML = `<input class="payer-input" maxlength="30" list="payer-list" value="${esc(row?.payer ?? '')}" aria-label="납부자">
+      <button type="button" class="small payer-save">저장</button><button type="button" class="secondary small payer-cancel">취소</button>`;
+    box.querySelector('input').focus();
+    if (!$('payer-list')) {
+      const list = Object.assign(document.createElement('datalist'), { id: 'payer-list' });
+      document.body.append(list);
+      api('/api/payers').then(({ payers }) => { list.innerHTML = payers.map((p) => `<option value="${esc(p)}">`).join(''); }).catch(() => {});
+    }
+    return;
+  }
+  if (e.target.closest('.payer-cancel')) { box.outerHTML = payerCell(row); return; }
+  if (e.target.closest('.payer-save')) {
+    const payer = box.querySelector('input').value.trim();
+    try {
+      await api(`/api/transactions/${row.id}/payer`, { method: 'PUT', body: { payer } });
+      row.payer = payer;
+      box.outerHTML = payerCell(row);
+      toast('납부자를 고쳤습니다.');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+});
+$('result').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList.contains('payer-input') && !e.isComposing) {
+    e.preventDefault();
+    e.target.closest('.payer-row').querySelector('.payer-save').click();
+  }
+});
+
 // 조회 결과를 Excel 로: 날짜·구분·통장·회계·과목·적요·증빙·입금·출금·(잔액)·입력자, 맨 아래 합계
 $('result').addEventListener('click', (e) => {
   if (!e.target.closest('#excel') || !last) return;
   const { data, byAccount } = last;
   const showBalance = byAccount && data.rows.some((r) => r.balanceAfter != null);
-  const head = ['날짜', '구분', '통장', '회계', '과목·상대통장', '적요', '증빙', '입금', '출금', ...(showBalance ? ['잔액'] : []), '입력자'];
+  const head = ['날짜', '구분', '통장', '회계', '과목·상대통장', '적요', '납부자', '증빙', '입금', '출금', ...(showBalance ? ['잔액'] : []), '입력자'];
   const rows = [head];
   if (data.openingBalance != null) {
     rows.push(showBalance
-      ? [`이월 잔액 (${$('from').value} 이전)`, null, null, null, null, null, null, null, null, data.openingBalance]
+      ? [`이월 잔액 (${$('from').value} 이전)`, null, null, null, null, null, null, null, null, null, data.openingBalance]
       : [`이월 잔액 (${$('from').value} 이전): ${formatWon(data.openingBalance)}원`]);
   }
   for (const r of data.rows) {
@@ -113,7 +158,7 @@ $('result').addEventListener('click', (e) => {
     rows.push([
       r.date, typeLabel(r), r.accountName, FUND_LABEL[r.fundCode],
       r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${r.counterpartName ?? ''}` : (r.subjectName ?? ''),
-      r.memo ?? '', r.voucherNo ?? '', isIn ? r.amount : null, isIn ? null : r.amount,
+      r.memo ?? '', r.payer ?? '', r.voucherNo ?? '', isIn ? r.amount : null, isIn ? null : r.amount,
       ...(showBalance ? [r.balanceAfter] : []), r.createdBy ?? '',
     ]);
   }
@@ -123,7 +168,7 @@ $('result').addEventListener('click', (e) => {
     { v: `수입 ${formatWon(t.income)} · 지출 ${formatWon(t.expense)} · 이체입금 ${formatWon(t.transferIn)} · 이체출금 ${formatWon(t.transferOut)}`, bold: true }]);
   downloadXlsx(`본당살림 거래조회 ${$('from').value}~${$('to').value}.xlsx`, [{
     name: '거래 조회', header: 1, rows,
-    widths: [12, 10, 16, 10, 18, 30, 10, 13, 13, ...(showBalance ? [14] : []), 24],
+    widths: [12, 10, 16, 10, 18, 30, 16, 10, 13, 13, ...(showBalance ? [14] : []), 24],
   }]);
 });
 $('filters').addEventListener('keydown', (e) => {

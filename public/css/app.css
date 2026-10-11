@@ -194,6 +194,9 @@ kbd {
 .entry-fields .f-amount input { font-size: 17px; font-weight: 600; }
 .entry-fields .f-memo { flex: 2 1 220px; }
 .entry-fields .f-voucher { flex: 0 1 120px; }
+.entry-fields .f-payer { flex: 1 1 160px; }
+.entry-fields .f-payer[hidden] { display: none; }
+.payer-name { display: inline-block; font-size: 12px; color: #6b4a00; background: #fff5d6; border-radius: 4px; padding: 0 6px; margin-right: 4px; }
 .entry-fields .f-reason { flex: 1 1 200px; }
 .entry-fields .save { padding: 8px 20px; height: 38px; }
 #entry[data-kind="TRANSFER"] .f-normal { display: none; }
@@ -549,3 +552,8 @@ select:has(option.cash-opt:checked) { background-color: var(--cash-bg); }
 .cash-count .diff.ng { color: var(--out); }
 .cash-count .diff.nil { text-align: center; font-weight: normal; }
 .cash-count #cash-save { margin-top: 8px; }
+
+/* 거래 조회: 적요 아래 납부자 줄 */
+.payer-row { margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.payer-row .payer-input { width: 150px; padding: 2px 6px; }
+.link-btn { background: none; border: none; color: var(--accent); text-decoration: underline; font-size: 12px; padding: 0; cursor: pointer; }

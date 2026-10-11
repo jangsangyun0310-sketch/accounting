@@ -1,4 +1,4 @@
-// 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 · 통장별 입출금 내역 A4 미리보기와 인쇄
+// 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 · 통장별 입출금 내역 · 개인별 납부 A4 미리보기와 인쇄
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
@@ -15,12 +15,13 @@ const TYPES = {
   year: { now: '올해' },
   budget: { now: '올해' }, // 예산 대비 집행 (연도 고르기는 연말결산과 같은 칸)
   accounts: { now: '이번 달' }, // 통장별 입출금 내역 (시작일~종료일)
+  donors: { now: '올해' }, // 개인별 납부 (특별회계 납부자별, 연말정산 준비)
 };
 let type = 'day';
 
 function currentValue() {
   if (type === 'accounts') return `${$('from').value}~${$('to').value}`;
-  return { day: $('date').value, month: $('month').value, year: $('year').value, budget: $('year').value }[type];
+  return { day: $('date').value, month: $('month').value, year: $('year').value, budget: $('year').value, donors: $('year').value }[type];
 }
 
 /** 결산 종류와 날짜(일: YYYY-MM-DD, 월: YYYY-MM, 연: YYYY, 통장별: { from, to })를 정하고 결산서를 불러온다 */
@@ -45,17 +46,24 @@ async function load(nextType, value) {
   }
   $('date').hidden = type !== 'day';
   $('month').hidden = type !== 'month';
-  $('year').hidden = type !== 'year' && type !== 'budget';
+  $('year').hidden = type !== 'year' && type !== 'budget' && type !== 'donors';
   $('now').textContent = TYPES[type].now;
   if (type === 'day') $('date').value = value;
   if (type === 'month') $('month').value = value;
-  if (type === 'year' || type === 'budget') {
+  if (type === 'year' || type === 'budget' || type === 'donors') {
     if (![...$('year').options].some((o) => o.value === value)) $('year').append(new Option(`${value}년`, value));
     $('year').value = value;
   }
   history.replaceState(null, '', `?type=${type}&${type === 'day' ? 'date' : type}=${value}`);
 
-  if (type === 'budget') {
+  if (type === 'donors') {
+    const r = await api(`/api/reports/donors?year=${value}`);
+    if (type === 'donors' && String(r.year) === currentValue()) {
+      donorsReport = r;
+      donorsView = 'list';
+      renderDonors();
+    }
+  } else if (type === 'budget') {
     const r = await api(`/api/budgets?year=${value}`);
     if (type === 'budget' && String(r.year) === currentValue()) renderBudget(r);
   } else if (type === 'day') {
@@ -89,7 +97,7 @@ function shift(dir) {
 
 function nowValue() {
   const t = todayKST();
-  return { day: t, month: t.slice(0, 7), year: t.slice(0, 4), budget: t.slice(0, 4) }[type];
+  return { day: t, month: t.slice(0, 7), year: t.slice(0, 4), budget: t.slice(0, 4), donors: t.slice(0, 4) }[type];
 }
 
 function render(r) {
@@ -420,6 +428,111 @@ function accountsSheets() {
   return [summary, ...sheets];
 }
 
+// ---------------------------------------------------------------- 개인별 납부 (특별회계 납부자별)
+
+let donorsReport = null;
+let donorsView = 'list'; // 'list' 사람별 목록 · 'all' 전체 내역서 · 그 밖은 납부자 이름 (그 사람 내역서)
+const dotDate = (d) => `${d.slice(0, 4)}. ${Number(d.slice(5, 7))}. ${Number(d.slice(8, 10))}.`;
+
+function donorHead(r, title, payer) {
+  return `
+      <div class="r-head">
+        <div class="r-title">
+          <h1>${title}</h1>
+          <table class="r-meta">
+            <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
+            <tr><th>기 간</th><td>${formatKoreanDate(r.from)} ~ ${formatKoreanDate(r.to)} <span class="range">(특별회계)</span></td></tr>
+            ${payer == null ? '' : `<tr><th>납부자</th><td><b>${esc(payer)}</b></td></tr>`}
+          </table>
+        </div>
+      </div>`;
+}
+
+/** 한 사람 내역서: 납입 날짜 · 헌금 종류 · 금액, 종류별 합계와 합계 (주민등록번호 칸 없음) */
+function donorSheet(r, p) {
+  return `
+    <article class="report donor-sheet">
+      ${donorHead(r, '개 인 별 납 부 내 역', p.payer)}
+      <h2>1. 납부 내역</h2>
+      <table class="r-table fixed">
+        <colgroup><col style="width:10mm"><col style="width:40mm"><col><col style="width:40mm"></colgroup>
+        <thead><tr><th class="no">No</th><th>납입 날짜</th><th>헌금 종류</th><th>금액</th></tr></thead>
+        <tbody>${p.rows.map((x, i) => `
+          <tr><td class="no">${i + 1}</td><td>${dotDate(x.date)}</td><td>${esc(x.subjectName)}</td><td class="amt">${formatWon(x.amount)}</td></tr>`).join('')}</tbody>
+      </table>
+      <h2>2. 헌금 종류별 합계</h2>
+      <table class="r-table fixed">
+        <colgroup><col><col style="width:30mm"><col style="width:40mm"></colgroup>
+        <thead><tr><th>헌금 종류</th><th>건수</th><th>금액</th></tr></thead>
+        <tbody>${p.bySubject.map((s) => `<tr><td>${esc(s.name)}</td><td class="amt">${s.count}</td><td class="amt">${formatWon(s.total)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td>합 계</td><td class="amt">${p.count}</td><td class="amt">${formatWon(p.total)}</td></tr></tfoot>
+      </table>
+    </article>`;
+}
+
+function renderDonors() {
+  const r = donorsReport;
+  const closed = r.status === 'CLOSED';
+  document.title = `개인별 납부 ${r.year} - 본당살림`;
+  $('state').innerHTML = (closed ? '<span class="pill closed">마감 완료</span>' : '<span class="pill open">미마감 포함</span>')
+    + ' <span class="muted">특별회계 수입 중 납부자를 적은 것만 모읍니다. 이름은 [거래 조회]에서 고칠 수 있습니다 (마감한 날도).</span>';
+  $('warning').innerHTML = '';
+  if (donorsView !== 'list') {
+    const list = donorsView === 'all' ? r.people : r.people.filter((p) => p.payer === donorsView);
+    $('paper').innerHTML = `
+      <p class="no-print donor-back"><button type="button" class="secondary small" data-donor-view="list">← 사람별 목록</button>
+        ${donorsView === 'all' ? `<span class="muted">${list.length}명 · 인쇄하면 한 사람에 한 장씩 나옵니다</span>` : ''}</p>
+      ${list.map((p) => donorSheet(r, p)).join('') || '<p class="muted">내역이 없습니다.</p>'}`;
+    return;
+  }
+  $('paper').innerHTML = `
+    <article class="report">
+      ${donorHead(r, '개인별 납부 현황', null)}
+      <p class="no-print donor-tools">
+        <button type="button" data-donor-view="all" ${r.people.length ? '' : 'disabled'}>전체 내역서 보기 (한 사람 한 장)</button>
+        <input type="search" id="donor-find" placeholder="이름 찾기" aria-label="이름 찾기">
+      </p>
+      <table class="r-table fixed donor-list">
+        <colgroup><col style="width:10mm"><col><col style="width:22mm"><col style="width:36mm"><col class="no-print" style="width:58mm"></colgroup>
+        <thead><tr><th class="no">No</th><th>납부자</th><th>건수</th><th>합계</th><th class="no-print"></th></tr></thead>
+        <tbody>${r.people.map((p, i) => `
+          <tr data-name="${esc(p.payer)}"><td class="no">${i + 1}</td><td>${esc(p.payer)}</td><td class="amt">${p.count}</td><td class="amt">${formatWon(p.total)}</td>
+            <td class="no-print"><button type="button" class="secondary small" data-donor-view="${esc(p.payer)}">내역서</button>
+              ${p.similar.length ? `<span class="similar">비슷한 이름: ${p.similar.map(esc).join(', ')}</span>` : ''}</td></tr>`).join('')
+          || '<tr><td colspan="5" class="empty">납부자를 적은 특별회계 수입이 없습니다</td></tr>'}</tbody>
+        <tfoot><tr><td colspan="2">합 계 (${r.people.length}명)</td><td class="amt">${r.people.reduce((n, p) => n + p.count, 0)}</td><td class="amt">${formatWon(r.total)}</td><td class="no-print"></td></tr></tfoot>
+      </table>
+    </article>`;
+}
+
+/** 개인별 납부 Excel: 사람별 합계 시트 + 모든 납부 내역 시트 (금액은 숫자) */
+function donorsSheets() {
+  const r = donorsReport;
+  const b = (v) => ({ v, bold: true });
+  const meta = [[b(`개인별 납부 ${r.year}년 (특별회계)`)], ['성당', r.parishName], []];
+  return [
+    { name: '사람별 합계', widths: [6, 24, 8, 16],
+      rows: [...meta, ['No', '납부자', '건수', '합계'].map(b), ...r.people.map((p, i) => [i + 1, p.payer, p.count, p.total]),
+        [b('합계'), null, b(r.people.reduce((n, p) => n + p.count, 0)), b(r.total)]] },
+    { name: '납부 내역', widths: [24, 12, 20, 14],
+      rows: [...meta, ['납부자', '납입 날짜', '헌금 종류', '금액'].map(b),
+        ...r.people.flatMap((p) => [...p.rows.map((x) => [p.payer, x.date, x.subjectName, x.amount]), [b(`${p.payer} 합계`), null, null, b(p.total)]])] },
+  ];
+}
+
+$('paper').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-donor-view]');
+  if (!b || type !== 'donors') return;
+  donorsView = b.dataset.donorView;
+  renderDonors();
+  window.scrollTo(0, 0);
+});
+$('paper').addEventListener('input', (e) => {
+  if (e.target.id !== 'donor-find') return;
+  const q = e.target.value.trim();
+  for (const tr of $('paper').querySelectorAll('.donor-list tbody tr[data-name]')) tr.hidden = Boolean(q) && !tr.dataset.name.includes(q);
+});
+
 // ---------------------------------------------------------------- 이벤트
 
 const run = (p) => p.catch((err) => toast(err.message, 'error'));
@@ -436,7 +549,7 @@ $('report-tabs').addEventListener('click', (e) => {
   const base = today.startsWith(prefix) ? today
     : type === 'day' || type === 'accounts' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
   const accounts = { from: monthStart(base), to: base.slice(0, 7) === today.slice(0, 7) ? today : monthEnd(base) };
-  run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), accounts }[b.dataset.type]));
+  run(load(b.dataset.type, { day: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), donors: base.slice(0, 4), accounts }[b.dataset.type]));
 });
 // 통장별 내역: 기간·통장을 고르고 [조회] (Enter 도 됨). 빠른 기간 버튼은 바로 조회
 function searchAccounts() {
@@ -465,6 +578,10 @@ $('excel').addEventListener('click', () => {
   if (!$('paper').querySelector('.report')) return;
   if (type === 'accounts') {
     downloadXlsx(`본당살림 통장별 입출금 ${accountsReport.from}~${accountsReport.to}.xlsx`, accountsSheets());
+    return;
+  }
+  if (type === 'donors') {
+    downloadXlsx(`본당살림 개인별 납부 ${donorsReport.year}.xlsx`, donorsSheets());
     return;
   }
   downloadXlsx(`본당살림 ${SHEET_NAME[type]} ${currentValue()}.xlsx`, [reportSheet($('paper'), SHEET_NAME[type])]);

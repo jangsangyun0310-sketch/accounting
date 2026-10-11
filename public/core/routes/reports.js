@@ -186,3 +186,67 @@ export async function accounts({ env, url }) {
     total,
   });
 }
+
+/**
+ * GET /api/reports/donors?year=YYYY : 개인별 납부 (특별회계 수입 중 납부자를 적은 것)
+ * 사람마다 납입 날짜 · 헌금 종류(과목) · 금액, 종류별 합계, 합계. 연말정산 기부금 영수증 준비용.
+ * similar: 괄호·띄어쓰기를 빼면 같은 이름 (예: 홍길동 / 홍길동(베드로)) — 따로 잡혔는지 확인하라는 표시
+ */
+export async function donors({ env, url }) {
+  const year = url.searchParams.get('year') || todayKST().slice(0, 4);
+  if (!/^\d{4}$/.test(year)) throw bad('연도 형식이 올바르지 않습니다.', 'BAD_DATE');
+  const db = env.DB;
+  const [rows, parish, lastClosed] = await Promise.all([
+    db.prepare(
+      `SELECT p.payer, t.id, t.tx_date, s.name AS subject_name, t.amount
+       FROM tx_payers p
+       JOIN transactions t ON t.id = p.tx_id
+       JOIN accounts a ON a.id = t.account_id
+       JOIN funds f ON f.id = a.fund_id
+       LEFT JOIN budget_subjects s ON s.id = t.subject_id
+       WHERE t.status = 'POSTED' AND t.kind = 'NORMAL' AND t.direction = 'IN' AND f.code = 'SPECIAL'
+         AND t.tx_date BETWEEN ? AND ?
+       ORDER BY p.payer, t.tx_date, t.id`
+    ).bind(`${year}-01-01`, `${year}-12-31`).all(),
+    db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first(),
+    db.prepare(`SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'`).first('d'),
+  ]);
+
+  const byPayer = new Map();
+  for (const r of rows.results) {
+    if (!byPayer.has(r.payer)) byPayer.set(r.payer, []);
+    byPayer.get(r.payer).push({ id: r.id, date: r.tx_date, subjectName: r.subject_name ?? '', amount: r.amount });
+  }
+  const base = (name) => name.replace(/\([^)]*\)|\s/g, '');
+  const groups = new Map();
+  for (const name of byPayer.keys()) groups.set(base(name), [...(groups.get(base(name)) ?? []), name]);
+
+  const people = [...byPayer].map(([payer, items]) => {
+    const subjects = new Map();
+    for (const it of items) {
+      const s = subjects.get(it.subjectName) ?? { name: it.subjectName, count: 0, amounts: [] };
+      s.count += 1;
+      s.amounts.push(it.amount);
+      subjects.set(it.subjectName, s);
+    }
+    return {
+      payer,
+      count: items.length,
+      total: sumAmounts(items.map((x) => x.amount)),
+      rows: items,
+      bySubject: [...subjects.values()].map((s) => ({ name: s.name, count: s.count, total: sumAmounts(s.amounts) })),
+      similar: groups.get(base(payer)).filter((n) => n !== payer),
+    };
+  }).sort((a, b) => a.payer.localeCompare(b.payer, 'ko'));
+
+  return json({
+    year: Number(year),
+    from: `${year}-01-01`,
+    to: `${year}-12-31`,
+    parishName: parish?.parish_name ?? '',
+    writerName: parish?.writer_name ?? '',
+    status: lastClosed && lastClosed >= `${year}-12-31` ? 'CLOSED' : 'PROVISIONAL',
+    people,
+    total: sumAmounts(people.map((p) => p.total)),
+  });
+}

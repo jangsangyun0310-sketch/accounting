@@ -42,6 +42,8 @@ export const TABLES = [
   { name: 'transactions', order: 'id',
     columns: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount', 'memo',
       'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by', 'created_at', 'created_by'] },
+  // 납부자 (2026-10-11 이전 백업에는 없다). 거래 다음에 넣는다
+  { name: 'tx_payers', order: 'tx_id', optional: true, columns: ['tx_id', 'payer', 'updated_at', 'updated_by'] },
   { name: 'daily_closings', order: 'close_date',
     columns: ['close_date', 'status', 'approval_snapshot', 'balance_snapshot', 'writer_name', 'closed_at', 'closed_by',
       'reopened_at', 'reopened_by', 'reopen_reason'] },
@@ -198,9 +200,12 @@ export function restoreStatements(db, tables) {
     const select = t.columns.map((c) => `json_extract(value, '$.${c}')`).join(', ');
     const sql = `INSERT INTO ${t.name} (${t.columns.join(', ')}) SELECT ${select} FROM json_each(?1) ORDER BY key`;
     // 이전 버전 백업의 취소된 거래는 복구하지 않는다 (지금은 취소 = 삭제)
+    const posted = new Set(tables.transactions.filter((x) => x.status === 'POSTED').map((x) => x.id));
     const rows = t.name === 'transactions'
       ? tables.transactions.filter((x) => x.status === 'POSTED').map((x) => ({ ...x, replaces_id: null }))
-      : (tables[t.name] ?? []).map((x) => (t.defaults ? { ...t.defaults, ...x } : x));
+      : t.name === 'tx_payers'
+        ? (tables.tx_payers ?? []).filter((x) => posted.has(x.tx_id)) // 복구하지 않는 거래의 이름은 뺀다
+        : (tables[t.name] ?? []).map((x) => (t.defaults ? { ...t.defaults, ...x } : x));
     for (const chunk of chunkRows(rows)) statements.push(db.prepare(sql).bind(JSON.stringify(chunk)));
   }
   statements.push(db.prepare('DELETE FROM restore_session'));

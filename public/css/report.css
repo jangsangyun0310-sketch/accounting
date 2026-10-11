@@ -131,6 +131,14 @@ body.report-page { background: #e9ecf0; }
   .report-tabs button { padding: 8px 0 !important; font-size: 14px; white-space: nowrap; }
 }
 
+/* 개인별 납부: 전체 내역서는 한 사람에 한 장 */
+.donor-sheet + .donor-sheet { break-before: page; margin-top: 12mm; padding-top: 12mm; border-top: 1px dashed #aaa; }
+.donor-tools { display: flex; gap: 8px; align-items: center; margin: 0 0 3mm; }
+.donor-tools input { width: 160px; }
+.donor-back { margin: 0 0 4mm; display: flex; gap: 10px; align-items: center; }
+.donor-list .similar { color: #b42318; font-size: 8pt; margin-left: 4px; }
+@media print { .donor-sheet + .donor-sheet { margin-top: 0; padding-top: 0; border-top: none; } }
+
 /* ---------------------------------------------------------------- 사목일지 */
 /* 종이 위 입력칸: 화면에서는 연한 노란 칸, 인쇄하면 글자만 */
 .journal input.cell, .journal select.cell, .journal textarea.cell {
