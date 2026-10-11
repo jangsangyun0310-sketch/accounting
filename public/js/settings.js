@@ -1,4 +1,5 @@
-// 설정 화면: 성당 정보 / 통장 / 예산과목 / 결재선 / 사목일지 / 연 예산 / 백업 … (오른쪽 끝) 함께 사용 / 초기화·탈퇴(빨간 탭)
+// 설정 화면: 위 탭 4개 (성당·결재선 / 통장·과목·예산 / 사목일지 / 백업·계정), 그 안에서 작은 탭으로 나눈다.
+// 주소 #뒤에는 작은 탭 이름 (#accounts, #backup …) — 예전 링크도 그대로 열린다
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
@@ -11,6 +12,15 @@ import { currentAccount, logout } from './account.js';
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 const tabs = document.getElementById('tabs');
+const subtabs = document.getElementById('subtabs');
+
+const GROUPS = {
+  basic: [['parish', '성당 정보'], ['approval', '결재선']],
+  books: [['accounts', '통장'], ['subjects', '예산과목'], ['budget', '연 예산']],
+  journal: [['journal', '사목일지']],
+  account: [['backup', '백업'], ['members', '함께 사용 (사용자 변경)'], ['account', '초기화 · 탈퇴']],
+};
+const groupOf = (t) => Object.keys(GROUPS).find((g) => GROUPS[g].some(([k]) => k === t));
 
 let settings = null;
 let tab = ['parish', 'accounts', 'subjects', 'approval', 'journal', 'budget', 'backup', 'members', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
@@ -24,7 +34,11 @@ async function reload() {
 }
 
 function render() {
-  tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  const group = groupOf(tab);
+  tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.group === group));
+  subtabs.hidden = GROUPS[group].length < 2;
+  subtabs.innerHTML = GROUPS[group].map(([k, label]) =>
+    `<button type="button" data-tab="${k}" class="${k === tab ? 'active' : ''} ${k === 'account' ? 'danger-sub' : ''}">${label}</button>`).join('');
   ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, journal: renderJournalTab, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
@@ -752,14 +766,20 @@ panel.addEventListener('keydown', (e) => {
   else (form.querySelector('[data-action]') ?? panel.querySelector('[data-action$="-save"]'))?.click();
 });
 
-tabs.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-tab]');
-  if (!b) return;
-  tab = b.dataset.tab;
+function openTab(next) {
+  tab = next;
   editing = null;
   scheduleDraft = null;
   history.replaceState(null, '', `#${tab}`);
   render();
+}
+tabs.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-group]');
+  if (b && groupOf(tab) !== b.dataset.group) openTab(GROUPS[b.dataset.group][0][0]);
+});
+subtabs.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (b && b.dataset.tab !== tab) openTab(b.dataset.tab);
 });
 
 

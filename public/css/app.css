@@ -575,3 +575,12 @@ td.num.minus { color: #b42318; }
 .close-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border: 1.5px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
 .close-bar.pending { border-color: #c27803; background: #fff8eb; }
 .close-bar:empty { display: none; }
+
+/* 설정: 위 탭 안의 작은 탭 */
+.subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: -4px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.subtabs[hidden] { display: none; }
+.subtabs button { background: #fff; color: var(--accent); border: 1.5px solid var(--accent); border-radius: 18px; padding: 5px 16px; font-size: 14px; font-weight: 600; }
+.subtabs button.active { background: var(--accent); color: #fff; }
+.subtabs button.danger-sub { color: var(--danger); border-color: var(--danger); }
+.subtabs button.danger-sub.active { background: var(--danger); color: #fff; }
+@media (max-width: 720px) { .tabs button[data-group] { font-size: 12.5px; letter-spacing: -0.4px; white-space: nowrap; } }

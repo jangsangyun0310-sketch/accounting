@@ -1,4 +1,5 @@
 // 거래 조회 화면: 기간·통장·과목·구분·검색어로 거래를 찾고, 통장 선택 시 잔액 흐름을 보여준다.
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, typeLabel, FUND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
@@ -84,6 +85,7 @@ function render(data, byAccount) {
       이체출금 <b>${formatWon(t.transferOut)}</b>
       <span class="muted">(${data.rows.length}건)</span>
       ${data.rows.length ? '<button type="button" class="secondary small" id="excel">Excel로 내려받기</button>' : ''}
+      ${byAccount ? `<a class="button secondary small" href="${href(`/report?type=accounts&from=${$('from').value}&to=${$('to').value}&account=${$('account').value}`)}">이 통장 내역 인쇄 (A4)</a>` : ''}
     </p>
     <table class="grid tx-list">
       <thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>과목·상대통장</th><th>적요</th>
