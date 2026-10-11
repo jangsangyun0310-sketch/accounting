@@ -18,7 +18,7 @@ export async function getSettings({ env }) {
     db.prepare('SELECT id, code, name FROM funds ORDER BY sort_order'),
     db.prepare(
       `SELECT a.id, f.code AS fund_code, a.name, a.bank_name, a.account_no, a.opening_balance,
-              a.sort_order, a.is_active,
+              a.sort_order, a.is_active, a.is_cash,
               (SELECT COUNT(*) FROM transactions t WHERE t.account_id = a.id) AS tx_count
        FROM accounts a JOIN funds f ON f.id = a.fund_id
        ORDER BY f.sort_order, a.sort_order, a.id`
@@ -45,7 +45,8 @@ export async function getSettings({ env }) {
     funds: funds.results,
     accounts: accounts.results.map((a) => ({
       id: a.id, fundCode: a.fund_code, name: a.name, bankName: a.bank_name, accountNo: a.account_no,
-      openingBalance: a.opening_balance, sortOrder: a.sort_order, isActive: a.is_active === 1, txCount: a.tx_count,
+      openingBalance: a.opening_balance, sortOrder: a.sort_order, isActive: a.is_active === 1, isCash: a.is_cash === 1,
+      txCount: a.tx_count,
     })),
     subjects: subjects.results.map((s) => ({
       id: s.id, kind: s.kind, parentId: s.parent_id, code: s.code, name: s.name,
@@ -102,11 +103,11 @@ export async function createAccount({ request, env, actor }) {
   const now = new Date().toISOString();
   await db.batch([
     db.prepare(
-      `INSERT INTO accounts (fund_id, name, bank_name, account_no, opening_balance, sort_order,
+      `INSERT INTO accounts (fund_id, name, bank_name, account_no, opening_balance, is_cash, sort_order,
                              created_at, created_by, updated_at, updated_by)
-       VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM accounts WHERE fund_id = ?1),
+       VALUES (?1, ?2, ?3, ?4, ?5, ?8, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM accounts WHERE fund_id = ?1),
                ?6, ?7, ?6, ?7)`
-    ).bind(FUND_ID[a.fundCode], a.name, a.bankName, a.accountNo, a.openingBalance, now, actor.email),
+    ).bind(FUND_ID[a.fundCode], a.name, a.bankName, a.accountNo, a.openingBalance, now, actor.email, a.isCash ? 1 : 0),
     auditRowStatement(db, { actor: actor.email, action: 'CREATE', table: 'accounts', id: 'last' }),
   ]);
   return json({ ok: true }, 201);
@@ -123,9 +124,9 @@ export async function updateAccount({ request, env, actor, params }) {
   await db.batch([
     db.prepare(
       `UPDATE accounts SET fund_id = ?, name = ?, bank_name = ?, account_no = ?, opening_balance = ?,
-              is_active = ?, updated_at = ?, updated_by = ?
+              is_cash = ?, is_active = ?, updated_at = ?, updated_by = ?
        WHERE id = ?`
-    ).bind(FUND_ID[a.fundCode], a.name, a.bankName, a.accountNo, a.openingBalance, isActive ? 1 : 0,
+    ).bind(FUND_ID[a.fundCode], a.name, a.bankName, a.accountNo, a.openingBalance, a.isCash ? 1 : 0, isActive ? 1 : 0,
       new Date().toISOString(), actor.email, id),
     auditRowStatement(db, { actor: actor.email, action: 'UPDATE', table: 'accounts', id, beforeJson: before }),
   ]);

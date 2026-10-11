@@ -11,9 +11,10 @@ export const TABLES = [
   { name: 'parish_settings', order: 'id',
     columns: ['id', 'parish_name', 'start_date', 'writer_name', 'setup_completed', 'updated_at', 'updated_by'] },
   { name: 'setup_lock', order: 'id', columns: ['id', 'created_at', 'created_by'] },
+  // defaults: 나중에 생긴 칸 — 예전 백업에 없으면 이 값으로 복구한다 (is_cash: 2026-10-11)
   { name: 'accounts', order: 'id',
     columns: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active',
-      'created_at', 'created_by', 'updated_at', 'updated_by'] },
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'is_cash'], defaults: { is_cash: 0 } },
   { name: 'budget_subjects', order: 'parent_id IS NOT NULL, id',
     columns: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active',
       'created_at', 'created_by', 'updated_at', 'updated_by'] },
@@ -35,6 +36,9 @@ export const TABLES = [
   // 공문서 수발신 (2026-10-11 이전 백업에는 없다)
   { name: 'journal_documents', order: 'journal_date, seq', optional: true,
     columns: ['journal_date', 'seq', 'direction', 'doc_no', 'party', 'title'] },
+  // 금고 현금 확인 (2026-10-11 이전 백업에는 없다)
+  { name: 'cash_counts', order: 'count_date, account_id', optional: true,
+    columns: ['count_date', 'account_id', 'counted', 'updated_at', 'updated_by'] },
   { name: 'transactions', order: 'id',
     columns: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount', 'memo',
       'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by', 'created_at', 'created_by'] },
@@ -89,7 +93,8 @@ export async function validateBackup(backup) {
     if (!Array.isArray(rows)) throw invalid(`백업 파일에 ${t.name} 표가 없습니다.`);
     for (const row of rows) {
       const keys = row && typeof row === 'object' ? Object.keys(row) : [];
-      if (keys.length !== t.columns.length || !t.columns.every((c) => c in row)) {
+      const need = t.columns.filter((c) => !(t.defaults && c in t.defaults) || c in row);
+      if (keys.length !== need.length || !need.every((c) => c in row)) {
         throw invalid(`${t.name} 표의 항목 구성이 이 프로그램 버전과 다릅니다.`);
       }
     }
@@ -195,7 +200,7 @@ export function restoreStatements(db, tables) {
     // 이전 버전 백업의 취소된 거래는 복구하지 않는다 (지금은 취소 = 삭제)
     const rows = t.name === 'transactions'
       ? tables.transactions.filter((x) => x.status === 'POSTED').map((x) => ({ ...x, replaces_id: null }))
-      : (tables[t.name] ?? []);
+      : (tables[t.name] ?? []).map((x) => (t.defaults ? { ...t.defaults, ...x } : x));
     for (const chunk of chunkRows(rows)) statements.push(db.prepare(sql).bind(JSON.stringify(chunk)));
   }
   statements.push(db.prepare('DELETE FROM restore_session'));

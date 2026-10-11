@@ -9,6 +9,9 @@
   --in: #1f6f3f;
   --out: #b42318;
   --danger: #b42318;
+  --cash-bg: #fff1c7;   /* 사무실 현금: 어디서나 같은 연한 금색 */
+  --cash-head: #f7dc8a;
+  --cash-ink: #6b4a00;
   font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   font-size: 15px;
 }
@@ -529,3 +532,20 @@ table.budget-table th:first-child { width: 40%; }
 table.budget-table th:nth-child(2) { width: 32%; }
 table.budget-table input { max-width: 220px; margin-left: auto; display: block; }
 @media (max-width: 720px) { table.budget-table { table-layout: auto; } }
+
+/* 사무실 현금: 통장과 색으로 구분 */
+.tag-cash { display: inline-block; font-size: 12px; line-height: 1.4; padding: 0 7px; border-radius: 4px; background: var(--cash-head); color: var(--cash-ink); font-weight: 700; }
+table.grid tr.cash > td { background: var(--cash-bg); }
+table.grid td.nil { text-align: center; }
+table.grid th.kind, table.grid td.kind { width: 76px; text-align: center; }
+option.cash-opt { background: var(--cash-bg); color: var(--cash-ink); }
+select:has(option.cash-opt:checked) { background-color: var(--cash-bg); }
+.cash-count { margin: 14px 0 6px; padding: 10px 12px; border: 1px solid var(--cash-head); border-radius: 8px; background: #fffaeb; }
+.cash-count h4 { margin: 0 0 8px; }
+.cash-count input.counted { width: 140px; text-align: right; }
+.cash-count input.counted:placeholder-shown { text-align: center; }
+.cash-count .diff { font-weight: 700; white-space: nowrap; }
+.cash-count .diff.ok { color: var(--in); }
+.cash-count .diff.ng { color: var(--out); }
+.cash-count .diff.nil { text-align: center; font-weight: normal; }
+.cash-count #cash-save { margin-top: 8px; }

@@ -8,9 +8,9 @@ export const FUND_SHORT = { GENERAL: '일반', SPECIAL: '특별' };
 /** 금액 칸: 0 이면 가운데 점 (내용 없는 칸) */
 const amt = (n, { cls = '', signed = false } = {}) => (n
   ? `<td class="amt ${cls}">${signed ? signedWon(n) : formatWon(n)}</td>`
-  : '<td class="amt dot">·</td>');
+  : '<td class="amt nil">·</td>');
 /** 글자 칸: 비어 있으면 가운데 점 */
-const txt = (v) => (v ? `<td>${esc(v)}</td>` : '<td class="dot">·</td>');
+const txt = (v) => (v ? `<td>${esc(v)}</td>` : '<td class="nil">·</td>');
 
 /** 회계별 현황 (전일잔액 · 당일수입 · 당일지출 · 이체 · 당일잔액) */
 export function fundSummaryTable(r) {
@@ -62,22 +62,60 @@ export function transferTable(r, { voucher = true } = {}) {
     </table>`;
 }
 
-/** 통장별 현재잔액 (등록된 통장 모두, 회계별로 나란히) + 전체 합계 */
+/** 현금이 등록되어 있나 (보유 현금 표를 따로 보여 줄지) */
+export const hasCash = (r) => r.accounts.some((a) => a.isCash);
+
+/**
+ * 보유 현금 (사무실 현금마다 전일잔액 · 당일 입금 · 당일 출금 · 현재잔액 · 금고에서 센 금액 · 차이).
+ * 입금·출금에는 이체도 들어간다. 일일결산서·사목일지용. 현금이 없으면 빈 글자.
+ */
+export function cashTable(r) {
+  const rows = r.accounts.filter((a) => a.isCash);
+  if (!rows.length) return '';
+  const counts = r.cashCounts ?? {};
+  const line = (a) => {
+    const counted = counts[a.id];
+    const diff = counted == null ? null : counted - a.end;
+    return { prev: a.prev, in: a.income + a.transferIn, out: a.expense + a.transferOut, end: a.end, counted, diff };
+  };
+  const lines = rows.map(line);
+  const sum = (k) => lines.reduce((s, x) => s + (x[k] ?? 0), 0);
+  const anyCount = lines.some((x) => x.counted != null);
+  const diffCell = (d) => (d ? `<td class="amt ng">${signedWon(d)}</td>` : '<td class="amt nil">·</td>');
+  const countCell = (x) => (x.counted == null ? '<td class="amt nil">·</td>' : `<td class="amt">${formatWon(x.counted)}</td>`);
+  return `
+    <table class="r-table cash-table">
+      <thead><tr><th>현금</th><th>전일잔액</th><th>당일 입금</th><th>당일 출금</th><th>현재잔액</th><th>금고 확인</th><th>차이</th></tr></thead>
+      <tbody>${rows.map((a, i) => `
+        <tr><td>${esc(a.name)}</td>${amt(lines[i].prev)}${amt(lines[i].in)}${amt(lines[i].out)}${amt(lines[i].end, { cls: 'strong' })}
+          ${countCell(lines[i])}${diffCell(lines[i].diff)}</tr>`).join('')}</tbody>
+      ${rows.length > 1 ? `<tfoot><tr><td>보유 현금 합계</td>${amt(sum('prev'))}${amt(sum('in'))}${amt(sum('out'))}${amt(sum('end'))}
+        ${anyCount ? `<td class="amt">${formatWon(sum('counted'))}</td>` : '<td class="amt nil">·</td>'}${diffCell(sum('diff'))}</tr></tfoot>` : ''}
+    </table>`;
+}
+
+/** 통장별 현재잔액 (등록된 통장 모두, 회계별로 나란히 — 현금은 보유 현금 표에 따로) + 전체 합계 */
 export function accountBalances(r) {
+  const cash = hasCash(r);
+  const banks = r.accounts.filter((a) => !a.isCash);
+  const sub = (list, k) => list.reduce((n, a) => n + a[k], 0);
   return `
     <div class="r-cols">
-      ${r.funds.map((f) => `
+      ${r.funds.map((f) => {
+        const list = banks.filter((a) => a.fundCode === f.code);
+        return `
         <table class="r-table">
           <thead><tr><th>${esc(f.name)} 통장</th><th>전일잔액</th><th>현재잔액</th></tr></thead>
-          <tbody>${r.accounts.filter((a) => a.fundCode === f.code).map((a) => `
+          <tbody>${list.map((a) => `
             <tr><td>${esc(a.name)}</td>${amt(a.prev)}
               ${amt(a.end, { cls: 'strong' })}</tr>`).join('')}
           </tbody>
-          <tfoot><tr><td>소계</td>${amt(f.prev)}${amt(f.end)}</tr></tfoot>
-        </table>`).join('')}
+          <tfoot><tr><td>소계</td>${amt(sub(list, 'prev'))}${amt(sub(list, 'end'))}</tr></tfoot>
+        </table>`;
+      }).join('')}
     </div>
     <table class="r-table r-grand">
-      <tr><td>전체 합계</td><td class="amt">전일잔액 ${formatWon(r.total.prev)}</td>
+      <tr><td>전체 합계${cash ? ' (현금 + 통장)' : ''}</td><td class="amt">전일잔액 ${formatWon(r.total.prev)}</td>
         <td class="amt strong">현재잔액 ${formatWon(r.total.end)}</td></tr>
     </table>`;
 }

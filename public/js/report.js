@@ -5,7 +5,7 @@ import { initPage, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, monthStart, todayKST } from './shared/dates.js';
 import { downloadXlsx, reportSheet } from './excel.js';
-import { accountBalances, detailTable, fundSummaryTable, summaryRow, transferTable } from './daily-tables.js';
+import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, summaryRow, transferTable } from './daily-tables.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -104,6 +104,7 @@ function render(r) {
     ? `<p class="lock-banner">마감 시점 잔액과 현재 잔액이 다릅니다: ${r.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>`
     : '';
 
+  const n = r.transfers.rows.length ? 4 : 3; // 잔액 앞 마지막 번호
   const manySteps = r.approvalSteps.length > 4; // 5단계부터는 결재란을 제목 아래 한 줄로 (칸이 넓어 옆에 다 들어가지 않음)
   $('paper').innerHTML = `
     <article class="report ${closed ? '' : 'provisional'}">
@@ -131,7 +132,9 @@ function render(r) {
 
       ${r.transfers.rows.length ? `<h2>4. 통장 간 이체 내역</h2>${transferTable(r)}` : ''}
 
-      <h2>${r.transfers.rows.length ? 5 : 4}. 통장별 현재잔액</h2>
+      ${hasCash(r) ? `<h2>${n + 1}. 보유 현금</h2>${cashTable(r)}` : ''}
+
+      <h2>${n + (hasCash(r) ? 2 : 1)}. 통장별 현재잔액</h2>
       ${accountBalances(r)}
 
     </article>`;
@@ -165,6 +168,7 @@ function renderPeriod(r) {
   const periodText = isMonth ? `${r.from.slice(0, 4)}년 ${koreanMonth(r.from)}` : `${r.from.slice(0, 4)}년`;
   const prevLabel = isMonth ? '전월이월' : '전년이월';
   const endLabel = isMonth ? '월말잔액' : '연말잔액';
+  const cashRows = r.accounts.filter((a) => a.isCash); // 사무실 현금은 통장과 따로
   document.title = `${isMonth ? '월말결산' : '연말결산'} ${periodText} - 본당살림`;
   $('state').innerHTML = closed
     ? '<span class="pill closed">마감 완료</span> <span class="muted">기간 안의 모든 날이 마감되었습니다.</span>'
@@ -212,19 +216,34 @@ function renderPeriod(r) {
           <td class="amt">${formatWon(r.total.end)}</td></tr></tfoot>
       </table>
 
-      <h2>5. 통장별 잔액</h2>
+      ${cashRows.length ? `<h2>5. 보유 현금</h2>
+      <table class="r-table cash-table">
+        <thead><tr><th>현금</th><th>${prevLabel}</th><th>입금</th><th>출금</th><th>${endLabel}</th></tr></thead>
+        <tbody>${cashRows.map((a) => `
+          <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td><td class="amt">${formatWon(a.income + a.transferIn)}</td>
+            <td class="amt">${formatWon(a.expense + a.transferOut)}</td><td class="amt strong">${formatWon(a.end)}</td></tr>`).join('')}</tbody>
+        ${cashRows.length > 1 ? `<tfoot><tr><td>보유 현금 합계</td><td class="amt">${formatWon(sumBy(cashRows, 'prev'))}</td>
+          <td class="amt">${formatWon(cashRows.reduce((n, a) => n + a.income + a.transferIn, 0))}</td>
+          <td class="amt">${formatWon(cashRows.reduce((n, a) => n + a.expense + a.transferOut, 0))}</td>
+          <td class="amt">${formatWon(sumBy(cashRows, 'end'))}</td></tr></tfoot>` : ''}
+      </table>` : ''}
+
+      <h2>${cashRows.length ? 6 : 5}. 통장별 잔액</h2>
       <div class="r-cols">
-        ${r.funds.map((f) => `
+        ${r.funds.map((f) => {
+          const list = r.accounts.filter((a) => a.fundCode === f.code && !a.isCash);
+          return `
           <table class="r-table">
             <thead><tr><th>${esc(f.name)} 통장</th><th>${prevLabel}</th><th>${endLabel}</th></tr></thead>
-            <tbody>${r.accounts.filter((a) => a.fundCode === f.code).map((a) => `
+            <tbody>${list.map((a) => `
               <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td><td class="amt strong">${formatWon(a.end)}</td></tr>`).join('')}
             </tbody>
-            <tfoot><tr><td>소계</td><td class="amt">${formatWon(f.prev)}</td><td class="amt">${formatWon(f.end)}</td></tr></tfoot>
-          </table>`).join('')}
+            <tfoot><tr><td>소계</td><td class="amt">${formatWon(sumBy(list, 'prev'))}</td><td class="amt">${formatWon(sumBy(list, 'end'))}</td></tr></tfoot>
+          </table>`;
+        }).join('')}
       </div>
       <table class="r-table r-grand">
-        <tr><td>전체 합계</td><td class="amt">${prevLabel} ${formatWon(r.total.prev)}</td>
+        <tr><td>전체 합계${cashRows.length ? ' (현금 + 통장)' : ''}</td><td class="amt">${prevLabel} ${formatWon(r.total.prev)}</td>
           <td class="amt strong">${endLabel} ${formatWon(r.total.end)}</td></tr>
       </table>
     </article>`;
@@ -324,7 +343,7 @@ function renderAccounts() {
   $('warning').innerHTML = '';
 
   const sections = list.map((a, i) => `
-      <h2>${i + 2}. ${esc(a.name)}<span class="fund-tag">${FUND_LABEL[a.fundCode]}</span></h2>
+      <h2 class="${a.isCash ? 'cash' : ''}">${i + 2}. ${esc(a.name)}<span class="fund-tag">${FUND_LABEL[a.fundCode]}${a.isCash ? ' · 현금' : ''}</span></h2>
       <table class="r-table fixed">
         <colgroup><col style="width:15mm"><col style="width:11mm"><col style="width:36mm"><col>
           <col style="width:24mm"><col style="width:24mm"><col style="width:26mm"></colgroup>
@@ -360,7 +379,7 @@ function renderAccounts() {
       <table class="r-table">
         <thead><tr><th>통장</th><th>회계</th><th>이월 잔액</th><th>입금</th><th>출금</th><th>기말 잔액</th></tr></thead>
         <tbody>${list.map((a) => `
-          <tr><td>${esc(a.name)}</td><td>${FUND_LABEL[a.fundCode]}</td><td class="amt">${formatWon(a.prev)}</td>
+          <tr class="${a.isCash ? 'cash' : ''}"><td>${esc(a.name)}</td><td>${FUND_LABEL[a.fundCode]}${a.isCash ? ' · 현금' : ''}</td><td class="amt">${formatWon(a.prev)}</td>
             <td class="amt">${formatWon(a.in)}</td><td class="amt">${formatWon(a.out)}</td><td class="amt strong">${formatWon(a.end)}</td></tr>`).join('')}
         </tbody>
         <tfoot><tr><td colspan="2">합 계</td><td class="amt">${formatWon(total.prev)}</td><td class="amt">${formatWon(total.in)}</td>
@@ -465,7 +484,7 @@ initPage('report').then(({ settings }) => {
   $('account').innerHTML = '<option value="">통장 전체</option>' + ['GENERAL', 'SPECIAL'].map((fund) => {
     const list = settings.accounts.filter((a) => a.fundCode === fund);
     return list.length ? `<optgroup label="${FUND_LABEL[fund]}">${list.map((a) =>
-      `<option value="${a.id}">${esc(a.name)}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>` : '';
+      `<option value="${a.id}" ${a.isCash ? 'class="cash-opt"' : ''}>${esc(a.name)}${a.isCash && !a.name.includes('현금') ? ' (현금)' : ''}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>` : '';
   }).join('');
   const p = new URLSearchParams(location.search);
   type = TYPES[p.get('type')] ? p.get('type') : 'day';

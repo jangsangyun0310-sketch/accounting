@@ -60,7 +60,13 @@ body.report-page { background: #e9ecf0; }
 .r-table tr { break-inside: avoid; }
 .r-table .amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .r-table .amt.strong { font-weight: 700; }
-.r-table td.dot { text-align: center; } /* 내용 없는 칸의 가운데 점 */
+.r-table td.nil { text-align: center; } /* 내용 없는 칸의 가운데 점 */
+/* 보유 현금: 연한 금색 (인쇄에도 색이 나오게) */
+.r-table.cash-table thead th { background: var(--cash-head); }
+.r-table.cash-table td, .r-table tr.cash td { background: var(--cash-bg); }
+.r-table td.ng { color: #b42318; font-weight: 700; }
+.report h2.cash { background: var(--cash-bg); padding: 0.5mm 1.5mm; }
+.r-table.cash-table, .r-table tr.cash, .report h2.cash { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .r-table .no { width: 8mm; text-align: center; }
 .r-table .fund-col { width: 10mm; text-align: center; }
 .r-table .fund-cell { text-align: center; font-weight: 600; width: 18mm; }
@@ -134,7 +140,7 @@ body.report-page { background: #e9ecf0; }
 .journal input.cell.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* 내용이 없는 칸: 가운데 점 (화면·인쇄 모두) */
 .journal input.cell::placeholder { color: #000; opacity: 1; }
-.journal input.cell:placeholder-shown { text-align: center; }
+.journal input.cell:placeholder-shown { text-align: center !important; } /* .num 의 오른쪽 정렬(!important)보다 앞서게 */
 .journal select.d-dir { text-align: center; text-align-last: center; }
 .journal .notes-print.blank { text-align: center; }
 .journal input.cell:focus, .journal select.cell:focus, .journal textarea.cell:focus { outline: 2px solid var(--accent); background: #fff; }

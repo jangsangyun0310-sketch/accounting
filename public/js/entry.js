@@ -30,8 +30,9 @@ function accountOptions(selectedId) {
   return ['GENERAL', 'SPECIAL'].map((fund) => {
     const list = settings.accounts.filter((a) => a.fundCode === fund && (a.isActive || a.id === selectedId));
     if (!list.length) return '';
+    // 사무실 현금은 색으로 구분
     return `<optgroup label="${FUND_LABEL[fund]}">${list.map((a) =>
-      `<option value="${a.id}">${esc(a.name)}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>`;
+      `<option value="${a.id}" ${a.isCash ? 'class="cash-opt"' : ''}>${esc(a.name)}${a.isCash && !a.name.includes('현금') ? ' (현금)' : ''}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>`;
   }).join('');
 }
 

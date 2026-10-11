@@ -12,7 +12,7 @@ function fillFilters() {
   $('account').innerHTML = '<option value="">전체</option>' + ['GENERAL', 'SPECIAL'].map((fund) => {
     const list = settings.accounts.filter((a) => a.fundCode === fund);
     return list.length ? `<optgroup label="${FUND_LABEL[fund]}">${list.map((a) =>
-      `<option value="${a.id}">${esc(a.name)}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>` : '';
+      `<option value="${a.id}" ${a.isCash ? 'class="cash-opt"' : ''}>${esc(a.name)}${a.isCash && !a.name.includes('현금') ? ' (현금)' : ''}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>` : '';
   }).join('');
   $('subject').innerHTML = '<option value="">전체</option>' + [['INCOME', '수입'], ['EXPENSE', '지출']].map(([k, label]) =>
     `<optgroup label="${label}">${settings.subjects.filter((s) => s.kind === k).map((s) =>

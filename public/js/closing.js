@@ -65,7 +65,9 @@ async function loadDetail(date) {
   selected = date;
   history.replaceState(null, '', `?date=${date}`);
   document.querySelectorAll('.calendar .cell').forEach((c) => c.classList.toggle('selected', c.dataset.date === date));
-  const [info, day] = await Promise.all([api(`/api/closings/${date}`), api(`/api/day?date=${date}`)]);
+  const [info, day, cash] = await Promise.all([
+    api(`/api/closings/${date}`), api(`/api/day?date=${date}`), api(`/api/cash-counts?date=${date}`),
+  ]);
   const c = info.closing;
   const closed = c?.status === 'CLOSED';
   const covered = !closed && info.lastClosed && date <= info.lastClosed;
@@ -104,6 +106,8 @@ async function loadDetail(date) {
       <h4>마감 당시 결재선</h4>
       ${approvalBoxHtml(c.approvalSteps)}` : ''}
 
+    ${cashCountHtml(cash)}
+
     <div class="detail-actions">
       ${info.canClose ? `<button type="button" data-close-date="${date}">이 날짜 마감하기</button>` : ''}
       ${info.canReopen ? `<button type="button" class="danger" data-reopen="${date}">마감취소</button>` : ''}
@@ -114,11 +118,69 @@ async function loadDetail(date) {
       ${date > info.today ? '<p class="help">미래 날짜는 마감할 수 없습니다.</p>' : ''}
     </div>
 `;
+  updateCashDiffs();
 }
+
+// ---------------------------------------------------------------- 금고 현금 확인
+// 금고에서 센 금액을 적으면 장부 잔액과 비교한다. 마감과 상관없이 언제든 고칠 수 있다.
+// (이 기능을 빼려면 이 부분과 서버 routes/cash.js 만 지우면 된다)
+
+let cashDirty = false;
+
+function cashCountHtml(cash) {
+  cashDirty = false;
+  if (!cash.items.length) return '';
+  return `
+    <section class="cash-count" data-date="${cash.date}">
+      <h4>금고 현금 확인 <span class="muted small">(선택 · 비워 두고 마감해도 됩니다)</span></h4>
+      <table class="grid">
+        <thead><tr><th>현금</th><th class="num">장부 잔액</th><th class="num">금고에서 센 금액</th><th>차이</th></tr></thead>
+        <tbody>${cash.items.map((c) => `
+          <tr class="cash" data-id="${c.accountId}" data-balance="${c.balance}">
+            <td>${esc(c.name)}</td><td class="num">${formatWon(c.balance)}</td>
+            <td class="num"><input class="counted" inputmode="numeric" autocomplete="off" value="${c.counted == null ? '' : formatWon(c.counted)}" placeholder="·" aria-label="${esc(c.name)} 금고에서 센 금액"></td>
+            <td class="diff"></td></tr>`).join('')}</tbody>
+      </table>
+      <button type="button" class="secondary small" id="cash-save">금고 확인 저장</button>
+    </section>`;
+}
+
+/** 차이 칸: 맞음 / ○○원 모자람 / ○○원 남음 */
+function updateCashDiffs() {
+  for (const tr of document.querySelectorAll('.cash-count tbody tr')) {
+    const v = tr.querySelector('.counted').value.replace(/[^0-9]/g, '');
+    const cell = tr.querySelector('.diff');
+    if (!v) { cell.textContent = '·'; cell.className = 'diff nil'; continue; }
+    const diff = Number(v) - Number(tr.dataset.balance);
+    cell.textContent = diff === 0 ? '맞음' : `${formatWon(Math.abs(diff))}원 ${diff < 0 ? '모자람' : '남음'}`;
+    cell.className = `diff ${diff === 0 ? 'ok' : 'ng'}`;
+  }
+}
+
+async function saveCashCounts({ quiet = false } = {}) {
+  const box = document.querySelector('.cash-count');
+  if (!box) return;
+  const counts = [...box.querySelectorAll('tbody tr')].map((tr) => ({
+    accountId: Number(tr.dataset.id),
+    counted: tr.querySelector('.counted').value.replace(/[^0-9]/g, ''),
+  }));
+  await api('/api/cash-counts', { method: 'PUT', body: { date: box.dataset.date, counts } });
+  cashDirty = false;
+  if (!quiet) toast('금고 확인을 저장했습니다.');
+}
+
+document.addEventListener('input', (e) => {
+  if (!e.target.classList.contains('counted')) return;
+  const d = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '').slice(0, 13);
+  e.target.value = d ? formatWon(Number(d)) : '';
+  cashDirty = true;
+  updateCashDiffs();
+});
 
 // ---------------------------------------------------------------- 마감 / 마감취소
 
 async function openCloseDialog(date) {
+  if (cashDirty) await saveCashCounts({ quiet: true }); // 금고 확인을 적어 놓고 바로 마감해도 저장되게
   const [day, settings] = await Promise.all([api(`/api/day?date=${date}`), api('/api/settings')]);
   const dlg = $('action-dialog');
   dlg.innerHTML = `
@@ -215,6 +277,7 @@ document.addEventListener('click', (e) => {
   if (close) { run(goto(close.dataset.date ?? close.dataset.closeDate).then(() => openCloseDialog(close.dataset.date ?? close.dataset.closeDate))); return; }
   const reopen = e.target.closest('[data-reopen]');
   if (reopen) { openReopenDialog(reopen.dataset.reopen); return; }
+  if (e.target.id === 'cash-save') { run(saveCashCounts()); return; }
   if (e.target.closest('[data-cancel]') || e.target === $('action-dialog')) $('action-dialog').close();
 });
 

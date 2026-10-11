@@ -59,7 +59,7 @@ export async function isDateLocked(db, date) {
  * 하루 현황은 from = to 인 기간이다.
  */
 export async function computePeriod(db, from, to) {
-  const [prev, end, sums] = await db.batch([
+  const [prev, end, sums, cash] = await db.batch([
     db.prepare(BALANCES_SQL).bind(addDays(from, -1)),
     db.prepare(BALANCES_SQL).bind(to),
     db.prepare(
@@ -72,7 +72,9 @@ export async function computePeriod(db, from, to) {
        WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED'
        GROUP BY t.account_id`
     ).bind(from, to),
+    db.prepare('SELECT id FROM accounts WHERE is_cash = 1'),
   ]);
+  const cashIds = new Set(cash.results.map((r) => r.id));
 
   const prevById = new Map(prev.results.map((r) => [r.id, r.balance]));
   const sumById = new Map(sums.results.map((r) => [r.account_id, r]));
@@ -83,6 +85,7 @@ export async function computePeriod(db, from, to) {
       fundCode: r.fund_code,
       name: r.name,
       isActive: r.is_active === 1,
+      isCash: cashIds.has(r.id), // 사무실 현금
       prev: assertInteger(prevById.get(r.id)),
       income: assertInteger(sum.income ?? 0),
       expense: assertInteger(sum.expense ?? 0),

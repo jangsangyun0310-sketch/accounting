@@ -77,13 +77,16 @@ export function parishInput(body) {
   };
 }
 
+/** 통장 입력. isCash: 사무실 현금 (은행·계좌번호 없음) */
 export function accountInput(body) {
+  const isCash = body?.isCash === true;
   return {
     fundCode: oneOf(body?.fundCode, FUND_CODES, '회계 구분'),
-    name: text(body?.name, '통장명', { max: 30 }),
-    bankName: text(body?.bankName, '은행명', { max: 30, required: false }),
-    accountNo: text(body?.accountNo, '계좌번호', { max: 40, required: false }),
+    name: text(body?.name, isCash ? '현금 이름' : '통장명', { max: 30 }),
+    bankName: isCash ? '' : text(body?.bankName, '은행명', { max: 30, required: false }),
+    accountNo: isCash ? '' : text(body?.accountNo, '계좌번호', { max: 40, required: false }),
     openingBalance: amount(body?.openingBalance ?? '', '초기잔액', { allowZero: true }),
+    isCash,
   };
 }
 

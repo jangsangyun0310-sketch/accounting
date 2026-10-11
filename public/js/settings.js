@@ -57,15 +57,16 @@ function renderAccounts() {
       return `
       <h3>${FUND_LABEL[fund]}</h3>
       <table class="grid edit">
-        <thead><tr><th class="order">순서</th><th>통장명</th><th>은행</th><th>계좌번호</th>
+        <thead><tr><th class="order">순서</th><th class="kind">종류</th><th>통장명</th><th>은행</th><th>계좌번호</th>
           <th class="num">초기잔액(원)</th><th class="status">상태</th><th class="actions"></th></tr></thead>
         <tbody>
           ${list.map((a, i) => (editing === `account:${a.id}` ? accountEditRow(a) : accountViewRow(a, i, list.length))).join('')
-            || '<tr><td colspan="7" class="muted">등록된 통장이 없습니다.</td></tr>'}
+            || '<tr><td colspan="8" class="muted">등록된 통장이 없습니다.</td></tr>'}
         </tbody>
         <tfoot>
           <tr data-form="account-new" data-fund="${fund}">
             <td></td>
+            <td>${kindSelect(false)}</td>
             <td><input name="name" maxlength="30" placeholder="새 통장명"></td>
             <td><input name="bankName" maxlength="30"></td>
             <td><input name="accountNo" maxlength="40"></td>
@@ -76,14 +77,23 @@ function renderAccounts() {
         </tfoot>
       </table>`;
     }).join('')}
-    <p class="help">거래가 있는 통장은 삭제할 수 없습니다. 더 이상 쓰지 않는 통장은 [수정]에서 "사용"을 해제하세요.</p>`;
+    <p class="help">거래가 있는 통장은 삭제할 수 없습니다. 더 이상 쓰지 않는 통장은 [수정]에서 "사용"을 해제하세요.</p>
+    <p class="help">💡 <b>사무실 현금</b>은 종류를 <b>현금</b>으로 골라 일반회계 · 특별회계에 하나씩 등록합니다 (은행 · 계좌번호 없음). 결산서에 <b>보유 현금</b>으로 통장과 따로 나옵니다.
+      처음 등록할 때 금고에 있는 돈은 이미 통장 수입으로 들어가 있으니, <b>이체·입금</b>으로 "통장 → 현금"을 한 번 넣어 맞춥니다.</p>`;
+}
+
+/** 통장 / 현금 고르기. 현금이면 은행·계좌번호 칸을 막는다 (아래 change 이벤트) */
+function kindSelect(isCash) {
+  return `<select name="isCash" aria-label="종류"><option value="">통장</option><option value="1" ${isCash ? 'selected' : ''}>현금</option></select>`;
 }
 
 function accountViewRow(a, i, count) {
   return `
-    <tr class="${a.isActive ? '' : 'inactive'}">
+    <tr class="${a.isActive ? '' : 'inactive'} ${a.isCash ? 'cash' : ''}">
       <td class="order">${orderButtons('account', a.id, i, count)}</td>
-      <td>${esc(a.name)}</td><td>${esc(a.bankName)}</td><td>${esc(a.accountNo)}</td>
+      <td class="kind">${a.isCash ? '<span class="tag-cash">현금</span>' : '통장'}</td>
+      <td>${esc(a.name)}</td>
+      ${a.isCash ? '<td class="nil">·</td><td class="nil">·</td>' : `<td>${esc(a.bankName)}</td><td>${esc(a.accountNo)}</td>`}
       <td class="num">${formatWon(a.openingBalance)}</td>
       <td class="status">${a.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
       <td class="actions">
@@ -96,13 +106,14 @@ function accountViewRow(a, i, count) {
 function accountEditRow(a) {
   const fundLocked = a.txCount > 0;
   return `
-    <tr data-form="account-edit" data-id="${a.id}" class="editing">
+    <tr data-form="account-edit" data-id="${a.id}" class="editing ${a.isCash ? 'cash' : ''}">
       <td><select name="fundCode" ${fundLocked ? 'disabled title="거래가 있어 변경 불가"' : ''}>
         ${['GENERAL', 'SPECIAL'].map((f) => `<option value="${f}" ${f === a.fundCode ? 'selected' : ''}>${FUND_LABEL[f]}</option>`).join('')}
       </select></td>
+      <td>${kindSelect(a.isCash)}</td>
       <td><input name="name" value="${esc(a.name)}" maxlength="30" autofocus></td>
-      <td><input name="bankName" value="${esc(a.bankName)}" maxlength="30"></td>
-      <td><input name="accountNo" value="${esc(a.accountNo)}" maxlength="40"></td>
+      <td><input name="bankName" value="${esc(a.bankName)}" maxlength="30" ${a.isCash ? 'disabled' : ''}></td>
+      <td><input name="accountNo" value="${esc(a.accountNo)}" maxlength="40" ${a.isCash ? 'disabled' : ''}></td>
       <td><input name="openingBalance" value="${formatWon(a.openingBalance)}" ${settings.locks.openingBalance ? 'disabled' : ''}></td>
       <td><label class="check"><input type="checkbox" name="isActive" ${a.isActive ? 'checked' : ''}> 사용</label></td>
       <td class="actions">
@@ -223,6 +234,20 @@ function renderApproval() {
     </div>`;
   }).join('<hr class="line-sep">') + '<p class="help">이미 마감된 날짜의 일일결산서는 마감 당시 결재선으로 출력됩니다.</p>';
 }
+
+// 통장 / 현금: 현금이면 은행·계좌번호를 비우고 막는다
+panel.addEventListener('change', (e) => {
+  if (e.target.name !== 'isCash') return;
+  const row = e.target.closest('tr');
+  const cash = e.target.value === '1';
+  row.classList.toggle('cash', cash);
+  for (const name of ['bankName', 'accountNo']) {
+    const input = field(row, name);
+    input.disabled = cash;
+    if (cash) input.value = '';
+  }
+  field(row, 'name').placeholder = cash ? '예) 일반회계 현금' : '새 통장명';
+});
 
 panel.addEventListener('change', (e) => {
   if (!e.target.classList.contains('approval-count')) return;
@@ -557,8 +582,9 @@ const actions = {
       bankName: field(row, 'bankName').value,
       accountNo: field(row, 'accountNo').value,
       openingBalance: field(row, 'openingBalance').value || '0',
+      isCash: field(row, 'isCash').value === '1',
     };
-    if (await attempt(() => api('/api/accounts', { method: 'POST', body }), '통장을 추가했습니다.')) {
+    if (await attempt(() => api('/api/accounts', { method: 'POST', body }), body.isCash ? '현금을 추가했습니다.' : '통장을 추가했습니다.')) {
       await reload();
       panel.querySelector(`[data-form="account-new"][data-fund="${btn.dataset.fund}"] input`)?.focus();
     }
@@ -572,6 +598,7 @@ const actions = {
       accountNo: field(row, 'accountNo').value,
       openingBalance: field(row, 'openingBalance').value || '0',
       isActive: field(row, 'isActive').checked,
+      isCash: field(row, 'isCash').value === '1',
     };
     if (await attempt(() => api(`/api/accounts/${btn.dataset.id}`, { method: 'PUT', body }), '저장했습니다.')) {
       editing = null;

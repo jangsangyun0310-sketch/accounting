@@ -13,4 +13,5 @@ export const MIGRATIONS = [
   '0010_budgets.sql',
   '0011_pastoral_journal.sql',
   '0012_journal_documents.sql',
+  '0013_cash.sql',
 ];

@@ -8,7 +8,7 @@ import { api, esc } from './api.js';
 import { initPage, toast, approvalBoxHtml } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
-import { accountBalances, detailTable, fundSummaryTable, transferTable } from './daily-tables.js';
+import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, transferTable } from './daily-tables.js';
 
 const $ = (id) => document.getElementById(id);
 const paper = $('paper');
@@ -145,7 +145,7 @@ function sumMasses() {
   for (const [id, cls] of [['sum-attendance', 'm-att'], ['sum-confessions', 'm-conf']]) {
     const n = sum(cls);
     $(id).textContent = dotWon(n);
-    $(id).classList.toggle('dot', !n);
+    $(id).classList.toggle('nil', !n);
   }
 }
 
@@ -173,6 +173,7 @@ function accountingHtml(day) {
     <div class="sub-h">수입 내역</div>${detailTable(day.income, '수입', { voucher: false })}
     <div class="sub-h">지출 내역</div>${detailTable(day.expense, '지출', { voucher: false })}
     ${day.transfers.rows.length ? `<div class="sub-h">통장 간 이체</div>${transferTable(day, { voucher: false })}` : ''}
+    ${hasCash(day) ? `<div class="sub-h">보유 현금</div>${cashTable(day)}` : ''}
     <div class="sub-h">통장별 현재잔액</div>${accountBalances(day)}`;
 }
 
