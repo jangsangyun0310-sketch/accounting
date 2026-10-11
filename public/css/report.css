@@ -242,4 +242,9 @@ body.printing .journal .photo .caption-row input.cell::placeholder { color: #000
   .journal-page .paper.page2 { break-before: page; }
   .journal .r-cols { break-inside: avoid; }
 }
+@media screen and (max-width: 720px) {
+  /* 휴대폰 사목일지: 넓은 표(보유 현금)는 옆으로 밀어 보기, 쪽 번호는 종이에서만 의미가 있어 숨김 */
+  .journal-page .r-table.cash-table { display: block; overflow-x: auto; white-space: nowrap; }
+  .journal-page #paper::after, .journal-page #paper2::after { content: none; }
+  .journal-page .paper { padding-bottom: 12px; }
 }

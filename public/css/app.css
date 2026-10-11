@@ -564,3 +564,9 @@ select:has(option.cash-opt:checked) { background-color: var(--cash-bg); }
 .entry-fields .f-deduct { flex: 0 0 auto; align-self: end; padding-bottom: 8px; color: #b42318; font-weight: 700; }
 .entry-fields .f-deduct[hidden] { display: none; }
 td.num.minus { color: #b42318; }
+.entry-fields .f-deduct { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; }
+@media (max-width: 720px) {
+  /* 휴대폰: 금고 확인 칸이 화면 밖으로 나가지 않게 */
+  .cash-count table { display: block; overflow-x: auto; white-space: nowrap; }
+  .cash-count input.counted { width: 110px; }
+}
