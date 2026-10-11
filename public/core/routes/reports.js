@@ -34,8 +34,8 @@ export async function daily({ env, url }) {
   const closed = Boolean(record);
 
   const posted = day.transactions.filter((t) => t.status === 'POSTED');
-  const pick = ({ id, accountName, fundCode, subjectName, memo, voucherNo, amount, deduction }) =>
-    ({ id, accountName, fundCode, subjectName, memo, voucherNo, amount: deduction ? -amount : amount, deduction });
+  const pick = ({ id, accountName, accountIsCash, fundCode, subjectName, memo, voucherNo, amount, deduction }) =>
+    ({ id, accountName, accountIsCash, fundCode, subjectName, memo, voucherNo, amount: deduction ? -amount : amount, deduction });
   const byFund = (a, b) => (a.fundCode === b.fundCode ? a.id - b.id : a.fundCode === 'GENERAL' ? -1 : 1);
   // 수입 내역에는 수입 차감(봉헌권 등)이 마이너스 금액으로 함께 나온다
   const income = posted.filter((t) => t.kind === 'NORMAL' && (t.direction === 'IN' || t.deduction)).map(pick).sort(byFund);
@@ -49,8 +49,10 @@ export async function daily({ env, url }) {
       return {
         id: out.id,
         fromName: out.accountName,
+        fromIsCash: out.accountIsCash,
         fromFund: out.fundCode,
         toName: inn?.accountName ?? out.counterpartName,
+        toIsCash: inn?.accountIsCash ?? out.counterpartIsCash,
         toFund: inn?.fundCode ?? null,
         memo: out.memo,
         voucherNo: out.voucherNo,

@@ -5,12 +5,14 @@ import { addDays } from '../../js/shared/dates.js';
 import { assertInteger, sumAmounts } from '../../js/shared/money.js';
 
 export const TX_SELECT = `
-  SELECT t.id, t.tx_date, t.kind, t.direction, t.account_id, a.name AS account_name, f.code AS fund_code,
+  SELECT t.id, t.tx_date, t.kind, t.direction, t.account_id, a.name AS account_name, a.is_cash AS account_is_cash, f.code AS fund_code,
          t.subject_id, s.name AS subject_name, s.kind AS subject_kind, t.transfer_group,
          (SELECT p.account_id FROM transactions p
            WHERE p.transfer_group = t.transfer_group AND p.id <> t.id) AS counterpart_account_id,
          (SELECT pa.name FROM transactions p JOIN accounts pa ON pa.id = p.account_id
            WHERE p.transfer_group = t.transfer_group AND p.id <> t.id) AS counterpart_name,
+         (SELECT pa.is_cash FROM transactions p JOIN accounts pa ON pa.id = p.account_id
+           WHERE p.transfer_group = t.transfer_group AND p.id <> t.id) AS counterpart_is_cash,
          t.amount, t.memo, t.voucher_no, t.status, t.replaces_id,
          (SELECT r.id FROM transactions r WHERE r.replaces_id = t.id) AS replaced_by_id,
          t.void_reason, t.voided_at, t.voided_by, t.created_at, t.created_by,
@@ -28,6 +30,7 @@ export function mapTx(r) {
     direction: r.direction,
     accountId: r.account_id,
     accountName: r.account_name,
+    accountIsCash: r.account_is_cash === 1, // 사무실 현금
     fundCode: r.fund_code,
     subjectId: r.subject_id,
     subjectName: r.subject_name,
@@ -36,6 +39,7 @@ export function mapTx(r) {
     transferGroup: r.transfer_group,
     counterpartAccountId: r.counterpart_account_id,
     counterpartName: r.counterpart_name,
+    counterpartIsCash: r.counterpart_is_cash === 1,
     amount: assertInteger(r.amount),
     memo: r.memo,
     voucherNo: r.voucher_no,
