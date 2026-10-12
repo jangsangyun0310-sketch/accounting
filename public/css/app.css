@@ -68,9 +68,10 @@ a:hover { color: #163a6b; }
 .topbar .subnav a:hover { color: var(--accent); background: #fff8; }
 .topbar .subnav a.active { color: var(--accent); font-weight: 700; background: #fff; box-shadow: 0 1px 3px rgba(30, 58, 110, .18); } /* 아래 긴 줄과 겹치지 않게 떠 있는 흰 칸 */
 .topbar .subnav a.danger { color: var(--danger); }
-/* 기능별 설정: 아래 줄 오른쪽 끝에 버튼 모양 */
-.topbar .subnav a.setting { margin-left: auto; padding: 4px 14px; border: 1.5px solid var(--accent); border-radius: 6px;
+/* 기능별 설정: 아래 메뉴 바로 뒤에 버튼 모양 (오른쪽 끝이면 눈에 잘 안 띈다) — 앞에 옅은 세로줄 */
+.topbar .subnav a.setting { position: relative; margin-left: 25px; padding: 4px 14px; border: 1.5px solid var(--accent); border-radius: 6px;
   background: #fff; color: var(--accent); font-weight: 600; }
+.topbar .subnav a.setting::before { content: ""; position: absolute; left: -15px; top: 50%; height: 18px; margin-top: -9px; border-left: 1px solid #b9c6d8; }
 .topbar .subnav a.setting:hover { background: var(--accent); color: #fff; }
 .topbar .subnav a.setting.active { background: var(--accent); color: #fff; box-shadow: none; }
 .topbar nav a:hover { background: var(--accent-soft); }

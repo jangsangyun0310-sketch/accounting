@@ -60,7 +60,7 @@ function subItems(active) {
   }
   return [
     ...g.items.map(([path, label, key]) => [path, label, key === active, false]),
-    [`/settings?s=${g.key}`, `⚙ ${g.label} 설정`, active === 'settings', false, 'setting'], // 오른쪽 끝에 버튼 모양으로
+    [`/settings?s=${g.key}`, `⚙ ${g.label} 설정`, active === 'settings', false, 'setting'], // 메뉴 바로 뒤에 버튼 모양으로
   ];
 }
 
