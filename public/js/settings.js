@@ -15,19 +15,14 @@ import { handoverSheets } from './handover.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
-const tabs = document.getElementById('tabs');
-const subtabs = document.getElementById('subtabs');
 
-const GROUPS = {
-  basic: [['parish', '성당 정보'], ['approval', '결재선']],
-  books: [['accounts', '통장'], ['subjects', '예산과목'], ['budget', '연 예산']],
-  journal: [['journal', '사목일지']],
-  account: [['backup', '백업'], ['members', '함께 사용 (사용자 변경)'], ['account', '초기화 · 탈퇴']],
-};
-const groupOf = (t) => Object.keys(GROUPS).find((g) => GROUPS[g].some(([k]) => k === t));
+// 설정 항목: 위 메뉴의 아래 줄(ui.js SETTINGS_TABS)에서 #항목 으로 바로 들어온다
+const TAB_TITLES = { parish: '성당 정보', approval: '결재선', accounts: '통장', subjects: '예산과목', budget: '연 예산',
+  journal: '사목일지', backup: '백업', members: '함께 사용 (사용자 변경)', account: '초기화 · 탈퇴' };
+const tabFromHash = () => (location.hash.slice(1) in TAB_TITLES ? location.hash.slice(1) : 'parish');
 
 let settings = null;
-let tab = ['parish', 'accounts', 'subjects', 'approval', 'journal', 'budget', 'backup', 'members', 'account'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+let tab = tabFromHash();
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값 { daily: [...], main: [...] }
 let scheduleDraft = null; // 요일별 기본 미사 편집 중 값
@@ -38,11 +33,7 @@ async function reload() {
 }
 
 function render() {
-  const group = groupOf(tab);
-  tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.group === group));
-  subtabs.hidden = GROUPS[group].length < 2;
-  subtabs.innerHTML = GROUPS[group].map(([k, label]) =>
-    `<button type="button" data-tab="${k}" class="${k === tab ? 'active' : ''} ${k === 'account' ? 'danger-sub' : ''}">${label}</button>`).join('');
+  document.getElementById('tab-title').textContent = `설정 · ${TAB_TITLES[tab]}`;
   ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, journal: renderJournalTab, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
@@ -901,22 +892,15 @@ panel.addEventListener('keydown', (e) => {
   else (form.querySelector('[data-action]') ?? panel.querySelector('[data-action$="-save"]'))?.click();
 });
 
-function openTab(next) {
+// 위 메뉴의 아래 줄을 누르면 주소의 #항목 이 바뀐다
+addEventListener('hashchange', () => {
+  const next = tabFromHash();
+  if (next === tab || !settings) return;
   tab = next;
   editing = null;
   scheduleDraft = null;
-  history.replaceState(null, '', `#${tab}`);
   render();
-}
-tabs.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-group]');
-  if (b && groupOf(tab) !== b.dataset.group) openTab(GROUPS[b.dataset.group][0][0]);
 });
-subtabs.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-tab]');
-  if (b && b.dataset.tab !== tab) openTab(b.dataset.tab);
-});
-
 
 initPage('settings').then(async () => {
   await reload();

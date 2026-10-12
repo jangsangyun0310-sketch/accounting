@@ -4,16 +4,34 @@ import { api, esc } from './api.js';
 import { formatWon } from './shared/money.js';
 import { currentAccount, logout } from './account.js';
 
-// icon: 휴대폰 화면 아래 메뉴 바에서만 보이는 그림
-const NAV = [
-  { href: '/', label: '홈', key: 'home', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>' },
-  { href: '/entry', label: '거래 입력', key: 'entry', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>' },
-  { href: '/ledger', label: '거래 조회', key: 'ledger', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>' },
-  { href: '/closing', label: '일 마감', key: 'closing', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M9 15l2 2 4-4"/></svg>' },
-  { href: '/journal', label: '사목일지', key: 'journal', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M12 6v6M9.5 8.5h5"/></svg>' },
-  { href: '/equipment', label: '비품대장', key: 'equipment', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>' },
-  { href: '/report', label: '결산', key: 'report', icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h7"/></svg>' },
+// 위 메뉴: 큰 묶음(회계 · 사목일지 · 재산관리 · 설정)을 누르면 첫 화면이 열리고, 아래 줄에 그 묶음의 작은 메뉴가 보인다.
+// icon: 휴대폰 화면 아래 메뉴 바에서만 보이는 그림 (휴대폰 아래 바: 홈 · 회계 · 사목일지 · 재산관리)
+const ICON = {
+  home: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
+  acct: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M7 15h4"/></svg>',
+  journal: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M12 6v6M9.5 8.5h5"/></svg>',
+  property: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+};
+// items: [주소, 이름, 화면 key]. 아래 줄은 작은 메뉴가 둘 이상이거나 sub: true 일 때 (재산관리: 나중에 토지 · 건물 자리)
+const GROUPS = [
+  { key: 'acct', label: '회계', items: [['/entry', '거래 입력', 'entry'], ['/ledger', '거래 조회', 'ledger'], ['/closing', '일 마감', 'closing'], ['/report', '결산', 'report']] },
+  { key: 'journal', label: '사목일지', items: [['/journal', '사목일지', 'journal']] },
+  { key: 'property', label: '재산관리', sub: true, items: [['/equipment', '비품대장', 'equipment']] },
 ];
+// 설정 항목 (settings.js 가 주소의 #항목 으로 화면을 바꾼다)
+const SETTINGS_TABS = [['parish', '성당 정보'], ['approval', '결재선'], ['accounts', '통장'], ['subjects', '예산과목'], ['budget', '연 예산'],
+  ['journal', '사목일지'], ['backup', '백업'], ['members', '함께 사용'], ['account', '초기화 · 탈퇴']];
+
+/** 위 메뉴 아래 줄: [주소, 이름, 지금 화면인지, 위험 표시] 목록 (없으면 빈 배열) */
+function subItems(active) {
+  if (active === 'settings') {
+    const now = SETTINGS_TABS.some(([k]) => k === location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
+    return SETTINGS_TABS.map(([k, label]) => [`/settings#${k}`, label, k === now, k === 'account']);
+  }
+  const g = GROUPS.find((x) => x.items.some(([, , key]) => key === active));
+  if (!g || (g.items.length < 2 && !g.sub)) return [];
+  return g.items.map(([path, label, key]) => [path, label, key === active, false]);
+}
 
 // [도움말]은 업무 메뉴와 떨어진 오른쪽(로그아웃 옆)에 두고, 지금 보고 있는 화면의 설명으로 바로 연다
 const HELP_SECTION = { home: 'start', setup: 'start', entry: 'entry', ledger: 'ledger', closing: 'closing', journal: 'journal', equipment: 'equipment', report: 'report', settings: 'settings' };
@@ -36,17 +54,30 @@ export async function initPage(active, { requireSetup = true } = {}) {
     // 메뉴 줄의 왼쪽·오른쪽 끝을 본문 상자 줄에 맞춘다 (본문과 같은 폭)
     // (결산 화면도 다른 화면과 같은 폭: A4 폭에 맞추면 메뉴가 두 줄이 된다)
     const width = ['wide', 'narrow'].find((w) => document.querySelector('main.container')?.classList.contains(w));
+    const ready = settings.setupCompleted;
+    const group = GROUPS.find((x) => x.items.some(([, , key]) => key === active));
+    const sub = ready ? subItems(active) : [];
+    const subHtml = () => sub.map(([path, label, on, danger]) =>
+      `<a href="${href(path)}" class="${on ? 'active' : ''}${danger ? ' danger' : ''}">${label}</a>`).join('');
+    bar.classList.toggle('has-sub', sub.length > 0);
     bar.innerHTML = `<div class="topbar-inner${width ? ` ${width}` : ''}">
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
-      ${settings.setupCompleted
-        ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
-      <nav>${settings.setupCompleted ? NAV.map((n) =>
-        `<a href="${href(n.href)}" class="${n.key === active ? 'active' : ''}"><span class="ni">${n.icon}</span><span class="nl">${n.label}</span></a>`).join('') : ''}</nav>
+      <nav>${ready ? `<a href="${href('/')}" class="nav-home ${active === 'home' ? 'active' : ''}"><span class="ni">${ICON.home}</span><span class="nl">홈</span></a>`
+        + GROUPS.map((g) => `<a href="${href(g.items[0][0])}" class="${g === group ? 'active' : ''}"><span class="ni">${ICON[g.key]}</span><span class="nl">${g.label}</span></a>`).join('') : ''}</nav>
+      ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
       <button type="button" class="more-btn" id="more-btn" aria-expanded="false" aria-label="메뉴 더 보기">⋯</button>
       <span class="account"><a class="help-link ${active === 'help' ? 'active' : ''}" href="${href(HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : '/help')}">도움말</a>
         <button type="button" class="secondary small" id="logout-btn"
         title="${esc(account.user.email)} 계정으로 로그인되어 있습니다">로그아웃</button></span>
-      <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button></div>`;
+      <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button></div>
+      ${sub.length ? `<div class="subnav"><div class="subnav-inner topbar-inner${width ? ` ${width}` : ''}">${subHtml()}</div></div>` : ''}`;
+    // 설정: 아래 줄에서 항목을 고르면 주소의 #항목 이 바뀐다 → 고른 항목 표시
+    if (active === 'settings') {
+      addEventListener('hashchange', () => {
+        const inner = bar.querySelector('.subnav-inner');
+        if (inner) { sub.splice(0, sub.length, ...subItems('settings')); inner.innerHTML = subHtml(); }
+      });
+    }
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
     bar.querySelector('#logout-btn')?.addEventListener('click', logout);
     // 휴대폰: [⋯]를 누르면 로그아웃·공유하기가 펼쳐진다
