@@ -252,3 +252,11 @@ body.printing .journal .photo .caption-row input.cell::placeholder { color: #000
   .journal-page #paper::after, .journal-page #paper2::after { content: none; }
   .journal-page .paper { padding-bottom: 12px; }
 }
+
+/* 결산서 · 사목일지: 탭 · 버튼 줄 · 종이를 위 메뉴와 같은 왼쪽 선에 맞춘다 (가운데 정렬 대신) */
+@media screen and (min-width: 841px) {
+  .report-tabs, .report-toolbar, .print-guide, #warning, .paper-scroll .paper {
+    margin-left: max(16px, calc(50% - 624px)); margin-right: auto;
+  }
+  .report-tabs, .report-toolbar, .print-guide { padding-left: 0; padding-right: 0; }
+}
