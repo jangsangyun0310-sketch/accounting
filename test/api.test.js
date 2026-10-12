@@ -40,7 +40,8 @@ test('최초 설정: 빈 DB 에 한 번에 저장되고 두 번째는 거부', a
   assert.equal(s.parish.parishName, '새벽성당');
   assert.deepEqual(s.accounts.map((a) => [a.fundCode, a.name, a.openingBalance, a.sortOrder]),
     [['GENERAL', '경상비', 1500000, 1], ['SPECIAL', '건축 기금', 0, 1]]);
-  assert.deepEqual(s.approvalSteps.map((x) => x.title), ['담당', '신부']);
+  const line = ['담당', '신부']; // 처음 결재선은 사목일지 · 결산서에 들어가고, 통장별 내역 · 개인별 납부는 결재란 없이
+  assert.deepEqual(s.approvals, { journal: line, daily: line, month: line, year: line, budget: line, accounts: [], donors: [] });
   assert.equal(s.subjects.length, 3);
 
   const again = await api('POST', '/api/setup', setupPayload());
@@ -159,12 +160,21 @@ test('과목 추가·사용중지·삭제, 결재선 변경', async () => {
   r = await api('DELETE', `/api/subjects/${sub.id}`);
   assert.equal(r.status, 200);
 
-  r = await api('PUT', '/api/approval-steps', { titles: ['기안', '주임신부'] });
+  r = await api('PUT', '/api/approvals/month', { titles: ['기안', '주임신부'] });
   assert.equal(r.status, 200);
-  assert.deepEqual((await api('GET', '/api/settings')).body.approvalSteps.map((s) => s.title), ['기안', '주임신부']);
-  r = await api('PUT', '/api/approval-steps', { titles: ['기안', '기안'] });
+  let approvals = (await api('GET', '/api/settings')).body.approvals;
+  assert.deepEqual(approvals.month, ['기안', '주임신부']);
+  assert.deepEqual(approvals.year, ['기안', '재정부회장', '사목회장', '주임신부']); // 다른 서류는 그대로
+  r = await api('PUT', '/api/approvals/month', { titles: ['기안', '기안'] });
   assert.equal(r.body.error.code, 'DUPLICATE');
-  r = await api('PUT', '/api/approval-steps', { titles: Array.from({ length: 11 }, (_, i) => `단계${i}`) });
+  r = await api('PUT', '/api/approvals/month', { titles: Array.from({ length: 11 }, (_, i) => `단계${i}`) });
+  assert.equal(r.status, 400);
+  // 빈 목록 = 결재란 없음, 없는 서류는 거부
+  r = await api('PUT', '/api/approvals/year', { titles: [] });
+  assert.equal(r.status, 200);
+  assert.deepEqual((await api('GET', '/api/settings')).body.approvals.year, []);
+  assert.deepEqual((await api('GET', '/api/reports/period?type=year&year=2026')).body.approvalSteps, []);
+  r = await api('PUT', '/api/approvals/receipt', { titles: ['담당'] });
   assert.equal(r.status, 400);
 });
 
@@ -177,7 +187,7 @@ test('라우팅: JSON 이 아닌 변경 요청 거부, 없는 경로 404, 잘못
   assert.equal(res.status, 415);
   res = await worker.fetch(new Request('http://local/api/nothing'), env);
   assert.equal(res.status, 404);
-  res = await worker.fetch(new Request('http://local/api/approval-steps'), env);
+  res = await worker.fetch(new Request('http://local/api/approvals/month'), env);
   assert.equal(res.status, 405);
 });
 

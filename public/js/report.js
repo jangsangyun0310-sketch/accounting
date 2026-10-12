@@ -1,16 +1,17 @@
-// 결산서: 월말결산 · 연말결산 · 예산 대비 집행 · 통장별 입출금 내역 · 개인별 납부 A4 미리보기와 인쇄
-// (날짜별 회계는 사목일지 2쪽에 나온다 — 예전 일일결산 주소로 오면 사목일지로 보낸다)
+// 결산서: 일일결산 · 월말결산 · 연말결산 · 예산 대비 집행 · 통장별 입출금 내역 · 개인별 납부 A4 미리보기와 인쇄
+// 결재란은 서류마다 따로 (제목 오른쪽, 모든 서류 같은 모양). 일일결산은 마감한 날이면 마감할 때의 결재란
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, toast, approvalAreaHtml, FUND_LABEL } from './ui.js';
+import { initPage, toast, reportHeadHtml, FUND_LABEL } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, monthStart, todayKST } from './shared/dates.js';
 import { downloadXlsx, reportSheet } from './excel.js';
-import { summaryRow } from './daily-tables.js';
+import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, summaryRow, transferTable } from './daily-tables.js';
 
 const $ = (id) => document.getElementById(id);
 
 const TYPES = {
+  daily: { now: '오늘' }, // 일일결산 (하루 회계 · 마감하면 확정)
   month: { now: '이번 달' },
   year: { now: '올해' },
   budget: { now: '올해' }, // 예산 대비 집행 (연도 고르기는 연말결산과 같은 칸)
@@ -21,7 +22,7 @@ let type = 'month';
 
 function currentValue() {
   if (type === 'accounts') return `${$('from').value}~${$('to').value}`;
-  return { month: $('month').value, year: $('year').value, budget: $('year').value, donors: $('year').value }[type];
+  return { daily: $('day').value, month: $('month').value, year: $('year').value, budget: $('year').value, donors: $('year').value }[type];
 }
 
 /** 결산 종류와 날짜(일: YYYY-MM-DD, 월: YYYY-MM, 연: YYYY, 통장별: { from, to })를 정하고 결산서를 불러온다 */
@@ -44,9 +45,11 @@ async function load(nextType, value) {
     fitPaper();
     return;
   }
+  $('day').hidden = type !== 'daily';
   $('month').hidden = type !== 'month';
   $('year').hidden = type !== 'year' && type !== 'budget' && type !== 'donors';
   $('now').textContent = TYPES[type].now;
+  if (type === 'daily') $('day').value = value;
   if (type === 'month') $('month').value = value;
   if (type === 'year' || type === 'budget' || type === 'donors') {
     if (![...$('year').options].some((o) => o.value === value)) $('year').append(new Option(`${value}년`, value));
@@ -54,7 +57,10 @@ async function load(nextType, value) {
   }
   history.replaceState(null, '', `?type=${type}&${type}=${value}`);
 
-  if (type === 'donors') {
+  if (type === 'daily') {
+    const r = await api(`/api/reports/daily?date=${value}`);
+    if (type === 'daily' && r.date === currentValue()) renderDaily(r);
+  } else if (type === 'donors') {
     const r = await api(`/api/reports/donors?year=${value}`);
     if (type === 'donors' && String(r.year) === currentValue()) {
       donorsReport = r;
@@ -85,13 +91,48 @@ addEventListener('afterprint', fitPaper);
 /** 이전·다음 (하루 / 한 달 / 한 해) */
 function shift(dir) {
   const v = currentValue();
+  if (type === 'daily') return addDays(v, dir);
   if (type === 'month') return addDays(`${v}-01`, dir > 0 ? 31 : -1).slice(0, 7);
   return String(Number(v) + dir);
 }
 
 function nowValue() {
   const t = todayKST();
-  return { month: t.slice(0, 7), year: t.slice(0, 4), budget: t.slice(0, 4), donors: t.slice(0, 4) }[type];
+  return { daily: t, month: t.slice(0, 7), year: t.slice(0, 4), budget: t.slice(0, 4), donors: t.slice(0, 4) }[type];
+}
+
+// ---------------------------------------------------------------- 일일결산
+
+function renderDaily(r) {
+  const closed = r.status === 'CLOSED';
+  document.title = `일일결산 ${r.date} - 본당살림`;
+  $('state').innerHTML = closed
+    ? `<span class="pill closed">마감 완료</span> <span class="muted">${r.autoClosedBy
+      ? `거래가 없어 ${formatKoreanDate(r.autoClosedBy)}을(를) 마감할 때 함께 마감되었습니다.`
+      : '마감할 때의 결재란 · 작성자로 인쇄됩니다.'}</span>`
+    : `<span class="pill open">마감 전</span> <span class="muted">아직 일 마감 전이라 가결산으로 출력됩니다.</span>
+      <a href="${href(`/closing?date=${r.date}`)}">일 마감 화면</a>`;
+  $('warning').innerHTML = r.verification && !r.verification.ok
+    ? `<p class="lock-banner">마감 시점 잔액과 현재 잔액이 다릅니다: ${r.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>` : '';
+  let no = 0;
+  const h2 = (title) => `<h2>${++no}. ${title}</h2>`;
+  $('paper').innerHTML = `
+    <article class="report ${closed ? '' : 'provisional'}">
+      ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
+      ${reportHeadHtml(`
+          <h1>일 일 결 산 서${closed ? '' : ' <small>(가결산)</small>'}</h1>
+          <table class="r-meta">
+            <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
+            <tr><th>결산일</th><td>${formatKoreanDate(r.date)}</td></tr>
+            <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
+          </table>`, r.approvalSteps, 'daily', { fixed: closed })}
+      ${h2('회계별 현황')}${fundSummaryTable(r)}
+      ${h2('수입 내역')}${detailTable(r.income, '수입')}
+      ${h2('지출 내역')}${detailTable(r.expense, '지출')}
+      ${r.transfers.rows.length ? `${h2('통장 간 이체')}${transferTable(r)}` : ''}
+      ${hasCash(r) ? `${h2('보유 현금')}${cashTable(r)}` : ''}
+      ${h2('통장별 현재잔액')}${accountBalances(r)}
+    </article>`;
 }
 
 // ---------------------------------------------------------------- 월말·연말결산
@@ -133,17 +174,13 @@ function renderPeriod(r) {
   $('paper').innerHTML = `
     <article class="report ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
-      <div class="r-head ${r.approvalSteps.length > 4 ? 'stacked' : ''}">
-        <div class="r-title">
+      ${reportHeadHtml(`
           <h1>${isMonth ? '월 말 결 산 서' : '연 말 결 산 서'}${closed ? '' : ' <small>(가결산)</small>'}</h1>
           <table class="r-meta">
             <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
             <tr><th>결산기간</th><td>${periodText} <span class="range">(${monthDay(r.from)} ~ ${monthDay(r.to)})</span></td></tr>
             <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
-          </table>
-        </div>
-        ${approvalAreaHtml(r.approvalSteps, 'main')}
-      </div>
+          </table>`, r.approvalSteps, r.type)}
 
       <h2>1. 회계별 현황</h2>
       <table class="r-table">
@@ -228,21 +265,17 @@ function renderBudget(r) {
   const noBudget = r.income.budget === 0 && r.expense.budget === 0;
   $('state').innerHTML = noBudget
     ? `<span class="pill open">예산 없음</span> <span class="muted">${r.year}년 예산을 아직 넣지 않았습니다. <a href="${href('/settings?s=acct#budget')}">⚙ 회계 설정 → 연 예산</a>에서 넣으세요.</span>`
-    : `<span class="muted">${formatKoreanDate(r.through)}까지 집행 기준</span> · <a href="${href('/settings#budget')}">예산 고치기</a>`;
+    : `<span class="muted">${formatKoreanDate(r.through)}까지 집행 기준</span> · <a href="${href('/settings?s=acct#budget')}">예산 고치기</a>`;
   $('warning').innerHTML = '';
   $('paper').innerHTML = `
     <article class="report">
-      <div class="r-head ${r.approvalSteps.length > 4 ? 'stacked' : ''}">
-        <div class="r-title">
+      ${reportHeadHtml(`
           <h1>예 산 대 비 집 행</h1>
           <table class="r-meta">
             <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
             <tr><th>회계연도</th><td>${r.year}년 <span class="range">(${monthDay(`${r.year}-01-01`)} ~ ${monthDay(r.through)})</span></td></tr>
             <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
-          </table>
-        </div>
-        ${approvalAreaHtml(r.approvalSteps, 'main')}
-      </div>
+          </table>`, r.approvalSteps, 'budget')}
       <h2>1. 수입</h2>
       ${budgetTable(r.income, '수입', 'INCOME')}
       <h2>2. 지출</h2>
@@ -319,16 +352,13 @@ function renderAccounts() {
   $('paper').innerHTML = `
     <article class="report ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
-      <div class="r-head">
-        <div class="r-title">
+      ${reportHeadHtml(`
           <h1>통장별 입출금 내역${closed ? '' : ' <small>(가결산)</small>'}</h1>
           <table class="r-meta">
             <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
             <tr><th>기 간</th><td>${formatKoreanDate(r.from)} ~ ${formatKoreanDate(r.to)}</td></tr>
             <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
-          </table>
-        </div>
-      </div>
+          </table>`, r.approvalSteps, 'accounts')}
 
       <h2>1. 통장별 요약</h2>
       <table class="r-table">
@@ -383,17 +413,13 @@ let donorsView = 'list'; // 'list' 사람별 목록 · 'all' 전체 내역서 ·
 const dotDate = (d) => `${d.slice(0, 4)}. ${Number(d.slice(5, 7))}. ${Number(d.slice(8, 10))}.`;
 
 function donorHead(r, title, payer) {
-  return `
-      <div class="r-head">
-        <div class="r-title">
+  return reportHeadHtml(`
           <h1>${title}</h1>
           <table class="r-meta">
             <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
             <tr><th>기 간</th><td>${formatKoreanDate(r.from)} ~ ${formatKoreanDate(r.to)} <span class="range">(특별회계)</span></td></tr>
             ${payer == null ? '' : `<tr><th>납부자</th><td><b>${esc(payer)}</b></td></tr>`}
-          </table>
-        </div>
-      </div>`;
+          </table>`, r.approvalSteps, 'donors');
 }
 
 /** 한 사람 내역서: 납입 날짜 · 헌금 종류 · 금액, 종류별 합계와 합계 (주민등록번호 칸 없음) */
@@ -484,7 +510,7 @@ $('paper').addEventListener('input', (e) => {
 // ---------------------------------------------------------------- 이벤트
 
 const run = (p) => p.catch((err) => toast(err.message, 'error'));
-const valid = (v) => (type === 'month' ? /^\d{4}-\d{2}$/.test(v) : /^\d{4}$/.test(v));
+const valid = (v) => (type === 'daily' ? isValidDate(v) : type === 'month' ? /^\d{4}-\d{2}$/.test(v) : /^\d{4}$/.test(v));
 const go = (v) => { if (valid(v)) run(load(type, v)); };
 
 $('report-tabs').addEventListener('click', (e) => {
@@ -495,9 +521,9 @@ $('report-tabs').addEventListener('click', (e) => {
   const prefix = type === 'accounts' ? $('to').value : currentValue();
   const today = todayKST();
   const base = today.startsWith(prefix) ? today
-    : type === 'accounts' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
+    : type === 'accounts' || type === 'daily' ? prefix : type === 'month' ? `${prefix}-01` : `${prefix}-01-01`;
   const accounts = { from: monthStart(base), to: base.slice(0, 7) === today.slice(0, 7) ? today : monthEnd(base) };
-  run(load(b.dataset.type, { month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), donors: base.slice(0, 4), accounts }[b.dataset.type]));
+  run(load(b.dataset.type, { daily: base, month: base.slice(0, 7), year: base.slice(0, 4), budget: base.slice(0, 4), donors: base.slice(0, 4), accounts }[b.dataset.type]));
 });
 // 통장별 내역: 기간·통장을 고르고 [조회] (Enter 도 됨). 빠른 기간 버튼은 바로 조회
 function searchAccounts() {
@@ -514,14 +540,14 @@ $('range-nav').addEventListener('click', (e) => {
   const b = e.target.closest('[data-range]');
   if (b) run(load('accounts', quickRange(b.dataset.range)));
 });
-for (const id of ['month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
+for (const id of ['day', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
 $('prev').addEventListener('click', () => go(shift(-1)));
 $('next').addEventListener('click', () => go(shift(1)));
 $('now').addEventListener('click', () => go(nowValue()));
 $('print').addEventListener('click', () => window.print());
 
 // 보고 있는 결산서를 Excel 로 (표 내용 그대로, 금액은 숫자로)
-const SHEET_NAME = { month: '월말결산', year: '연말결산', budget: '예산 대비 집행' };
+const SHEET_NAME = { daily: '일일결산', month: '월말결산', year: '연말결산', budget: '예산 대비 집행' };
 $('excel').addEventListener('click', () => {
   if (!$('paper').querySelector('.report')) return;
   if (type === 'accounts') {
@@ -552,10 +578,9 @@ initPage('report').then(({ settings }) => {
       `<option value="${a.id}" ${a.isCash ? 'class="cash-opt"' : ''}>${esc(a.name)}${a.isCash && !a.name.includes('현금') ? ' (현금)' : ''}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>` : '';
   }).join('');
   const p = new URLSearchParams(location.search);
-  // 예전 일일결산 주소 (?date= 또는 ?type=day) → 그날 사목일지 (2쪽이 회계)
+  // 예전 일일결산 주소 (?date= 또는 ?type=day) → 일일결산
   if (p.get('type') === 'day' || (!p.get('type') && isValidDate(p.get('date')))) {
-    location.replace(href(`/journal?date=${isValidDate(p.get('date')) ? p.get('date') : todayKST()}`));
-    return null;
+    return load('daily', isValidDate(p.get('date')) ? p.get('date') : todayKST());
   }
   type = TYPES[p.get('type')] ? p.get('type') : 'month';
   if (type === 'accounts') {

@@ -52,7 +52,7 @@ test('마감: 결재선·잔액 스냅샷 저장, 이력 기록, 이후 입력 �
   assert.equal(r.body.error.code, 'ALREADY_CLOSED');
 
   // 결재선을 바꿔도 마감된 날의 스냅샷은 그대로
-  await api('PUT', '/api/approval-steps', { titles: ['담당', '신부'] });
+  await api('PUT', '/api/approvals/daily', { titles: ['담당', '신부'] });
   assert.deepEqual((await api('GET', '/api/closings/2026-10-02')).body.closing.approvalSteps,
     ['기안', '재정부회장', '사목회장', '주임신부']);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM closing_events').get().n, 2);

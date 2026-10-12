@@ -4,6 +4,7 @@ import { auditStatement } from '../lib/db.js';
 import {
   accountInput, approvalTitles, array, noDuplicates, parishInput, subjectInput,
 } from '../lib/validate.js';
+import { APPROVAL_DOCS, DEFAULT_EMPTY_DOCS } from '../lib/approvals.js';
 
 export function validateSetup(body) {
   const parish = parishInput(body?.parish);
@@ -58,6 +59,9 @@ export async function runSetup({ request, env, actor }) {
     ).bind(s.kind, s.name, ++order[s.kind], now, by)),
     ...input.approvalSteps.map((title, i) =>
       db.prepare('INSERT INTO approval_steps (seq, title) VALUES (?, ?)').bind(i + 1, title)),
+    // 서류별 결재란: 받은 결재선으로 시작 (통장별 내역 · 개인별 납부는 결재란 없이)
+    ...APPROVAL_DOCS.map((doc) => db.prepare('INSERT OR REPLACE INTO doc_approvals (doc, titles) VALUES (?, ?)')
+      .bind(doc, JSON.stringify(DEFAULT_EMPTY_DOCS.includes(doc) ? [] : input.approvalSteps))),
     auditStatement(db, { actor: by, entity: 'setup', entityId: 1, action: 'SETUP', after: input }),
   ];
   await db.batch(statements);

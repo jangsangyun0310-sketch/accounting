@@ -96,31 +96,40 @@ test('입력 검증: 숫자·시간·구분·날짜', async () => {
   assert.equal((await api('PUT', '/api/mass-schedule', { items: [{ weekday: 0, time: '', kind: 'SUNDAY' }] })).status, 400);
 });
 
-test('결재선: 일일결산·사목일지는 따로 정할 수 있고, 정하지 않았으면 월말·연말 결재선을 쓴다', async () => {
+test('결재란: 서류마다 따로 정하고, 일일결산은 마감할 때의 결재란이 남고, 빼면 결재란이 없다', async () => {
   const { api } = setup();
   const main = ['기안', '재정부회장', '사목회장', '주임신부'];
   assert.deepEqual((await api('GET', '/api/journal?date=2026-10-02')).body.approvalSteps, main);
   assert.deepEqual((await api('GET', '/api/reports/daily?date=2026-10-02')).body.approvalSteps, main);
+  assert.deepEqual((await api('GET', '/api/reports/accounts?from=2026-10-01&to=2026-10-31')).body.approvalSteps, []);
+  assert.deepEqual((await api('GET', '/api/reports/donors?year=2026')).body.approvalSteps, []);
 
-  // 따로 정하기 전에 마감한 날은 그때 결재선 그대로
+  // 바꾸기 전에 마감한 날은 그때 결재란 그대로
   assert.equal((await api('POST', '/api/closings/2026-10-01/close', {})).status, 200);
 
-  assert.equal((await api('PUT', '/api/approval-steps/daily', { titles: ['주임신부'] })).status, 200);
-  assert.deepEqual((await api('GET', '/api/settings')).body.dailyApprovalSteps.map((s) => s.title), ['주임신부']);
+  assert.equal((await api('PUT', '/api/approvals/journal', { titles: ['주임신부'] })).status, 200);
+  assert.equal((await api('PUT', '/api/approvals/daily', { titles: ['담당', '주임신부'] })).status, 200);
+  assert.equal((await api('PUT', '/api/approvals/accounts', { titles: ['담당'] })).status, 200);
   assert.deepEqual((await api('GET', '/api/journal?date=2026-10-02')).body.approvalSteps, ['주임신부']);
-  assert.deepEqual((await api('GET', '/api/reports/daily?date=2026-10-02')).body.approvalSteps, ['주임신부']);
+  assert.deepEqual((await api('GET', '/api/reports/daily?date=2026-10-02')).body.approvalSteps, ['담당', '주임신부']);
+  assert.deepEqual((await api('GET', '/api/reports/accounts?from=2026-10-01&to=2026-10-31')).body.approvalSteps, ['담당']);
   assert.equal((await api('POST', '/api/closings/2026-10-02/close', {})).status, 200);
-  assert.deepEqual((await api('GET', '/api/reports/daily?date=2026-10-02')).body.approvalSteps, ['주임신부']);
   assert.deepEqual((await api('GET', '/api/reports/daily?date=2026-10-01')).body.approvalSteps, main);
-  // 월말·연말은 그대로 여러 사람
   assert.deepEqual((await api('GET', '/api/reports/period?type=month&month=2026-10')).body.approvalSteps, main);
+
+  // 일일결산 결재란을 빼고 마감하면 그날은 결재란 없이 남는다 (다시 넣어도 그대로)
+  assert.equal((await api('PUT', '/api/approvals/daily', { titles: [] })).status, 200);
+  assert.equal((await api('POST', '/api/closings/2026-10-03/close', {})).status, 200);
+  assert.equal((await api('PUT', '/api/approvals/daily', { titles: ['주임신부'] })).status, 200);
+  assert.deepEqual((await api('GET', '/api/reports/daily?date=2026-10-03')).body.approvalSteps, []);
+  assert.deepEqual((await api('GET', '/api/reports/daily?date=2026-10-02')).body.approvalSteps, ['담당', '주임신부']);
 });
 
 test('사목일지는 백업에 들어가고 복구되며, 사목일지 표가 없던 예전 백업도 복구된다', async () => {
   const a = setup();
   await a.api('PUT', '/api/mass-schedule', { items: SCHEDULE });
   await a.api('PUT', '/api/journal-settings', { households: 520, members: 1480 });
-  await a.api('PUT', '/api/approval-steps/daily', { titles: ['주임신부'] });
+  await a.api('PUT', '/api/approvals/journal', { titles: ['주임신부'] });
   await a.api('PUT', '/api/journal', { date: '2026-10-11', members: { in: 3 }, masses: [{ time: '06:00', name: '아침미사', kind: 'SUNDAY', attendance: 85 }], notes: '메모' });
   const backup = await (await worker.fetch(new Request('http://local/api/backup'), { DB: d1Adapter(a.db), AUTH_MODE: 'dev' })).json();
   assert.equal(backup.counts.journals, 1);
@@ -137,7 +146,7 @@ test('사목일지는 백업에 들어가고 복구되며, 사목일지 표가 �
   assert.equal((await b.api('GET', '/api/settings')).body.massSchedule.length, 4);
 
   const old = structuredClone(backup);
-  for (const t of ['daily_approval_steps', 'mass_schedule', 'journal_settings', 'journals', 'journal_masses', 'journal_documents']) {
+  for (const t of ['doc_approvals', 'daily_approval_steps', 'mass_schedule', 'journal_settings', 'journals', 'journal_masses', 'journal_documents']) {
     delete old.tables[t];
     delete old.counts[t];
   }
@@ -145,6 +154,11 @@ test('사목일지는 백업에 들어가고 복구되며, 사목일지 표가 �
   const c = setup(createDb({ seed: false }));
   assert.equal((await c.api('POST', '/api/restore', old)).status, 200);
   assert.equal((await c.api('GET', '/api/journal?date=2026-10-11')).body.saved, false);
+  // 결재란 표가 없던 예전 백업: 예전 결재선으로 채운다
+  const oldApprovals = (await c.api('GET', '/api/settings')).body.approvals;
+  assert.deepEqual(oldApprovals.month, ['기안', '재정부회장', '사목회장', '주임신부']);
+  assert.deepEqual(oldApprovals.journal, oldApprovals.month);
+  assert.deepEqual(oldApprovals.donors, []);
 });
 
 test('공문서 수발신: 빈 줄은 버리고 순서대로 저장, 구분은 비워도 되고, 백업·복구에 들어간다', async () => {

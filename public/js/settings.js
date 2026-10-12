@@ -2,7 +2,8 @@
 // 주소: ?s=묶음#항목 (회계 · 사목일지 · 재산관리 설정은 그 기능의 ⚙ 설정에서, 성당 전체 설정은 ?s 없이) — 예전 #링크도 맞는 묶음으로 열린다
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
-import { initPage, settingsPlace, SETTINGS_SCOPES, personName, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
+import { initPage, settingsPlace, SETTINGS_SCOPES, personName, bindAmountInput, attempt, toast, approvalBoxHtml, approvalCountOptions, FUND_LABEL, KIND_LABEL } from './ui.js';
+import { APPROVAL_DOC_LABEL } from './shared/approval-docs.js';
 import { formatWon } from './shared/money.js';
 import { formatDateTimeKST, todayKST } from './shared/dates.js';
 import { href } from './base.js';
@@ -13,7 +14,6 @@ import { journalMonthSheets } from './journal-book.js';
 import { downloadXlsx } from './excel.js';
 import { handoverSheets } from './handover.js';
 
-const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 
 const SCOPE_TITLES = { acct: '회계 설정', journal: '사목일지 설정', property: '재산관리 설정', '': '성당 설정' };
@@ -23,7 +23,7 @@ const subtabs = document.getElementById('subtabs');
 let settings = null;
 let { scope, tab } = settingsPlace();
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
-let approvalDraft = null; // 결재선 편집 중 값 { daily: [...], main: [...] }
+let approvalDraft = null; // 결재란 편집 중 값 { 서류: [직함] }
 let scheduleDraft = null; // 요일별 기본 미사 편집 중 값
 
 async function reload() {
@@ -37,7 +37,7 @@ function render() {
   // 묶음 안 항목이 둘 이상이면 화면 안 작은 탭 (성당 전체 설정은 위 메뉴 아래 줄에 이미 있음)
   subtabs.hidden = !scope || list.length < 2;
   subtabs.innerHTML = scope ? list.map(([k, label]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'active' : ''}">${label}</button>`).join('') : '';
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, 'approval-main': () => renderApproval('main'), 'approval-daily': () => renderApproval('daily'), 'equipment-subjects': renderEquipmentSubjects, journal: renderJournalTab, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, 'approval-main': () => renderApproval(REPORT_DOCS), 'approval-daily': () => renderApproval(['journal']), 'equipment-subjects': renderEquipmentSubjects, journal: renderJournalTab, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -219,35 +219,34 @@ function orderButtons(type, id, i, count) {
 
 // ---------------------------------------------------------------- 결재선
 
-const APPROVAL_LINES = [
-  { key: 'daily', title: '사목일지', help: '날마다 인쇄하는 사목일지의 결재란입니다.' },
-  { key: 'main', title: '월말 · 연말결산 · 예산 대비', help: '월말결산서 · 연말결산서 · 예산 대비 집행의 결재란입니다.' },
-];
+// 서류별 결재란: ⚙ 회계 설정 → 결산서 결재란(결산서 6종), ⚙ 사목일지 설정 → 사목일지 결재란
+const REPORT_DOCS = ['daily', 'month', 'year', 'budget', 'accounts', 'donors'];
+const APPROVAL_HELP = {
+  journal: '날마다 인쇄하는 사목일지 1쪽의 결재란입니다.',
+  daily: '일일결산서의 결재란입니다. 마감한 날은 마감할 때의 결재란으로 인쇄됩니다.',
+  month: '월말결산서의 결재란입니다.',
+  year: '연말결산서의 결재란입니다.',
+  budget: '예산 대비 집행의 결재란입니다.',
+  accounts: '통장별 입출금 내역의 결재란입니다.',
+  donors: '개인별 납부 현황 · 내역서(한 사람 한 장)의 결재란입니다.',
+};
 
-function renderApproval(only) {
-  approvalDraft ??= {
-    main: settings.approvalSteps.map((s) => s.title),
-    // 일일 결재선을 따로 정한 적이 없으면 월말·연말 결재선과 같게 시작
-    daily: (settings.dailyApprovalSteps.length ? settings.dailyApprovalSteps : settings.approvalSteps).map((s) => s.title),
-  };
-  panel.innerHTML = APPROVAL_LINES.filter((l) => !only || l.key === only).map(({ key, title, help }) => {
-    const steps = approvalDraft[key];
+function renderApproval(docs) {
+  approvalDraft ??= structuredClone(settings.approvals);
+  panel.innerHTML = docs.map((doc) => {
+    const steps = approvalDraft[doc];
     return `
-    <div class="approval-line" data-line="${key}">
-      <h3>${title} 결재선</h3>
-      <p class="help">${help}</p>
-      <label class="inline">결재 단계 수
-        <select class="approval-count">${Array.from({ length: MAX_STEPS }, (_, i) =>
-          `<option ${i + 1 === steps.length ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
-      </label>
+    <div class="approval-line" data-line="${doc}">
+      <h3>${APPROVAL_DOC_LABEL[doc]} 결재란</h3>
+      <p class="help">${APPROVAL_HELP[doc]}</p>
+      <label class="inline">결재 단계 수 <select class="approval-count">${approvalCountOptions(steps.length)}</select></label>
       <div class="form-grid approval-titles">
         ${steps.map((t, i) => `<label>${i + 1}단계 <input data-i="${i}" value="${esc(t)}" maxlength="12"></label>`).join('')}
       </div>
-      <h4>결재란 미리보기</h4>
       <div class="approval-preview">${approvalBoxHtml(steps.map((t) => t.trim() || '　'))}</div>
-      <button type="button" data-action="approval-save" data-line="${key}">${title} 결재선 저장</button>
+      <button type="button" data-action="approval-save" data-line="${doc}">${APPROVAL_DOC_LABEL[doc]} 결재란 저장</button>
     </div>`;
-  }).join('<hr class="line-sep">') + '<p class="help">이미 마감된 날짜의 회계(사목일지 2쪽)는 마감 당시 결재선으로 남습니다.</p>';
+  }).join('<hr class="line-sep">') + '<p class="help">결재 단계 수에서 <b>없음</b>을 고르고 저장하면 그 서류에서 결재란이 빠집니다. 서류 화면의 [결재란 고치기] · [＋ 결재란 넣기]로도 바꿀 수 있습니다.</p>';
 }
 
 // 통장 / 현금: 현금이면 은행·계좌번호를 비우고 막는다
@@ -736,16 +735,14 @@ const actions = {
   },
 
   'approval-save': async (btn) => {
-    const key = btn.dataset.line;
-    const path = key === 'daily' ? '/api/approval-steps/daily' : '/api/approval-steps';
-    const label = APPROVAL_LINES.find((l) => l.key === key).title;
-    if (await attempt(() => api(path, { method: 'PUT', body: { titles: approvalDraft[key] } }), `${label} 결재선을 저장했습니다.`)) {
-      const other = key === 'daily' ? 'main' : 'daily';
-      const keep = approvalDraft[other]; // 저장하지 않은 다른 결재선 편집은 그대로
-      approvalDraft = null;
+    const doc = btn.dataset.line;
+    const titles = approvalDraft[doc];
+    const label = APPROVAL_DOC_LABEL[doc];
+    if (await attempt(() => api(`/api/approvals/${doc}`, { method: 'PUT', body: { titles } }),
+      titles.length ? `${label} 결재란을 저장했습니다.` : `${label}에서 결재란을 뺐습니다.`)) {
+      const keep = approvalDraft; // 저장하지 않은 다른 서류의 편집은 그대로
       settings = await api('/api/settings');
-      renderApproval();
-      approvalDraft[other] = keep;
+      approvalDraft = { ...keep, [doc]: [...settings.approvals[doc]] };
       render();
     }
   },

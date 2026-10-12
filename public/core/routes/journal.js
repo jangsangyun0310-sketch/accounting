@@ -11,24 +11,12 @@ import { json, readJson } from '../lib/http.js';
 import { auditStatement } from '../lib/db.js';
 import { array, bad, date as parseDate, oneOf, text } from '../lib/validate.js';
 import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
+import { approvalOf } from '../lib/approvals.js';
 
 export const MASS_KINDS = ['SUNDAY', 'WEEKDAY', 'WEDDING', 'FUNERAL', 'SPECIAL'];
 export const DOC_DIRECTIONS = ['', 'IN', 'OUT']; // 공문서 구분: (비움) · 수신 · 발신
 export const SACRAMENTS = ['baptism', 'confirmation', 'anointing', 'marriage', 'funeral', 'communion'];
 
-/** 일일결산·사목일지 결재선 JSON 배열 (따로 정하지 않았으면 월말·연말 결재선) — 마감 기록에 남기는 SQL 조각 */
-export const DAILY_APPROVAL_SNAPSHOT_SQL = `(CASE WHEN EXISTS (SELECT 1 FROM daily_approval_steps)
-  THEN (SELECT json_group_array(title) FROM (SELECT title FROM daily_approval_steps ORDER BY seq))
-  ELSE (SELECT json_group_array(title) FROM (SELECT title FROM approval_steps ORDER BY seq)) END)`;
-
-export async function dailyApprovalSteps(db) {
-  const { results } = await db.prepare(
-    `SELECT title FROM (SELECT title, seq, 0 AS g FROM daily_approval_steps
-       UNION ALL SELECT title, seq, 1 FROM approval_steps WHERE NOT EXISTS (SELECT 1 FROM daily_approval_steps))
-     ORDER BY g, seq`
-  ).all();
-  return results.map((r) => r.title);
-}
 
 /** 0 이상 정수 (빈칸·null 은 0) */
 export function count(value, label, max = 100000) {
@@ -107,7 +95,7 @@ export async function journalData(db, d) {
     saved: Boolean(j),
     parishName: parish.results[0]?.parish_name ?? '',
     writerName: parish.results[0]?.writer_name ?? '',
-    approvalSteps: await dailyApprovalSteps(db),
+    approvalSteps: await approvalOf(db, 'journal'),
     // 전날 총원: 화면이 전날 총원 + 전입 − 전출을 바로 계산해 보여 준다
     households: { prev: prev.households, in: j?.households_in ?? 0, out: j?.households_out ?? 0, total: j?.households_total ?? null },
     members: { prev: prev.members, in: j?.members_in ?? 0, out: j?.members_out ?? 0, total: j?.members_total ?? null },

@@ -8,12 +8,13 @@ import {
 } from '../lib/validate.js';
 
 import { count, massTime, MASS_KINDS } from './journal.js';
+import { APPROVAL_DOCS } from '../lib/approvals.js';
 
 const FUND_ID = { GENERAL: 1, SPECIAL: 2 };
 
 export async function getSettings({ env }) {
   const db = env.DB;
-  const [parish, funds, accounts, subjects, steps, flags, dailySteps, schedule, journalStart] = await db.batch([
+  const [parish, funds, accounts, subjects, approvals, flags, schedule, journalStart] = await db.batch([
     db.prepare('SELECT parish_name, start_date, writer_name, setup_completed FROM parish_settings WHERE id = 1'),
     db.prepare('SELECT id, code, name FROM funds ORDER BY sort_order'),
     db.prepare(
@@ -28,12 +29,11 @@ export async function getSettings({ env }) {
               (SELECT COUNT(*) FROM transactions t WHERE t.subject_id = s.id) AS tx_count
        FROM budget_subjects s ORDER BY s.kind DESC, s.sort_order, s.id`
     ),
-    db.prepare('SELECT seq, title FROM approval_steps ORDER BY seq'),
+    db.prepare('SELECT doc, titles FROM doc_approvals'),
     db.prepare(
       `SELECT EXISTS (SELECT 1 FROM transactions) AS has_tx,
               EXISTS (SELECT 1 FROM daily_closings WHERE status = 'CLOSED') AS has_closed`
     ),
-    db.prepare('SELECT seq, title FROM daily_approval_steps ORDER BY seq'),
     db.prepare('SELECT id, weekday, mass_time, name, kind FROM mass_schedule ORDER BY weekday, mass_time, id'),
     db.prepare('SELECT start_households, start_members, offering_subject_id FROM journal_settings WHERE id = 1'),
   ]);
@@ -54,9 +54,8 @@ export async function getSettings({ env }) {
       allowDeduction: s.allow_deduction === 1, // 수입 차감(−) 허용 (봉헌권 등)
       isEquipment: s.is_equipment === 1, // 비품 과목: 이 과목으로 지출하면 비품대장에도 올릴 수 있음
     })),
-    approvalSteps: steps.results,
-    // 일일결산·사목일지 결재선. 비어 있으면 approvalSteps 를 그대로 쓴다
-    dailyApprovalSteps: dailySteps.results,
+    // 서류별 결재란 { journal: [직함], daily: [...], ... } — 빈 배열이면 그 서류에는 결재란이 없다
+    approvals: Object.fromEntries(APPROVAL_DOCS.map((d) => [d, JSON.parse(approvals.results.find((r) => r.doc === d)?.titles ?? '[]')])),
     massSchedule: schedule.results.map((m) => ({ id: m.id, weekday: m.weekday, time: m.mass_time, name: m.name, kind: m.kind })),
     journalStart: {
       households: journalStart.results[0]?.start_households ?? 0,
@@ -224,37 +223,21 @@ export async function reorderSubjects({ request, env, actor }) {
 
 // ---- 결재선 ----
 
-export async function updateApprovalSteps({ request, env, actor }) {
+/** PUT /api/approvals/:doc { titles } : 그 서류의 결재란. 빈 목록이면 결재란을 넣지 않는다 */
+export async function updateDocApproval({ request, env, actor, params }) {
   const db = env.DB;
   await requireSetup(db);
-  const titles = approvalTitles((await readJson(request))?.titles);
-  const { results: before } = await db.prepare('SELECT seq, title FROM approval_steps ORDER BY seq').all();
+  const doc = oneOf(params.doc, APPROVAL_DOCS, '서류');
+  const titles = approvalTitles((await readJson(request))?.titles, { allowEmpty: true });
+  const before = await db.prepare('SELECT titles FROM doc_approvals WHERE doc = ?').bind(doc).first('titles');
   await db.batch([
-    db.prepare('DELETE FROM approval_steps'),
-    ...titles.map((t, i) => db.prepare('INSERT INTO approval_steps (seq, title) VALUES (?, ?)').bind(i + 1, t)),
+    db.prepare('INSERT OR REPLACE INTO doc_approvals (doc, titles) VALUES (?, ?)').bind(doc, JSON.stringify(titles)),
     auditStatement(db, {
-      actor: actor.email, entity: 'approval_steps', entityId: null, action: 'UPDATE',
-      before: before.map((s) => s.title), after: titles,
+      actor: actor.email, entity: 'doc_approvals', entityId: doc, action: 'UPDATE',
+      before: before ? JSON.parse(before) : null, after: titles,
     }),
   ]);
-  return json({ ok: true });
-}
-
-/** 일일결산·사목일지 결재선 (월말·연말과 따로) */
-export async function updateDailyApprovalSteps({ request, env, actor }) {
-  const db = env.DB;
-  await requireSetup(db);
-  const titles = approvalTitles((await readJson(request))?.titles);
-  const { results: before } = await db.prepare('SELECT seq, title FROM daily_approval_steps ORDER BY seq').all();
-  await db.batch([
-    db.prepare('DELETE FROM daily_approval_steps'),
-    ...titles.map((t, i) => db.prepare('INSERT INTO daily_approval_steps (seq, title) VALUES (?, ?)').bind(i + 1, t)),
-    auditStatement(db, {
-      actor: actor.email, entity: 'daily_approval_steps', entityId: null, action: 'UPDATE',
-      before: before.map((s) => s.title), after: titles,
-    }),
-  ]);
-  return json({ ok: true });
+  return json({ ok: true, titles });
 }
 
 // ---- 사목일지: 요일별 기본 미사 · 시작 총원 ----

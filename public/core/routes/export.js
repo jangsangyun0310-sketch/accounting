@@ -7,6 +7,7 @@ import { addDays, todayKST } from '../../js/shared/dates.js';
 import { bad } from '../lib/validate.js';
 import { journalData } from './journal.js';
 import { dailyData } from './reports.js';
+import { allApprovals } from '../lib/approvals.js';
 
 const monthEnd = (ym) => addDays(`${addDays(`${ym}-01`, 31).slice(0, 7)}-01`, -1);
 
@@ -28,8 +29,6 @@ export async function all({ env, actor }) {
       db.prepare(`SELECT a.id, f.name AS fund_name, a.name, a.bank_name, a.account_no, a.is_cash, a.is_active
                   FROM accounts a JOIN funds f ON f.id = a.fund_id ORDER BY f.sort_order, a.sort_order, a.id`),
       db.prepare('SELECT kind, name, is_active, allow_deduction FROM budget_subjects ORDER BY kind DESC, sort_order, id'),
-      db.prepare('SELECT title FROM approval_steps ORDER BY seq'),
-      db.prepare('SELECT title FROM daily_approval_steps ORDER BY seq'),
     ]),
     db.prepare('SELECT * FROM journals ORDER BY journal_date').all(),
     db.prepare('SELECT journal_date, mass_time, name, kind, attendance, confessions FROM journal_masses ORDER BY journal_date, seq').all(),
@@ -64,7 +63,7 @@ export async function all({ env, actor }) {
     bySubject.push({ year: y, income: rows.INCOME, expense: rows.EXPENSE });
   }
 
-  const [accountRows, subjects, mainSteps, dailySteps] = settingsRows;
+  const [accountRows, subjects] = settingsRows;
   const balance = new Map(accountsNow.accounts.map((a) => [a.id, a.end]));
   return json({
     parishName: parish.parish_name,
@@ -80,7 +79,7 @@ export async function all({ env, actor }) {
       isCash: a.is_cash === 1, isActive: a.is_active === 1, balance: balance.get(a.id) ?? 0,
     })),
     subjects: subjects.results.map((s) => ({ kind: s.kind, name: s.name, isActive: s.is_active === 1, allowDeduction: s.allow_deduction === 1 })),
-    approval: { main: mainSteps.results.map((r) => r.title), daily: dailySteps.results.map((r) => r.title) },
+    approval: await allApprovals(db), // 서류별 결재란
     journals: journals.results,
     masses: masses.results,
     documents: documents.results,

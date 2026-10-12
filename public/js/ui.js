@@ -3,6 +3,7 @@ import { href } from './base.js';
 import { api, esc } from './api.js';
 import { formatWon } from './shared/money.js';
 import { currentAccount, logout } from './account.js';
+import { APPROVAL_DOC_LABEL } from './shared/approval-docs.js';
 
 // 위 메뉴: 큰 묶음(회계 · 사목일지 · 재산관리 · 설정)을 누르면 첫 화면이 열리고, 아래 줄에 그 묶음의 작은 메뉴가 보인다.
 // icon: 휴대폰 화면 아래 메뉴 바에서만 보이는 그림 (휴대폰 아래 바: 홈 · 회계 · 사목일지 · 재산관리)
@@ -214,7 +215,7 @@ export async function attempt(fn, successMessage) {
 
 /** 결재란 (화면 미리보기와 결산서 공용). 결재 칸은 명칭 길이와 관계없이 모두 같은 너비 */
 export function approvalBoxHtml(titles) {
-  if (!titles.length) return '<p class="muted">결재 단계가 없습니다.</p>';
+  if (!titles.length) return '<p class="muted">결재란 없음</p>';
   return `<table class="approval-box" style="--steps:${titles.length}">
     <colgroup><col class="vertical">${titles.map(() => '<col class="step">').join('')}</colgroup>
     <tr><th rowspan="2" class="vertical">결<br>재</th>
@@ -222,31 +223,30 @@ export function approvalBoxHtml(titles) {
     <tr>${titles.map(() => '<td></td>').join('')}</tr></table>`;
 }
 
-const APPROVAL_KIND = {
-  daily: { label: '사목일지', path: '/api/approval-steps/daily' },
-  main: { label: '월말 · 연말결산 · 예산 대비', path: '/api/approval-steps' },
-};
+/** 결재 단계 수 고르기: 없음(결재란 빼기) · 1 ~ 10단계 */
+export const approvalCountOptions = (count) => Array.from({ length: 11 }, (_, i) =>
+  `<option value="${i}" ${i === count ? 'selected' : ''}>${i ? `${i}단계` : '없음 (결재란 빼기)'}</option>`).join('');
 
 /**
- * [결재란 고치기]: 그 서류의 결재란을 그 자리에서 바꾼다. kind = 'daily'(사목일지) | 'main'(결산서).
- * 저장하면 새 직함 목록, 그냥 닫으면 null.
+ * [결재란 고치기] · [＋ 결재란 넣기]: 그 서류의 결재란을 그 자리에서 바꾼다. doc = APPROVAL_DOC_LABEL 의 열쇠.
+ * fixed: 이미 마감해 결재란이 정해진 일일결산 (바꾸면 다음 마감부터). 저장하면 새 직함 목록, 그냥 닫으면 null.
  */
-export async function editApproval(kind) {
+export async function editApproval(doc, { fixed = false } = {}) {
   const s = await api('/api/settings');
-  const from = kind === 'daily' && s.dailyApprovalSteps.length ? s.dailyApprovalSteps : s.approvalSteps;
-  let titles = from.map((x) => x.title);
-  const { label, path } = APPROVAL_KIND[kind];
+  let titles = [...(s.approvals[doc] ?? [])];
+  if (!titles.length) titles = ['']; // [＋ 결재란 넣기]: 한 칸부터
+  const label = APPROVAL_DOC_LABEL[doc];
   const dlg = document.createElement('dialog');
   dlg.className = 'approval-dialog';
   document.body.append(dlg);
   const draw = () => {
     dlg.innerHTML = `
       <div class="dialog-head"><h3>결재란 고치기 <span class="muted small">${label}</span></h3></div>
-      <label class="inline">결재 단계 수
-        <select class="ad-count">${Array.from({ length: 10 }, (_, i) => `<option ${i + 1 === titles.length ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></label>
+      <label class="inline">결재 단계 수 <select class="ad-count">${approvalCountOptions(titles.length)}</select></label>
       <div class="form-grid ad-titles">${titles.map((t, i) => `<label>${i + 1}단계 <input data-i="${i}" value="${esc(t)}" maxlength="12"></label>`).join('')}</div>
       <div class="ad-preview">${approvalBoxHtml(titles.map((t) => t.trim() || '　'))}</div>
-      <p class="help">왼쪽부터 순서대로 인쇄됩니다. 이미 마감한 날의 회계 쪽은 마감 때 결재란으로 남습니다.</p>
+      <p class="help">왼쪽부터 순서대로 인쇄됩니다. <b>없음</b>을 고르면 ${label}에서 결재란이 빠집니다.
+        ${fixed ? '<br>이 날은 이미 마감해서 <b>마감할 때의 결재란</b>으로 인쇄됩니다. 여기서 바꾸면 <b>다음에 마감하는 날부터</b> 들어갑니다.' : ''}</p>
       <div class="dialog-foot"><button type="button" class="secondary" data-close>닫기</button><button type="button" data-save>저장</button></div>`;
   };
   draw();
@@ -269,9 +269,9 @@ export async function editApproval(kind) {
       if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
       if (!e.target.closest('[data-save]')) return;
       try {
-        await api(path, { method: 'PUT', body: { titles } });
+        await api(`/api/approvals/${doc}`, { method: 'PUT', body: { titles } });
         result = titles.map((t) => t.trim());
-        toast(`${label} 결재란을 저장했습니다.`);
+        toast(titles.length ? `${label} 결재란을 저장했습니다.` : `${label}에서 결재란을 뺐습니다.`);
         dlg.close();
       } catch (err) {
         toast(err.message, 'error');
@@ -299,7 +299,7 @@ export const KIND_LABEL = { INCOME: '수입', EXPENSE: '지출' };
  * 마감 안내: info = GET /api/closings/:date 응답.
  * 마감할 수 있는 날이면 [이 날짜 마감하기], 앞 날짜가 남았으면 그 날짜 안내, 이미 마감했으면 빈 글자.
  */
-export function closeBarHtml(info, { hint = '마감하면 이 날짜 거래는 잠기고, 사목일지 2쪽에 회계가 나옵니다.' } = {}) {
+export function closeBarHtml(info, { hint = '마감하면 이 날짜 거래는 잠기고, 일일결산서가 확정됩니다.' } = {}) {
   const d = info.date;
   if (info.closing?.status === 'CLOSED' || (info.lastClosed && d <= info.lastClosed) || d > info.today || d < info.startDate) return '';
   if (info.canClose) {
@@ -327,22 +327,39 @@ export async function closeDay(date) {
 
 // ---------------------------------------------------------------- 결재란 + [결재란 고치기] (사목일지 · 결산서)
 
-/** 서류의 결재란 칸 (인쇄에는 나오지 않는 [결재란 고치기] 버튼 포함). kind = 'daily' | 'main' */
-export function approvalAreaHtml(titles, kind) {
-  return `<div class="r-approval" data-approval-kind="${kind}"><div class="ab">${approvalBoxHtml(titles)}</div>
-    <button type="button" class="secondary small approval-edit no-print" data-approval-edit="${kind}">결재란 고치기</button></div>`;
+/**
+ * 서류의 결재란 칸 (모든 서류 같은 모양 · 같은 자리: 제목 오른쪽). 인쇄에는 나오지 않는 버튼 포함.
+ * 결재란을 뺀 서류는 [＋ 결재란 넣기] 버튼만 남는다 (인쇄에는 아무것도 없음).
+ * fixed: 마감한 날의 일일결산 — 마감할 때의 결재란을 그대로 보여 주고, 고치면 다음 마감부터.
+ */
+export function approvalAreaHtml(titles, doc, { fixed = false } = {}) {
+  const attrs = `data-approval-kind="${doc}"${fixed ? ' data-approval-fixed="1"' : ''}`;
+  if (!titles.length) {
+    return `<div class="r-approval empty no-print" ${attrs}>
+      <button type="button" class="secondary small approval-edit" data-approval-edit="${doc}">＋ 결재란 넣기</button></div>`;
+  }
+  return `<div class="r-approval" ${attrs}><div class="ab">${approvalBoxHtml(titles)}</div>
+    <button type="button" class="secondary small approval-edit no-print" data-approval-edit="${doc}">결재란 고치기</button></div>`;
 }
 
-// [결재란 고치기]를 누르면 창에서 고치고, 화면의 결재란을 바로 바꾼다
+/** 서류 머리 (제목 + 결재란). 결재 칸이 5칸 이상이면 결재란을 제목 아래로 내린다 */
+export const reportHeadHtml = (titleHtml, titles, doc, opts) => `
+  <div class="r-head ${titles.length > 4 ? 'stacked' : ''}">
+    <div class="r-title">${titleHtml}</div>
+    ${approvalAreaHtml(titles, doc, opts)}
+  </div>`;
+
+// [결재란 고치기]를 누르면 창에서 고치고, 화면의 결재란을 바로 바꾼다 (마감한 날의 일일결산은 그대로)
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-approval-edit]');
   if (!b) return;
-  const kind = b.dataset.approvalEdit;
-  const titles = await editApproval(kind);
+  const doc = b.dataset.approvalEdit;
+  const fixed = Boolean(b.closest('[data-approval-fixed]'));
+  const titles = await editApproval(doc, { fixed });
   if (!titles) return;
-  document.querySelectorAll(`[data-approval-kind="${kind}"]`).forEach((el) => {
-    el.querySelector('.ab').innerHTML = approvalBoxHtml(titles);
+  document.querySelectorAll(`[data-approval-kind="${doc}"]:not([data-approval-fixed])`).forEach((el) => {
     el.closest('.r-head')?.classList.toggle('stacked', titles.length > 4);
+    el.outerHTML = approvalAreaHtml(titles, doc);
   });
-  document.dispatchEvent(new CustomEvent('approval-changed', { detail: { kind, titles } }));
+  document.dispatchEvent(new CustomEvent('approval-changed', { detail: { doc, titles } }));
 });

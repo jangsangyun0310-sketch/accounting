@@ -52,7 +52,7 @@ function render(j, day, info) {
             <tr><th>작성자</th><td>${esc(j.writerName)}<span class="seal">(인)</span></td></tr>
           </table>
         </div>
-        ${approvalAreaHtml(j.approvalSteps, 'daily')}
+        ${approvalAreaHtml(j.approvalSteps, 'journal')}
       </div>
 
       <h2>1. 신자 현황</h2>

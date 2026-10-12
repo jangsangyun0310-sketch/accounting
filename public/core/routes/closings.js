@@ -6,7 +6,7 @@ import { BALANCES_SQL } from '../lib/db.js';
 import { verifySnapshot } from '../lib/ledger.js';
 import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
 import { bad, date as parseDate, text } from '../lib/validate.js';
-import { DAILY_APPROVAL_SNAPSHOT_SQL } from './journal.js';
+import { DAILY_APPROVAL_SNAPSHOT_SQL } from '../lib/approvals.js';
 
 // ?1 = 마감일. BALANCES_SQL 도 ?1 을 기준일로 쓴다.
 // 마감 기록에 남기는 결재선 = 일일결산 결재선 (설정 → 결재선)

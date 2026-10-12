@@ -7,6 +7,7 @@ import { auditStatement } from '../lib/db.js';
 import { array, bad, id as parseId } from '../lib/validate.js';
 import { parseAmount, sumAmounts } from '../../js/shared/money.js';
 import { todayKST } from '../../js/shared/dates.js';
+import { approvalOf } from '../lib/approvals.js';
 
 function parseYear(value) {
   const year = Number(value);
@@ -44,11 +45,11 @@ export async function list({ env, url }) {
     return { items, budget, actual, remaining: budget - actual, rate: rate(actual, budget) };
   };
   const parish = await db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first();
-  const steps = await db.prepare('SELECT title FROM approval_steps ORDER BY seq').all();
+  const steps = await approvalOf(db, 'budget');
   return json({
     year, through, today,
     parishName: parish?.parish_name ?? '', writerName: parish?.writer_name ?? '',
-    approvalSteps: steps.results.map((s) => s.title),
+    approvalSteps: steps,
     income: group('INCOME'), expense: group('EXPENSE'),
   });
 }

@@ -7,7 +7,7 @@ import { TX_SELECT, computeDay, computePeriod, mapTx, periodBreakdown, subjectTo
 import { bad } from '../lib/validate.js';
 import { sumAmounts } from '../../js/shared/money.js';
 import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
-import { dailyApprovalSteps } from './journal.js';
+import { approvalOf } from '../lib/approvals.js';
 
 /** GET /api/reports/daily?date= */
 export async function daily({ env, url }) {
@@ -25,7 +25,7 @@ export async function dailyData(db, date) {
       `SELECT status, approval_snapshot, balance_snapshot, writer_name, closed_at, closed_by
        FROM daily_closings WHERE close_date = ?`
     ).bind(date).first(),
-    dailyApprovalSteps(db),
+    approvalOf(db, 'daily'),
   ]);
   // 자동 마감: 이 날의 마감 기록은 없지만 이후 날짜가 마감되어 함께 잠긴 날 (마감 순서 규칙상 거래가 없는 날)
   const cover = closing?.status === 'CLOSED' || (parish && date < parish.start_date) ? null : await db.prepare(
@@ -112,7 +112,7 @@ export async function period({ env, url }) {
     subjectTotals(db, from, to, 'INCOME'),
     subjectTotals(db, from, to, 'EXPENSE'),
     db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first(),
-    db.prepare('SELECT title FROM approval_steps ORDER BY seq').all(),
+    approvalOf(db, type),
     db.prepare(`SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'`).first('d'),
   ]);
   const breakdown = await periodBreakdown(db, from, to, type === 'year' ? 'month' : 'day', summary.total.prev);
@@ -123,7 +123,7 @@ export async function period({ env, url }) {
     to,
     parishName: parish?.parish_name ?? '',
     writerName: parish?.writer_name ?? '',
-    approvalSteps: steps.results.map((s) => s.title),
+    approvalSteps: steps,
     status: lastClosed && lastClosed >= to ? 'CLOSED' : 'PROVISIONAL',
     closedThrough: lastClosed ?? null,
     funds: summary.funds,
@@ -148,11 +148,12 @@ export async function accounts({ env, url }) {
   if (from > to) throw bad('시작일이 종료일보다 늦습니다.', 'BAD_RANGE');
 
   const db = env.DB;
-  const [summary, txs, parish, lastClosed] = await Promise.all([
+  const [summary, txs, parish, lastClosed, steps] = await Promise.all([
     computePeriod(db, from, to),
     db.prepare(`${TX_SELECT} WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED' ORDER BY t.tx_date, t.id`).bind(from, to).all(),
     db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first(),
     db.prepare(`SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'`).first('d'),
+    approvalOf(db, 'accounts'),
   ]);
   const rows = txs.results.map(mapTx);
 
@@ -183,6 +184,7 @@ export async function accounts({ env, url }) {
     to,
     parishName: parish?.parish_name ?? '',
     writerName: parish?.writer_name ?? '',
+    approvalSteps: steps,
     status: lastClosed && lastClosed >= to ? 'CLOSED' : 'PROVISIONAL',
     closedThrough: lastClosed ?? null,
     funds: summary.funds.map(({ code, name }) => ({ code, name })),
@@ -200,7 +202,7 @@ export async function donors({ env, url }) {
   const year = url.searchParams.get('year') || todayKST().slice(0, 4);
   if (!/^\d{4}$/.test(year)) throw bad('연도 형식이 올바르지 않습니다.', 'BAD_DATE');
   const db = env.DB;
-  const [rows, parish, lastClosed] = await Promise.all([
+  const [rows, parish, lastClosed, steps] = await Promise.all([
     db.prepare(
       `SELECT p.payer, t.id, t.tx_date, s.name AS subject_name, t.amount
        FROM tx_payers p
@@ -214,6 +216,7 @@ export async function donors({ env, url }) {
     ).bind(`${year}-01-01`, `${year}-12-31`).all(),
     db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first(),
     db.prepare(`SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'`).first('d'),
+    approvalOf(db, 'donors'),
   ]);
 
   const byPayer = new Map();
@@ -249,6 +252,7 @@ export async function donors({ env, url }) {
     to: `${year}-12-31`,
     parishName: parish?.parish_name ?? '',
     writerName: parish?.writer_name ?? '',
+    approvalSteps: steps,
     status: lastClosed && lastClosed >= `${year}-12-31` ? 'CLOSED' : 'PROVISIONAL',
     people,
     total: sumAmounts(people.map((p) => p.total)),

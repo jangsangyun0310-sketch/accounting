@@ -97,8 +97,9 @@ export function subjectInput(body) {
   };
 }
 
-export function approvalTitles(value) {
-  const titles = array(value, '결재 단계', { min: 1, max: MAX_APPROVAL_STEPS })
+/** 결재 칸 직함 목록. allowEmpty: 빈 목록 = 그 서류에 결재란 없음 */
+export function approvalTitles(value, { allowEmpty = false } = {}) {
+  const titles = array(value, '결재 단계', { min: allowEmpty ? 0 : 1, max: MAX_APPROVAL_STEPS })
     .map((t, i) => text(t, `${i + 1}번째 결재 단계 명칭`, { max: 12 }));
   noDuplicates(titles, '결재 단계 명칭');
   return titles;

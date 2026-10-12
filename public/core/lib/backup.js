@@ -2,6 +2,7 @@
 // 백업 파일 = 모든 표의 원본 행 + SHA-256 검사값. 복구는 빈 DB 에 한 batch 로 넣는다.
 import { ApiError } from './http.js';
 import { sumAmounts } from '../../js/shared/money.js';
+import { DERIVE_DOC_APPROVALS_SQL } from './approvals.js';
 
 export const BACKUP_FORMAT = 'bondang-salim-backup';
 export const BACKUP_VERSION = 1;
@@ -24,6 +25,8 @@ export const TABLES = [
     columns: ['year', 'subject_id', 'amount', 'updated_at', 'updated_by'] },
   // 사목일지 (2026-10-09 이전 백업에는 없다)
   { name: 'daily_approval_steps', order: 'seq', optional: true, columns: ['seq', 'title'] },
+  // 서류별 결재란 (2026-10-13 이전 백업에는 없다 → 복구한 뒤 예전 결재선으로 채운다)
+  { name: 'doc_approvals', order: 'doc', optional: true, columns: ['doc', 'titles'] },
   { name: 'mass_schedule', order: 'id', optional: true, columns: ['id', 'weekday', 'mass_time', 'name', 'kind'] },
   { name: 'journal_settings', order: 'id', optional: true,
     columns: ['id', 'start_households', 'start_members', 'updated_at', 'updated_by', 'offering_subject_id'], defaults: { offering_subject_id: null } },
@@ -201,7 +204,8 @@ const CHUNK_CHARS = 400_000; // D1 바인딩 값 크기 제한(2MB) 안쪽으로
 
 /** 복구용 SQL 문 목록 (복구 세션 열기 → 표별 INSERT → 세션 닫기) */
 export function restoreStatements(db, tables) {
-  const statements = [db.prepare('INSERT INTO restore_session (id) VALUES (1)')];
+  // 빈 장부에도 마이그레이션이 만든 결재란 줄이 있으니 먼저 비운다
+  const statements = [db.prepare('INSERT INTO restore_session (id) VALUES (1)'), db.prepare('DELETE FROM doc_approvals')];
   for (const t of TABLES) {
     const select = t.columns.map((c) => `json_extract(value, '$.${c}')`).join(', ');
     const sql = `INSERT INTO ${t.name} (${t.columns.join(', ')}) SELECT ${select} FROM json_each(?1) ORDER BY key`;
@@ -214,6 +218,7 @@ export function restoreStatements(db, tables) {
         : (tables[t.name] ?? []).map((x) => (t.defaults ? { ...t.defaults, ...x } : x));
     for (const chunk of chunkRows(rows)) statements.push(db.prepare(sql).bind(JSON.stringify(chunk)));
   }
+  if (!tables.doc_approvals) statements.push(...DERIVE_DOC_APPROVALS_SQL.map((sql) => db.prepare(sql)));
   statements.push(db.prepare('DELETE FROM restore_session'));
   return statements;
 }

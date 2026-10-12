@@ -105,7 +105,7 @@ async function loadDetail(date) {
     <div class="detail-actions">
       ${info.canClose ? `<button type="button" data-close-date="${date}">이 날짜 마감하기</button>` : ''}
       ${info.canReopen ? `<button type="button" class="danger" data-reopen="${date}">마감취소</button>` : ''}
-      <a class="button secondary" href="${href(`/journal?date=${date}`)}">사목일지 보기·인쇄</a>
+      <a class="button secondary" href="${href(`/report?type=daily&daily=${date}`)}">일일결산서 보기·인쇄</a>
       ${!info.canClose && !closed && !covered && date <= info.today && date >= info.startDate
         ? `<p class="help">마감은 하루씩 순서대로 합니다. 먼저 ${formatKoreanDate(info.nextRequired)}을(를) 마감하세요. (거래가 없는 날도 마감합니다)</p>` : ''}
       ${closed && !info.canReopen ? '<p class="help">마감취소는 가장 마지막 마감일부터 순서대로만 할 수 있습니다.</p>' : ''}

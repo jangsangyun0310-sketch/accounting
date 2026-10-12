@@ -666,6 +666,9 @@ dialog#eq-dialog { width: min(720px, 95vw); border: 1px solid var(--line); borde
 .eq-dispose[hidden], .eq-entry [hidden], .eq-entry[hidden] { display: none; }
 /* 사목일지 · 결산서: 결재란 아래 [결재란 고치기] (인쇄에는 안 나옴) */
 .r-approval .approval-edit { display: block; margin: 6px 0 0 auto; }
+.r-approval.empty .approval-edit { margin-top: 2px; } /* 결재란을 뺀 서류: 제목 오른쪽에 [＋ 결재란 넣기]만 (인쇄에는 없음) */
+.r-approval.empty .approval-edit:not(:hover) { border-style: dashed; }
+.approval-line .approval-preview { margin: 10px 0 12px; } /* 설정: 결재란 미리보기와 [저장] 사이 여백 */
 dialog.approval-dialog { width: min(640px, 95vw); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; }
 .eq-subjects { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 12px 0; }
 .grand-total { text-align: right; font-size: 16px; margin: 12px 0 0; }

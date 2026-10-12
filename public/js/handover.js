@@ -1,5 +1,6 @@
 // 인수인계용 전체 Excel: /api/export/all 자료를 시트 여러 장으로 (설정 → 백업·계정 → 백업)
 // 프로그램 없이 Excel 만으로 기록을 볼 수 있게 — 금액은 숫자 칸, 날짜는 2026-10-11 글자
+import { APPROVAL_DOC_LABEL } from './shared/approval-docs.js';
 
 const b = (v) => ({ v, bold: true });
 // 거래 구분 (화면의 typeLabel 과 같음 — 이 파일은 화면 없이도 쓰여서 따로 둔다)
@@ -165,9 +166,8 @@ export function handoverSheets(d) {
       ['구분', '과목', '상태', '차감(−) 허용'].map(b),
       ...d.subjects.map((s) => [s.kind === 'INCOME' ? '수입' : '지출', s.name, s.isActive ? '사용' : '사용중지', s.allowDeduction ? '예' : '']),
       [],
-      [b('결재선')],
-      ['사목일지', d.approval.daily.join(' · ') || d.approval.main.join(' · ')],
-      ['월말 · 연말 · 예산', d.approval.main.join(' · ')],
+      [b('결재란')],
+      ...Object.entries(APPROVAL_DOC_LABEL).map(([doc, label]) => [label, (d.approval[doc] ?? []).join(' · ') || '(결재란 없음)']),
     ],
   });
   return sheets;

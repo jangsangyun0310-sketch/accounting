@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { handleApi } from '../public/core/engine.js';
+import { DERIVE_DOC_APPROVALS_SQL } from '../public/core/lib/approvals.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -15,7 +16,12 @@ export function createDb({ seed = true } = {}) {
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
     db.exec(readFileSync(join(dir, file), 'utf8'));
   }
-  if (seed) db.exec(readFileSync(join(root, 'seed', 'dev-sample.sql'), 'utf8'));
+  if (seed) {
+    db.exec(readFileSync(join(root, 'seed', 'dev-sample.sql'), 'utf8'));
+    // 예시 자료의 결재선(예전 표)으로 서류별 결재란을 채운다 (예시 자료는 0018 이전 마이그레이션 위에서도 쓰여서 따로)
+    db.exec('DELETE FROM doc_approvals');
+    for (const sql of DERIVE_DOC_APPROVALS_SQL) db.exec(sql);
+  }
   return db;
 }
 
