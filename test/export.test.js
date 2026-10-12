@@ -32,6 +32,7 @@ test('전체 자료를 한 번에 주고, 시트로 만들 수 있다', async ()
   assert.equal(d.journals[0].notes, '메모');
   assert.equal(d.masses[0].attendance, 300);
   assert.deepEqual(d.donors.map((x) => [x.payer, x.amount]), [['홍길동', 50000]]);
+  assert.ok(d.transactions.every((t) => t.createdBy !== 'office@test')); // 내 메일은 작성자 이름으로
 
   const sheets = handoverSheets(d);
   assert.deepEqual(sheets.map((x) => x.name).filter((n) => !n.startsWith('과목별')),

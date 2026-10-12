@@ -2,7 +2,7 @@
 // 보기: 기본 / 날짜별(날짜마다 소계) / 수입 · 지출별(표를 따로) — 고른 보기는 이 브라우저에 기억한다
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, toast, typeLabel, FUND_LABEL } from './ui.js';
+import { initPage, personName, toast, typeLabel, FUND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, monthStart, todayKST } from './shared/dates.js';
 import { downloadXlsx } from './excel.js';
@@ -94,7 +94,7 @@ function txRow(r, showBalance) {
         <td class="num ${r.deduction ? 'minus' : ''}">${inAmount(r) ? formatWon(inAmount(r)) : ''}</td>
         <td class="num">${outAmount(r) ? formatWon(outAmount(r)) : ''}</td>
         ${showBalance ? `<td class="num">${r.balanceAfter == null ? '' : formatWon(r.balanceAfter)}</td>` : ''}
-        <td class="small muted">${esc(r.createdBy)}</td>
+        <td class="small muted" title="${esc(r.createdBy)}">${esc(personName(r.createdBy))}</td>
       </tr>`;
 }
 
@@ -232,7 +232,7 @@ $('result').addEventListener('click', (e) => {
     r.date, typeLabel(r), r.accountName, FUND_LABEL[r.fundCode],
     r.kind === 'TRANSFER' ? `${isDeposit(r) ? '←' : '→'} ${r.counterpartName ?? ''}` : (r.subjectName ?? ''),
     r.memo ?? '', r.payer ?? '', inAmount(r) || null, outAmount(r) || null,
-    ...(showBalance ? [r.balanceAfter] : []), r.createdBy ?? '',
+    ...(showBalance ? [r.balanceAfter] : []), personName(r.createdBy),
   ];
   const b = (v) => ({ v, bold: true });
   const subLine = (label, rows) => [b(label), null, null, null, null, null, null, b(sum(rows, inAmount)), b(sum(rows, outAmount))];

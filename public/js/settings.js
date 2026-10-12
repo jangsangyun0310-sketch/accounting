@@ -2,7 +2,7 @@
 // 주소 #뒤에는 작은 탭 이름 (#accounts, #backup …) — 예전 링크도 그대로 열린다
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
-import { initPage, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
+import { initPage, personName, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { formatDateTimeKST, todayKST } from './shared/dates.js';
 import { href } from './base.js';
@@ -481,7 +481,7 @@ async function renderBackup() {
       <span id="photo-progress" class="muted"></span>` : '<p class="muted">아직 올린 사진이 없습니다.</p>'}
     ${s.history.length ? `
       <h4>최근 기록</h4>
-      <ul class="audit">${s.history.map((h) => `<li>${formatDateTimeKST(h.at)} · ${esc(h.actor)} ·
+      <ul class="audit">${s.history.map((h) => `<li>${formatDateTimeKST(h.at)} · ${esc(personName(h.actor))} ·
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
   // 전체 기간은 달을 고를 수 없다 (연도별 폴더에 달마다 파일)
   panel.querySelector('#book-year').addEventListener('change', (e) => { panel.querySelector('#book-month').disabled = !e.target.value; });

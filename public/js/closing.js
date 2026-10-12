@@ -1,7 +1,7 @@
 // 일 마감 화면: 마감 달력, 날짜별 현황·마감 정보, 마감/마감취소, 기록
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, toast, approvalBoxHtml, signedWon } from './ui.js';
+import { initPage, personName, toast, approvalBoxHtml, signedWon } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 
@@ -94,7 +94,7 @@ async function loadDetail(date) {
 
     ${closed ? `
       <dl class="summary">
-        <dt>마감 처리</dt><dd>${formatDateTimeKST(c.closedAt)} · ${esc(c.closedBy)}</dd>
+        <dt>마감 처리</dt><dd>${formatDateTimeKST(c.closedAt)} · ${esc(personName(c.closedBy))}</dd>
         <dt>결산서 작성자</dt><dd>${esc(c.writerName) || '-'}</dd>
         <dt>잔액 검증</dt><dd>${info.verification.ok
           ? '<span class="in">✔ 마감 시점 잔액과 현재 계산 잔액이 일치합니다.</span>'

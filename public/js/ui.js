@@ -55,8 +55,16 @@ export async function initPage(active, { requireSetup = true } = {}) {
     });
     document.body.classList.toggle('has-bottom-nav', Boolean(settings.setupCompleted));
   }
+  // 입력자 · 처리자: 내 로그인 메일은 결산서 작성자 이름으로 보여 준다 (기록은 메일 그대로)
+  myEmail = account.user.email;
+  myName = settings.parish?.writerName?.trim() || '';
   return { me, settings, account };
 }
+
+let myEmail = '';
+let myName = '';
+/** 기록된 입력자(메일 또는 예전 기록의 이름) → 화면에 보일 이름. 내 메일이면 작성자 이름 */
+export const personName = (who) => (who && myName && who === myEmail ? myName : who ?? '');
 
 // 다른 성당에 보낼 링크: 사이트 주소만 보낸다. 장부는 성당마다 따로라 우리 자료는 전혀 가지 않는다.
 function openShareDialog() {

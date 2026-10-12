@@ -10,7 +10,7 @@ import { dailyData } from './reports.js';
 
 const monthEnd = (ym) => addDays(`${addDays(`${ym}-01`, 31).slice(0, 7)}-01`, -1);
 
-export async function all({ env }) {
+export async function all({ env, actor }) {
   const db = env.DB;
   const parish = await db.prepare('SELECT parish_name, start_date, writer_name FROM parish_settings WHERE id = 1').first();
   const from = parish.start_date;
@@ -70,7 +70,8 @@ export async function all({ env }) {
     writerName: parish.writer_name,
     from,
     to,
-    transactions: tx.rows,
+    // 입력자: 내 로그인 메일은 작성자 이름으로 (화면의 거래 조회와 같게)
+    transactions: tx.rows.map((t) => (parish.writer_name && t.createdBy === actor.email ? { ...t, createdBy: parish.writer_name } : t)),
     monthly,
     bySubject,
     accounts: accountRows.results.map((a) => ({
