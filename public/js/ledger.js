@@ -1,5 +1,5 @@
 // 거래 조회 화면: 기간·통장·과목·구분·검색어로 거래를 찾고, 통장 선택 시 잔액 흐름을 보여준다.
-// 보기: 한 줄씩 / 날짜별(날짜마다 소계) / 수입 · 지출별(표를 따로) — 고른 보기는 이 브라우저에 기억한다
+// 보기: 기본 / 날짜별(날짜마다 소계) / 수입 · 지출별(표를 따로) — 고른 보기는 이 브라우저에 기억한다
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, typeLabel, FUND_LABEL } from './ui.js';
@@ -56,10 +56,10 @@ function payerCell(r) {
     <button type="button" class="link-btn payer-edit">이름 고치기</button></div>`;
 }
 
-// 보기: 한 줄씩(list) / 날짜별(date: 날짜마다 묶고 소계) / 수입·지출별(kind: 수입 · 지출 · 이체 표를 따로, 표마다 합계)
-const VIEWS = [['list', '한 줄씩'], ['date', '날짜별'], ['kind', '수입 · 지출별']];
+// 보기: 기본(list) / 날짜별(date: 날짜마다 묶고 소계) / 수입·지출별(kind: 수입 · 지출 · 이체 표를 따로, 표마다 합계)
+const VIEWS = [['list', '기본'], ['date', '날짜별'], ['kind', '수입 · 지출별']];
 let view = 'list';
-try { view = localStorage.getItem('ledger-view') || 'list'; } catch { /* 저장소를 못 쓰면 한 줄씩 */ }
+try { view = localStorage.getItem('ledger-view') || 'list'; } catch { /* 저장소를 못 쓰면 기본 */ }
 if (!VIEWS.some(([k]) => k === view)) view = 'list';
 
 const isDeposit = (r) => r.direction === 'IN';
@@ -221,7 +221,7 @@ $('result').addEventListener('keydown', (e) => {
 });
 
 // 조회 결과를 Excel 로 (고른 보기 그대로): 날짜·구분·통장·회계·과목·적요·납부자·입금·출금·(잔액)·입력자
-//   한 줄씩 · 날짜별 → 시트 한 장 (날짜별은 날짜마다 소계 줄), 수입 · 지출별 → 수입 · 지출 · 이체 시트
+//   기본 · 날짜별 → 시트 한 장 (날짜별은 날짜마다 소계 줄), 수입 · 지출별 → 수입 · 지출 · 이체 시트
 $('result').addEventListener('click', (e) => {
   if (!e.target.closest('#excel') || !last) return;
   const { data, byAccount } = last;
