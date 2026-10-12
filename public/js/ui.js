@@ -50,7 +50,7 @@ function groupOf(active) {
   return GROUPS.find((x) => x.items.some(([, , key]) => key === active)) ?? null;
 }
 
-/** 위 메뉴 아래 줄: [주소, 이름, 지금 화면인지, 위험 표시] 목록 */
+/** 위 메뉴 아래 줄: [주소, 이름, 지금 화면인지, 위험 표시, 모양] 목록 */
 function subItems(active) {
   const g = groupOf(active);
   if (!g) {
@@ -60,7 +60,7 @@ function subItems(active) {
   }
   return [
     ...g.items.map(([path, label, key]) => [path, label, key === active, false]),
-    [`/settings?s=${g.key}`, '⚙ 설정', active === 'settings', false],
+    [`/settings?s=${g.key}`, `⚙ ${g.label} 설정`, active === 'settings', false, 'setting'], // 오른쪽 끝에 버튼 모양으로
   ];
 }
 
@@ -88,8 +88,8 @@ export async function initPage(active, { requireSetup = true } = {}) {
     const ready = settings.setupCompleted;
     const group = groupOf(active);
     const sub = ready ? subItems(active) : [];
-    const subHtml = () => sub.map(([path, label, on, danger]) =>
-      `<a href="${href(path)}" class="${on ? 'active' : ''}${danger ? ' danger' : ''}">${label}</a>`).join('');
+    const subHtml = () => sub.map(([path, label, on, danger, cls = '']) =>
+      `<a href="${href(path)}" class="${on ? 'active' : ''}${danger ? ' danger' : ''} ${cls}">${label}</a>`).join('');
     bar.classList.toggle('has-sub', sub.length > 0);
     bar.innerHTML = `<div class="topbar-inner${width ? ` ${width}` : ''}">
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
