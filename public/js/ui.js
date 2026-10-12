@@ -14,7 +14,7 @@ const ICON = {
 };
 // items: [주소, 이름, 화면 key]. 묶음마다 아래 줄 끝에 ⚙ 설정 (그 기능에 필요한 설정만)
 const GROUPS = [
-  { key: 'acct', label: '회계', items: [['/entry', '거래 입력', 'entry'], ['/ledger', '거래 조회', 'ledger'], ['/closing', '일 마감', 'closing'], ['/report', '결산', 'report']] },
+  { key: 'acct', label: '회계', items: [['/entry', '거래 입력', 'entry'], ['/ledger', '거래 조회', 'ledger'], ['/closing', '일 마감', 'closing'], ['/report', '결산서', 'report']] },
   { key: 'journal', label: '사목일지', items: [['/journal', '사목일지', 'journal']] },
   { key: 'property', label: '재산관리', items: [['/equipment', '비품대장', 'equipment']] },
 ];

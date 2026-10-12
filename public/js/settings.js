@@ -407,7 +407,7 @@ async function renderBudgetTab() {
   panel.innerHTML = `
     <label class="inline">연도 <select id="budget-year">${years.map((y) => `<option value="${y}" ${y === budgetYear ? 'selected' : ''}>${y}년</option>`).join('')}</select></label>
     <p class="help">과목별 한 해 예산을 넣으세요. 비워 두면 그 과목은 예산이 없는 것으로 봅니다.
-      집행 현황은 <a href="${href(`/report?type=budget&budget=${budgetYear}`)}">결산 → 예산 대비</a>에서 보고 인쇄합니다.</p>
+      집행 현황은 <a href="${href(`/report?type=budget&budget=${budgetYear}`)}">결산서 → 예산 대비</a>에서 보고 인쇄합니다.</p>
     <div data-form="budget">
       ${rows(b.income, '수입')}
       ${rows(b.expense, '지출')}
