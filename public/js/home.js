@@ -1,6 +1,6 @@
 import { href, isInstalledApp, installApp } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, approvalBoxHtml, toast } from './ui.js';
+import { initPage } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { formatKoreanDate } from './shared/dates.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
@@ -8,7 +8,7 @@ import { backupStatusHtml, downloadBackup } from './backup.js';
 const $ = (id) => document.getElementById(id);
 
 async function main() {
-  const { settings } = await initPage('home');
+  await initPage('home');
   const [balances, closings, backup] = await Promise.all([
     api('/api/balances'), api('/api/closings'), api('/api/backup/status')]);
 
@@ -53,8 +53,6 @@ async function main() {
   rows.push(`<tr class="total"><td colspan="2">전체 합계</td><td class="num">${formatWon(balances.total)}</td></tr>`);
   $('balances').innerHTML = `<table class="grid"><thead><tr><th>회계</th><th>통장</th><th class="num">잔액(원)</th></tr></thead>
     <tbody>${rows.join('')}</tbody></table>`;
-
-  $('approval').innerHTML = approvalBoxHtml(settings.approvalSteps.map((s) => s.title));
 }
 
 main().catch((err) => {
