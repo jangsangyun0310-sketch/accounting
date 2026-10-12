@@ -227,7 +227,7 @@ function renderBudget(r) {
   document.title = `예산 대비 집행 ${r.year}년 - 본당살림`;
   const noBudget = r.income.budget === 0 && r.expense.budget === 0;
   $('state').innerHTML = noBudget
-    ? `<span class="pill open">예산 없음</span> <span class="muted">${r.year}년 예산을 아직 넣지 않았습니다. <a href="${href('/settings#budget')}">설정 → 연 예산</a>에서 넣으세요.</span>`
+    ? `<span class="pill open">예산 없음</span> <span class="muted">${r.year}년 예산을 아직 넣지 않았습니다. <a href="${href('/settings?s=acct#budget')}">⚙ 회계 설정 → 연 예산</a>에서 넣으세요.</span>`
     : `<span class="muted">${formatKoreanDate(r.through)}까지 집행 기준</span> · <a href="${href('/settings#budget')}">예산 고치기</a>`;
   $('warning').innerHTML = '';
   $('paper').innerHTML = `

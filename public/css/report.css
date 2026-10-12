@@ -98,6 +98,8 @@ body.report-page { background: #e9ecf0; }
   .print-guide { display: none; }
 }
 .print-guide { font-size: 12px; color: var(--muted); max-width: 210mm; margin: 4px auto 0; padding: 0 4px; }
+details.print-guide summary { cursor: pointer; width: fit-content; }
+details.print-guide[open] summary { margin-bottom: 2px; }
 
 /* 통장별 현재잔액: 회계별 표를 나란히 */
 .r-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; }
@@ -107,9 +109,11 @@ body.report-page { background: #e9ecf0; }
 .r-table.fixed td { overflow-wrap: anywhere; }
 
 /* 결산 종류 선택 (일일·월말·연말) */
-.report-tabs { display: flex; gap: 4px; max-width: 210mm; margin: 16px auto 0; padding: 0 4px; }
-.report-tabs button { background: #fff; color: var(--accent); border: 1.5px solid var(--accent); padding: 8px 22px; font-weight: 600; }
-.report-tabs button.active { background: var(--accent); color: #fff; }
+/* 위 메뉴 줄과 겹쳐 보이지 않게 작은 둥근 버튼 모양 */
+.report-tabs { display: flex; gap: 6px; flex-wrap: wrap; max-width: 210mm; margin: 16px auto 0; padding: 0 4px; }
+.report-tabs button { background: #fff; color: #374151; border: 1px solid #cdd6e3; border-radius: 18px; padding: 5px 16px; font-size: 14px; font-weight: 600; }
+.report-tabs button:hover { color: var(--accent); border-color: var(--accent); background: #fff; }
+.report-tabs button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 .report-tabs + .report-toolbar { margin-top: 10px; }
 .report-toolbar select, .report-toolbar input[type="month"] { width: auto; }
 .r-meta .range { font-weight: normal; color: #555; font-size: 9pt; }
@@ -129,7 +133,7 @@ body.report-page { background: #e9ecf0; }
 @media screen and (max-width: 720px) {
   /* 결산 종류 5개를 두 줄에 같은 너비로 */
   .report-tabs { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 8px; margin-top: 10px; }
-  .report-tabs button { padding: 8px 0 !important; font-size: 14px; white-space: nowrap; }
+  .report-tabs button { padding: 6px 0 !important; font-size: 14px; white-space: nowrap; }
 }
 
 /* 개인별 납부: 전체 내역서는 한 사람에 한 장 */

@@ -39,7 +39,7 @@ export function initRestore(box, { onRestored }) {
   box.innerHTML = `
     <summary>예전에 쓰던 장부가 있나요? <b>예전 장부 가져오기</b></summary>
     <div class="restore-body">
-      <p class="help">예전 <b>장부 파일(.bondang)</b>이나 [설정 → 백업]에서 내려받은 <b>백업 파일(.json)</b>을 고르세요.
+      <p class="help">예전 <b>장부 파일(.bondang)</b>이나 [⚙ 성당 설정 → 백업]에서 내려받은 <b>백업 파일(.json)</b>을 고르세요.
         가져오면 최초 설정은 건너뜁니다. 고른 파일은 바뀌지 않습니다.</p>
       <input type="file" id="restore-file" accept=".bondang,.json,application/json">
       <form id="restore-password" class="form-narrow" hidden>

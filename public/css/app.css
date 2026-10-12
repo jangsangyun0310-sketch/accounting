@@ -72,6 +72,8 @@ a:hover { color: #163a6b; }
 .topbar .subnav a.setting { position: relative; margin-left: 25px; padding: 4px 14px; border: 1.5px solid var(--accent); border-radius: 6px;
   background: #fff; color: var(--accent); font-weight: 600; }
 .topbar .subnav a.setting::before { content: ""; position: absolute; left: -15px; top: 50%; height: 18px; margin-top: -9px; border-left: 1px solid #b9c6d8; }
+.topbar .subnav a.setting:first-child { margin-left: 0; } /* 아래 줄에 설정만 있으면 세로줄 없이 */
+.topbar .subnav a.setting:first-child::before { display: none; }
 .topbar .subnav a.setting:hover { background: var(--accent); color: #fff; }
 .topbar .subnav a.setting.active { background: var(--accent); color: #fff; box-shadow: none; }
 .topbar nav a:hover { background: var(--accent-soft); }
@@ -382,7 +384,7 @@ ul.start-points { padding-left: 20px; line-height: 1.7; color: #374151; }
 }
 .google-btn:hover { background: #f5f7fa; }
 .topbar .account { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-.topbar .account + .share-btn { margin-left: 0; }
+.topbar .share-btn + .account { margin-left: 6px; } /* 공유하기 · 도움말 · 로그아웃 순서 (로그아웃은 맨 끝) */
 .danger-zone { border: 1px solid #f5b5b5; background: #fffafa; border-radius: 6px; padding: 4px 14px 2px; max-width: 760px; }
 .danger-zone label { max-width: 440px; margin-bottom: 8px; }
 
@@ -478,7 +480,7 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   .topbar .brand { margin-right: auto; }
   .topbar .brand img { height: 36px; }
   .topbar .settings-link, .topbar .help-link, .topbar .more-btn, .topbar .account button, .topbar .share-btn { height: 36px; padding: 0 10px; font-size: 14px; }
-  .topbar .account { margin-left: 0; order: 3; }
+  .topbar .account, .topbar .share-btn + .account { margin-left: 0; order: 3; }
   .topbar .more-btn { order: 4; }
   .topbar .account button, .topbar .share-btn { display: none; }
   .topbar .more-btn { display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #1d2330; border: 1.5px solid #4b5563; border-radius: 4px; font-size: 18px; width: 40px; padding: 0; }
@@ -552,7 +554,7 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   table.grid.edit input, table.grid.edit select { min-width: 96px; }
 
   /* 키보드 단축키 안내는 휴대폰에서 의미가 없다 */
-  kbd, .entry-help-keys { display: none; }
+  kbd { display: none; }
 
   /* 거래 입력: 날짜 줄 */
   .date-nav { flex-wrap: wrap; }

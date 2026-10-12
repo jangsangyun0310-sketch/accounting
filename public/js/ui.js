@@ -59,7 +59,8 @@ function subItems(active) {
     return SETTINGS_SCOPES[''].map(([k, label]) => [`/settings#${k}`, label, k === tab, k === 'account']);
   }
   return [
-    ...g.items.map(([path, label, key]) => [path, label, key === active, false]),
+    // 묶음 이름과 같은 메뉴(사목일지 → 사목일지)는 위 메뉴와 겹치니 아래 줄에서 뺀다
+    ...g.items.filter(([, label]) => label !== g.label).map(([path, label, key]) => [path, label, key === active, false]),
     [`/settings?s=${g.key}`, `⚙ ${g.label} 설정`, active === 'settings', false, 'setting'], // 메뉴 바로 뒤에 버튼 모양으로
   ];
 }
@@ -95,12 +96,12 @@ export async function initPage(active, { requireSetup = true } = {}) {
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
       <nav>${ready ? `<a href="${href('/')}" class="nav-home ${active === 'home' ? 'active' : ''}"><span class="ni">${ICON.home}</span><span class="nl">홈</span></a>`
         + GROUPS.map((g) => `<a href="${href(g.items[0][0])}" class="${g === group ? 'active' : ''}"><span class="ni">${ICON[g.key]}</span><span class="nl">${g.label}</span></a>`).join('') : ''}</nav>
-      ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' && !group ? 'active' : ''}" title="성당 정보 · 백업 · 함께 사용">⚙ 설정</a>` : ''}
+      ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' && !group ? 'active' : ''}" title="성당 정보 · 백업 · 함께 사용">⚙ 성당 설정</a>` : ''}
       <button type="button" class="more-btn" id="more-btn" aria-expanded="false" aria-label="메뉴 더 보기">⋯</button>
+      <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button>
       <span class="account"><a class="help-link ${active === 'help' ? 'active' : ''}" href="${href(HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : '/help')}">도움말</a>
         <button type="button" class="secondary small" id="logout-btn"
-        title="${esc(account.user.email)} 계정으로 로그인되어 있습니다">로그아웃</button></span>
-      <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button></div>
+        title="${esc(account.user.email)} 계정으로 로그인되어 있습니다">로그아웃</button></span></div>
       ${sub.length ? `<div class="subnav"><div class="subnav-inner topbar-inner${width ? ` ${width}` : ''}">${subHtml()}</div></div>` : ''}`;
     // 설정: 아래 줄에서 항목을 고르면 주소의 #항목 이 바뀐다 → 고른 항목 표시
     if (active === 'settings') {

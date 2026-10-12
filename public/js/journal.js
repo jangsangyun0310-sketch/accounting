@@ -196,7 +196,7 @@ function sundayRowHtml(s) {
   return `
       <p class="sunday-sum" id="sunday-sum" data-sat="${s.saturdayAttendance}" data-offering="${s.offering}" data-subject="${s.subjectName ? 1 : ''}">
         ※ 주일미사(토 저녁 · 주일) 참석 <b class="s-att"></b> · ${esc(s.subjectName ?? '주일헌금')} <b class="s-off"></b> · 1인당 <b class="s-avg"></b></p>
-      ${s.subjectName ? '' : '<p class="help no-print">1인당 헌금을 보려면 [설정 → 사목일지]에서 주일헌금 과목을 고르세요.</p>'}`;
+      ${s.subjectName ? '' : '<p class="help no-print">1인당 헌금을 보려면 [⚙ 사목일지 설정 → 기본 미사 · 총원]에서 주일헌금 과목을 고르세요.</p>'}`;
 }
 
 function updateSunday() {

@@ -16,7 +16,7 @@ import { handoverSheets } from './handover.js';
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 
-const SCOPE_TITLES = { acct: '회계 설정', journal: '사목일지 설정', property: '재산관리 설정', '': '설정' };
+const SCOPE_TITLES = { acct: '회계 설정', journal: '사목일지 설정', property: '재산관리 설정', '': '성당 설정' };
 const TAB_TITLES = Object.fromEntries(Object.values(SETTINGS_SCOPES).flat());
 const subtabs = document.getElementById('subtabs');
 
@@ -33,7 +33,7 @@ async function reload() {
 
 function render() {
   const list = SETTINGS_SCOPES[scope];
-  document.getElementById('tab-title').textContent = scope ? SCOPE_TITLES[scope] : `설정 · ${TAB_TITLES[tab]}`;
+  document.getElementById('tab-title').textContent = scope ? SCOPE_TITLES[scope] : `성당 설정 · ${TAB_TITLES[tab]}`;
   // 묶음 안 항목이 둘 이상이면 화면 안 작은 탭 (성당 전체 설정은 위 메뉴 아래 줄에 이미 있음)
   subtabs.hidden = !scope || list.length < 2;
   subtabs.innerHTML = scope ? list.map(([k, label]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'active' : ''}">${label}</button>`).join('') : '';
@@ -288,8 +288,8 @@ function renderEquipmentSubjects() {
   panel.innerHTML = `
     <p>물건을 사는 지출 과목에 체크하세요. 그 과목으로 지출을 입력하면 <b>[비품대장에도 올리기]</b> 칸이 나옵니다.</p>
     <div class="eq-subjects">${list.map((x) => `<label class="check"><input type="checkbox" data-eq-subject="${x.id}" ${x.isEquipment ? 'checked' : ''}> ${esc(x.name)}</label>`).join('')
-      || '<p class="muted">지출 과목이 없습니다. 회계 → ⚙ 설정 → 예산과목에서 추가하세요.</p>'}</div>
-    <p class="help">체크하면 바로 저장됩니다. 과목을 더하거나 이름을 바꾸는 것은 회계 → ⚙ 설정 → 예산과목에서 합니다.</p>`;
+      || '<p class="muted">지출 과목이 없습니다. ⚙ 회계 설정 → 예산과목에서 추가하세요.</p>'}</div>
+    <p class="help">체크하면 바로 저장됩니다. 과목을 더하거나 이름을 바꾸는 것은 ⚙ 회계 설정 → 예산과목에서 합니다.</p>`;
 }
 
 panel.addEventListener('change', async (e) => {
