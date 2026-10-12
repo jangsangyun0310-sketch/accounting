@@ -63,13 +63,13 @@ a:hover { color: #163a6b; }
 /* 위 메뉴 아래 줄: 고른 묶음의 작은 메뉴 */
 .topbar.has-sub { padding-bottom: 0; }
 .topbar .subnav { margin-top: 10px; background: var(--accent-soft); border-top: 1px solid #dbe3ee; }
-.topbar .subnav-inner { gap: 2px; flex-wrap: nowrap; overflow-x: auto; }
-.topbar .subnav a { padding: 8px 16px; color: #374151; text-decoration: none; font-size: 14.5px; white-space: nowrap; border-radius: 6px 6px 0 0; }
+.topbar .subnav-inner { gap: 4px; flex-wrap: nowrap; overflow-x: auto; align-items: center; padding: 6px 0; }
+.topbar .subnav a { padding: 5px 16px; color: #374151; text-decoration: none; font-size: 14.5px; white-space: nowrap; border-radius: 6px; }
 .topbar .subnav a:hover { color: var(--accent); background: #fff8; }
-.topbar .subnav a.active { color: var(--accent); font-weight: 700; background: #fff; box-shadow: inset 0 -3px 0 var(--accent); }
+.topbar .subnav a.active { color: var(--accent); font-weight: 700; background: #fff; box-shadow: 0 1px 3px rgba(30, 58, 110, .18); } /* 아래 긴 줄과 겹치지 않게 떠 있는 흰 칸 */
 .topbar .subnav a.danger { color: var(--danger); }
 /* 기능별 설정: 아래 줄 오른쪽 끝에 버튼 모양 */
-.topbar .subnav a.setting { margin: 4px 0 4px auto; padding: 4px 14px; border: 1.5px solid var(--accent); border-radius: 6px;
+.topbar .subnav a.setting { margin-left: auto; padding: 4px 14px; border: 1.5px solid var(--accent); border-radius: 6px;
   background: #fff; color: var(--accent); font-weight: 600; }
 .topbar .subnav a.setting:hover { background: var(--accent); color: #fff; }
 .topbar .subnav a.setting.active { background: var(--accent); color: #fff; box-shadow: none; }
@@ -505,8 +505,8 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   .topbar nav a.nav-home { display: flex; }
   .topbar .settings-link { margin-left: 0; }
   .topbar .subnav { margin-top: 8px; }
-  .topbar .subnav-inner { padding: 0 6px; }
-  .topbar .subnav a { padding: 8px 12px; font-size: 14px; }
+  .topbar .subnav-inner { padding: 5px 6px; }
+  .topbar .subnav a { padding: 5px 12px; font-size: 14px; }
   body.has-bottom-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 
   .container { padding: 10px; }
