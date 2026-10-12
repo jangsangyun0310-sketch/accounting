@@ -165,6 +165,8 @@ test('0007 마이그레이션: 기존 취소 기록 정리, 유효 거래·잔�
   const files = readdirSync('public/migrations').filter((f) => f.endsWith('.sql')).sort();
   for (const f of files.filter((x) => x < '0007')) db.exec(readFileSync(`public/migrations/${f}`, 'utf8'));
   db.exec(readFileSync('seed/dev-sample.sql', 'utf8'));
+  // 잔액 계산이 읽는 칸 (0013 에서 생김) — 이 시험과는 상관없어 미리 붙여 둔다
+  db.exec('ALTER TABLE accounts ADD COLUMN is_cash INTEGER NOT NULL DEFAULT 0');
   // 예전 방식: 취소(VOIDED), 수정(원본 취소 + replaces_id), 이체 취소
   const ins = (amount, extra = '') => db.prepare(
     `INSERT INTO transactions (tx_date, direction, account_id, subject_id, amount, created_at, created_by ${extra ? ', replaces_id' : ''})

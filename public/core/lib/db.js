@@ -113,7 +113,7 @@ export function auditRowStatement(db, { actor, action, table, id, beforeJson = n
  */
 export const BALANCES_SQL = `
   SELECT a.id, a.fund_id, f.code AS fund_code, f.name AS fund_name,
-         a.name, a.is_active, a.opening_balance,
+         a.name, a.is_active, a.is_cash, a.opening_balance,
          a.opening_balance + COALESCE((
            SELECT SUM(CASE t.direction WHEN 'IN' THEN t.amount ELSE -t.amount END)
            FROM transactions t

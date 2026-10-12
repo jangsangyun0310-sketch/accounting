@@ -34,6 +34,7 @@ export async function computeBalances(db, date) {
     fundCode: r.fund_code,
     name: r.name,
     isActive: r.is_active === 1,
+    isCash: r.is_cash === 1, // 사무실 현금
     balance: assertInteger(r.balance),
   }));
   const fundCodes = [...new Set(accounts.map((a) => a.fundCode))];

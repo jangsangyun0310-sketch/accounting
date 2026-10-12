@@ -665,3 +665,4 @@ dialog#eq-dialog { width: min(720px, 95vw); border: 1px solid var(--line); borde
 .r-approval .approval-edit { display: block; margin: 6px 0 0 auto; }
 dialog.approval-dialog { width: min(640px, 95vw); border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; }
 .eq-subjects { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 12px 0; }
+.grand-total { text-align: right; font-size: 16px; margin: 12px 0 0; }

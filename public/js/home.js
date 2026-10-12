@@ -1,7 +1,7 @@
 import { href, isInstalledApp, installApp } from './base.js';
 import { api, esc } from './api.js';
 import { initPage } from './ui.js';
-import { formatWon } from './shared/money.js';
+import { formatWon, sumAmounts } from './shared/money.js';
 import { formatKoreanDate } from './shared/dates.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
 
@@ -42,17 +42,33 @@ async function main() {
   $('as-of').textContent = `${formatKoreanDate(balances.date)} 기준`;
 
   const rows = [];
+  const row = (fundName, a) => `<tr><td>${esc(fundName)}</td><td>${esc(a.name)}${a.isActive ? '' : ' <span class="muted">(사용중지)</span>'}</td>
+    <td class="num">${formatWon(a.balance)}</td></tr>`;
+  const sum = (list) => sumAmounts(list.map((a) => a.balance));
+  // 통장만 위 표에, 사무실 현금은 아래 따로
+  const banks = balances.accounts.filter((a) => !a.isCash);
+  const cash = balances.accounts.filter((a) => a.isCash);
   for (const fund of balances.funds) {
-    for (const a of balances.accounts.filter((x) => x.fundCode === fund.code)) {
-      rows.push(`<tr><td>${esc(fund.name)}</td><td>${esc(a.name)}${a.isActive ? '' : ' <span class="muted">(사용중지)</span>'}</td>
-        <td class="num">${formatWon(a.balance)}</td></tr>`);
-    }
+    const list = banks.filter((x) => x.fundCode === fund.code);
+    if (!list.length) continue;
+    for (const a of list) rows.push(row(fund.name, a));
     rows.push(`<tr class="subtotal"><td colspan="2">${esc(fund.name)} 소계</td>
-      <td class="num">${formatWon(fund.balance)}</td></tr>`);
+      <td class="num">${formatWon(sum(list))}</td></tr>`);
   }
-  rows.push(`<tr class="total"><td colspan="2">전체 합계</td><td class="num">${formatWon(balances.total)}</td></tr>`);
+  rows.push(`<tr class="total"><td colspan="2">${cash.length ? '통장 합계' : '전체 합계'}</td><td class="num">${formatWon(sum(banks))}</td></tr>`);
   $('balances').innerHTML = `<table class="grid"><thead><tr><th>회계</th><th>통장</th><th class="num">잔액(원)</th></tr></thead>
     <tbody>${rows.join('')}</tbody></table>`;
+
+  if (cash.length) {
+    const fundName = (code) => balances.funds.find((f) => f.code === code)?.name ?? '';
+    const cashRows = cash.map((a) => row(fundName(a.fundCode), a));
+    if (cash.length > 1) cashRows.push(`<tr class="total"><td colspan="2">현금 합계</td><td class="num">${formatWon(sum(cash))}</td></tr>`);
+    $('cash').innerHTML = `<table class="grid"><thead><tr><th>회계</th><th>현금</th><th class="num">잔액(원)</th></tr></thead>
+      <tbody>${cashRows.join('')}</tbody></table>`;
+    $('cash-section').hidden = false;
+    $('grand-total').innerHTML = `통장 + 현금 전체 합계 <b>${formatWon(balances.total)}</b>원`;
+    $('grand-total').hidden = false;
+  }
 }
 
 main().catch((err) => {
