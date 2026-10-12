@@ -29,7 +29,7 @@ a:hover { color: #163a6b; }
 .topbar {
   position: sticky; top: 0; z-index: 20;
   padding: 12px 0; background: #fff; color: var(--text);
-  border-bottom: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  border-bottom: 1px solid #d3dbe6; box-shadow: 0 2px 10px rgba(20, 40, 80, .08); /* 남색 굵은 줄 대신 옅은 선 + 그림자로 본문과 구분 */
 }
 /* 본문(.container)과 같은 폭·여백이라 메뉴 왼쪽 끝이 본문 상자 왼쪽 줄에 맞는다 */
 .topbar-inner {
