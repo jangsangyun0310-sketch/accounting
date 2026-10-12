@@ -19,14 +19,12 @@ let calendar = null;
 
 function renderStatus() {
   const c = calendar;
-  const next = c.closableUntil;
   const needs = c.nextRequired && c.nextRequired <= c.today;
   $('status').innerHTML = `
     <div class="status-item"><span class="muted">마지막 마감일</span>
       <b>${c.lastClosed ? formatKoreanDate(c.lastClosed) : '없음'}</b></div>
     <div class="status-item"><span class="muted">다음 마감할 날</span>
-      <b>${needs ? formatKoreanDate(c.nextRequired) : '<span class="muted">오늘까지 모두 마감했습니다</span>'}</b></div>
-    ${needs ? `<button type="button" id="quick-close" data-date="${next}">${formatKoreanDate(next)} 마감하기</button>` : ''}`;
+      <b>${needs ? formatKoreanDate(c.nextRequired) : '<span class="muted">오늘까지 모두 마감했습니다</span>'}</b></div>`;
 }
 
 // ---------------------------------------------------------------- 달력
@@ -209,8 +207,8 @@ $('next-month').addEventListener('click', () => {
   run(loadCalendar());
 });
 document.addEventListener('click', (e) => {
-  const close = e.target.closest('[data-close-date], #quick-close');
-  if (close) { run(goto(close.dataset.date ?? close.dataset.closeDate).then(() => openCloseDialog(close.dataset.date ?? close.dataset.closeDate))); return; }
+  const close = e.target.closest('[data-close-date]');
+  if (close) { run(goto(close.dataset.closeDate).then(() => openCloseDialog(close.dataset.closeDate))); return; }
   const reopen = e.target.closest('[data-reopen]');
   if (reopen) { openReopenDialog(reopen.dataset.reopen); return; }
   if (e.target.closest('[data-cancel]') || e.target === $('action-dialog')) $('action-dialog').close();

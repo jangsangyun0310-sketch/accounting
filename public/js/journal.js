@@ -6,7 +6,7 @@
 // 인쇄: 1쪽(사진까지)과 2쪽(회계)이 각각 A4 한 장에 들어가도록, 넘치면 사진 → 전체 순서로 줄인다.
 // 내용이 없는 칸에는 가운데 점(·)이 보이고 그대로 인쇄된다.
 import { api, esc } from './api.js';
-import { initPage, toast, approvalAreaHtml, closeBarHtml, closeDay } from './ui.js';
+import { initPage, toast, approvalAreaHtml, closeNoticeHtml } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, transferTable } from './daily-tables.js';
@@ -235,7 +235,7 @@ function fitNotes() {
   t.style.height = `${Math.max(t.scrollHeight + 2, 100)}px`;
 }
 
-/** 2쪽(회계)만 다시 그린다 — 여기서 마감해도 1쪽에 입력 중인 내용은 그대로 */
+/** 2쪽(회계) — 마감 전이면 한 줄 안내 (마감은 [일 마감] 화면에서) */
 function renderPage2(day, info) {
   paper2.hidden = false;
   paper2.innerHTML = `
@@ -248,7 +248,7 @@ function renderPage2(day, info) {
 function accountingHtml(day, info) {
   if (day.status !== 'CLOSED') {
     return `<div class="wait">이 날짜는 아직 일 마감 전입니다. 마감하면 그날 회계 내용이 여기에 나옵니다.</div>
-      ${closeBarHtml(info, { hint: '마감하면 이 날짜 거래는 잠기고 여기에 회계가 나옵니다.' })}`;
+      ${closeNoticeHtml(info)}`;
   }
   const warn = day.verification && !day.verification.ok
     ? `<p class="lock-banner no-print">마감 시점 잔액과 현재 잔액이 다릅니다: ${day.verification.mismatches.map((m) => esc(m.name)).join(', ')}. 관리자에게 확인하세요.</p>` : '';
@@ -426,15 +426,6 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
 });
 window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
-
-// 2쪽에서 바로 마감 → 2쪽만 새로 불러온다
-paper2.addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-close-day]');
-  if (!b || !(await closeDay(b.dataset.closeDay))) return;
-  const date = b.dataset.closeDay;
-  const [day, info] = await Promise.all([api(`/api/reports/daily?date=${date}`), api(`/api/closings/${date}`)]);
-  if (journal?.date === date) renderPage2(day, info);
-});
 
 $('save').addEventListener('click', save);
 $('print').addEventListener('click', () => window.print());

@@ -1,7 +1,7 @@
 // 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제, 하루 현황
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, bindAmountInput, toast, signedWon, closeBarHtml, closeDay, FUND_LABEL } from './ui.js';
+import { initPage, bindAmountInput, toast, signedWon, closeNoticeHtml, FUND_LABEL } from './ui.js';
 import { formatWon, parseAmount, sumAmounts } from './shared/money.js';
 import { addDays, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 
@@ -128,8 +128,8 @@ async function loadDay() {
   const [next, info] = await Promise.all([api(`/api/day?date=${date}`), api(`/api/closings/${date}`)]);
   if (next.date !== $('date').value) return; // 그 사이 날짜가 바뀜
   day = next;
-  // 거래 내역 아래: 입력을 마쳤으면 여기서 바로 마감
-  $('close-bar').innerHTML = closeBarHtml(info);
+  // 거래 내역 아래: 마감 전이면 한 줄 안내 (마감은 [일 마감] 화면에서)
+  $('close-bar').innerHTML = closeNoticeHtml(info);
   $('date-label').textContent = formatKoreanDate(date);
   $('summary-date').textContent = formatKoreanDate(date);
   renderLock();
@@ -405,10 +405,6 @@ function changeDate(next) {
 
 $('date').addEventListener('change', () => changeDate($('date').value));
 $('account').addEventListener('change', updatePayerField);
-$('close-bar').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-close-day]');
-  if (b && await closeDay(b.dataset.closeDay)) await loadDay();
-});
 $('subject').addEventListener('change', () => { updateDeductField(); updateEquipmentField(); });
 $('eq-on').addEventListener('change', updateEquipmentField);
 $('prev-day').addEventListener('click', () => changeDate(addDays($('date').value, -1)));

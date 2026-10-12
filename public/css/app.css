@@ -610,6 +610,10 @@ td.num.minus { color: #b42318; }
 .close-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border: 1.5px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
 .close-bar.pending { border-color: #c27803; background: #fff8eb; }
 .close-bar:empty { display: none; }
+/* 마감 전 한 줄 안내 (거래 입력 · 사목일지 2쪽) — 마감은 [일 마감] 화면에서만 */
+.close-note { margin: 12px 0 0; font-size: 13.5px; color: var(--muted); }
+.close-note b { color: var(--text); }
+.close-note a { margin-left: 6px; font-weight: 600; }
 
 /* 설정: 위 탭 안의 작은 탭 */
 .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: -4px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
