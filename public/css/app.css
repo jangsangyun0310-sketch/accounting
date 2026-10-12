@@ -242,7 +242,9 @@ table.tx-list td { vertical-align: middle; }
 .filters label { flex: 0 1 160px; }
 .filters .quick { display: flex; gap: 4px; padding-bottom: 4px; }
 .filters label.check { flex: 0 0 auto; padding-bottom: 8px; }
-p.totals { font-size: 14px; }
+p.totals { font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+p.totals .totals-tools { margin-left: auto; display: flex; gap: 6px; } /* 결과 도구는 오른쪽 끝 */
+#filters .filters + .filters { margin-top: 10px; } /* 거래 조회: 기간 줄 · 조건 줄 */
 /* 보기 고르기: 한 줄씩 / 날짜별 / 수입 · 지출별 */
 .view-switch { display: flex; align-items: center; gap: 0; margin: 4px 0 10px; font-size: 14px; color: var(--muted); }
 .view-switch button { margin: 0; height: 34px; padding: 0 14px; border-radius: 0; background: #fff; color: var(--text);
@@ -632,6 +634,7 @@ table.tx-list.fixed-cols td:last-child { white-space: nowrap; overflow: hidden; 
 .eq-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 10px; }
 .eq-bar label { flex: 0 1 200px; }
 .eq-bar .eq-tools { margin-left: auto; display: flex; gap: 6px; }
+.eq-bar input, .eq-bar select, .eq-bar > button, .eq-bar .eq-tools button { height: 36px; } /* 한 줄 높이 맞춤 */
 table.eq-list tbody tr { cursor: pointer; }
 table.eq-list tbody tr:hover { background: var(--accent-soft); }
 table.eq-list td.note { max-width: 320px; }

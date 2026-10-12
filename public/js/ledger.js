@@ -150,8 +150,10 @@ function render(data, byAccount) {
       이체입금 <b>${formatWon(t.transferIn)}</b> ·
       이체출금 <b>${formatWon(t.transferOut)}</b>
       <span class="muted">(${data.rows.length}건)</span>
-      ${data.rows.length ? '<button type="button" class="secondary small" id="excel">Excel로 내려받기</button>' : ''}
-      ${byAccount ? `<a class="button secondary small" href="${href(`/report?type=accounts&from=${$('from').value}&to=${$('to').value}&account=${$('account').value}`)}">이 통장 내역 인쇄 (A4)</a>` : ''}
+      <span class="totals-tools">
+        ${byAccount ? `<a class="button secondary" href="${href(`/report?type=accounts&from=${$('from').value}&to=${$('to').value}&account=${$('account').value}`)}">이 통장 내역 인쇄 (A4)</a>` : ''}
+        ${data.rows.length ? '<button type="button" class="secondary" id="excel">Excel로 내려받기</button>' : ''}
+      </span>
     </p>
     <div class="view-switch" role="group" aria-label="보기">보기
       ${VIEWS.map(([k, label]) => `<button type="button" class="${k === view ? 'active' : ''}" data-view="${k}" aria-pressed="${k === view}">${label}</button>`).join('')}

@@ -84,9 +84,8 @@ export async function initPage(active, { requireSetup = true } = {}) {
   if (bar) {
     bar.classList.add('topbar');
     // 성당 이름·작성자 이름은 화면 캡처에 나오지 않도록 상단 막대에 표시하지 않는다
-    // 메뉴 줄의 왼쪽·오른쪽 끝을 본문 상자 줄에 맞춘다 (본문과 같은 폭)
-    // (결산 화면도 다른 화면과 같은 폭: A4 폭에 맞추면 메뉴가 두 줄이 된다)
-    const width = ['wide', 'narrow'].find((w) => document.querySelector('main.container')?.classList.contains(w));
+    // 메뉴 줄은 모든 화면에서 같은 폭 (넓은 화면 기준) — 메뉴를 옮겨 다녀도 로고 · 메뉴 위치가 그대로
+    const width = 'wide';
     const ready = settings.setupCompleted;
     const group = groupOf(active);
     const sub = ready ? subItems(active) : [];

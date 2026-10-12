@@ -31,6 +31,7 @@ async function load(nextType, value) {
   document.querySelectorAll('#report-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
   document.querySelector('.date-nav').hidden = type === 'accounts';
   $('range-nav').hidden = type !== 'accounts';
+  $('range-nav2').hidden = type !== 'accounts';
   if (type === 'accounts') {
     $('from').value = value.from;
     $('to').value = value.to;
@@ -533,7 +534,8 @@ function searchAccounts() {
   run(load('accounts', { from, to }));
 }
 $('search-accounts').addEventListener('click', searchAccounts);
-$('range-nav').addEventListener('keydown', (e) => {
+$('range-nav').parentElement.addEventListener('keydown', (e) => {
+  if (!e.target.closest('.range-nav')) return;
   if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); searchAccounts(); }
 });
 $('range-nav').addEventListener('click', (e) => {

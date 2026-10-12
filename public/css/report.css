@@ -125,6 +125,7 @@ details.print-guide[open] summary { margin-bottom: 2px; }
 /* 통장별 입출금 내역: 기간·통장 고르기, 이체는 파란 글씨, 이월 줄은 연한 바탕 */
 .range-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .range-nav[hidden], .date-nav[hidden] { display: none; }
+.range-nav2 { flex-basis: 100%; } /* 통장별 내역: 통장 고르기 · [조회]는 둘째 줄 */
 .range-nav input[type="date"], .range-nav select { width: auto; }
 .r-table tr.carry td { background: #f6f7f9; }
 .r-table td.xfer { color: #1f4e8c; }
