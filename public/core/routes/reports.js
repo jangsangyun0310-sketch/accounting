@@ -13,7 +13,11 @@ import { dailyApprovalSteps } from './journal.js';
 export async function daily({ env, url }) {
   const date = url.searchParams.get('date') || todayKST();
   if (!isValidDate(date)) throw bad('날짜 형식이 올바르지 않습니다.', 'BAD_DATE');
-  const db = env.DB;
+  return json(await dailyData(env.DB, date));
+}
+
+/** 하루 회계 (사목일지 2쪽 · 날짜별 사목일지 Excel 공용) */
+export async function dailyData(db, date) {
   const [day, parish, closing, dailySteps] = await Promise.all([
     computeDay(db, date),
     db.prepare('SELECT parish_name, writer_name, start_date FROM parish_settings WHERE id = 1').first(),
@@ -58,7 +62,7 @@ export async function daily({ env, url }) {
       };
     });
 
-  return json({
+  return {
     date,
     parishName: parish?.parish_name ?? '',
     writerName: (closed ? record.writer_name : parish?.writer_name) ?? '',
@@ -76,7 +80,7 @@ export async function daily({ env, url }) {
     income: { rows: income, total: sumAmounts(income.map((r) => r.amount)) },
     expense: { rows: expense, total: sumAmounts(expense.map((r) => r.amount)) },
     transfers: { rows: transfers, total: sumAmounts(transfers.map((r) => r.amount)) },
-  });
+  };
 }
 
 /**

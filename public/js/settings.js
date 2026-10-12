@@ -8,7 +8,10 @@ import { formatDateTimeKST, todayKST } from './shared/dates.js';
 import { href } from './base.js';
 import { backupStatusHtml, downloadBackup } from './backup.js';
 import { currentAccount, logout } from './account.js';
-import { zipStored } from './shared/xlsx.js';
+import { buildXlsx, zipStored } from './shared/xlsx.js';
+import { journalMonthSheets } from './journal-book.js';
+import { downloadXlsx } from './excel.js';
+import { handoverSheets } from './handover.js';
 
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
@@ -416,6 +419,15 @@ function updateBudgetTotals() {
 
 // ---------------------------------------------------------------- 백업
 
+/** 운영 개시 연도 ~ 올해 (최근 해가 먼저) */
+function journalYears() {
+  const thisYear = Number(todayKST().slice(0, 4));
+  const firstYear = Math.min(Number((settings.parish?.startDate ?? todayKST()).slice(0, 4)), thisYear);
+  const years = [];
+  for (let y = thisYear; y >= firstYear; y--) years.push(String(y));
+  return years;
+}
+
 async function renderBackup() {
   panel.innerHTML = '<p class="muted">불러오는 중…</p>';
   let s;
@@ -439,6 +451,22 @@ async function renderBackup() {
       <p>백업 파일에는 신자 이름과 금액이 들어 있으니 다른 사람에게 보내지 마세요.</p>
     </div>
     <hr class="line-sep">
+    <h3>날짜별 사목일지 Excel</h3>
+    <p class="help">한글 문서를 날짜별로 철해 두듯이, <b>하루치 사목일지를 시트 한 장</b>으로 받습니다. 한 달에 한 파일이며,
+      시트 안은 인쇄하는 사목일지와 같습니다 (1쪽 사목일지 · 사진, 2쪽 회계). 사목일지를 저장했거나 거래가 있는 날만 들어갑니다.</p>
+    <div class="form-grid">
+      <label>연도 <select id="book-year">${journalYears().map((y) => `<option value="${y}">${y}년</option>`).join('')}
+        <option value="">전체 기간 (연도별 폴더, zip)</option></select></label>
+      <label>달 <select id="book-month"><option value="">열두 달 모두 (zip)</option>
+        ${Array.from({ length: 12 }, (_, i) => `<option value="${String(i + 1).padStart(2, '0')}">${i + 1}월</option>`).join('')}</select></label>
+    </div>
+    <button type="button" class="secondary" data-action="book-download">사목일지 Excel 내려받기</button>
+    <span id="book-progress" class="muted"></span>
+    <hr class="line-sep">
+    <h3>인수인계용 전체 Excel</h3>
+    <p class="help">사무장이 바뀌거나 프로그램을 더 쓰지 않게 될 때, <b>모든 기록을 Excel 한 파일</b>로 받습니다. 거래 내역 · 월별 결산 · 연도별 과목 합계 · 통장 잔액 · 사목일지 · 개인별 납부가 시트별로 들어갑니다. 프로그램 없이 Excel 만으로 볼 수 있습니다.</p>
+    <button type="button" class="secondary" data-action="handover-download">전체 기록 Excel 내려받기</button>
+    <hr class="line-sep">
     <h3>사목일지 사진</h3>
     <p class="help">사진은 크기 때문에 백업 파일에 들어가지 않습니다. 따로 <b>사진 모두 내려받기</b>로 받아 함께 보관하세요.
       (사진 파일 이름은 날짜, 사진 설명은 "사진 설명.txt" 에 들어갑니다)</p>
@@ -455,6 +483,8 @@ async function renderBackup() {
       <h4>최근 기록</h4>
       <ul class="audit">${s.history.map((h) => `<li>${formatDateTimeKST(h.at)} · ${esc(h.actor)} ·
         ${h.action === 'BACKUP' ? '백업' : '복구'}</li>`).join('')}</ul>` : ''}`;
+  // 전체 기간은 달을 고를 수 없다 (연도별 폴더에 달마다 파일)
+  panel.querySelector('#book-year').addEventListener('change', (e) => { panel.querySelector('#book-month').disabled = !e.target.value; });
 }
 
 // ---------------------------------------------------------------- 함께 사용
@@ -733,6 +763,62 @@ const actions = {
   'offering-save': async () => {
     const subjectId = panel.querySelector('#offering-subject').value || null;
     if (await attempt(() => api('/api/journal-settings/offering', { method: 'PUT', body: { subjectId } }), '주일헌금 과목을 저장했습니다.')) await reload();
+  },
+  'book-download': async (btn) => {
+    const year = panel.querySelector('#book-year').value;
+    const month = year ? panel.querySelector('#book-month').value : '';
+    const progress = panel.querySelector('#book-progress');
+    const first = (settings.parish?.startDate ?? todayKST()).slice(0, 7);
+    const last = todayKST().slice(0, 7);
+    // 받을 달: 운영 개시 달 ~ 이번 달 안에서
+    const months = (year ? [year] : journalYears().reverse()).flatMap((y) => (month ? [month] : Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')))
+      .map((m) => `${y}-${m}`)).filter((ym) => ym >= first && ym <= last);
+    btn.disabled = true;
+    try {
+      const files = [];
+      let parishName = '';
+      for (const [i, ym] of months.entries()) {
+        progress.textContent = `${ym} 만드는 중 (${i + 1} / ${months.length})`;
+        const data = await api(`/api/export/journals?month=${ym}`);
+        parishName = data.parishName;
+        if (!data.days.length) continue;
+        // 전체 기간은 연도별 폴더로
+        files.push([`${year ? '' : `${ym.slice(0, 4)}년/`}사목일지 ${ym}.xlsx`, buildXlsx(journalMonthSheets(data))]);
+      }
+      if (!files.length) {
+        progress.textContent = '';
+        toast('그 기간에는 사목일지나 거래가 없습니다.', 'error');
+        return;
+      }
+      const single = month && files.length === 1;
+      const blob = single
+        ? new Blob([files[0][1]], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        : new Blob([zipStored(files)], { type: 'application/zip' });
+      const name = single ? `사목일지 ${year}-${month} ${parishName}.xlsx` : `사목일지 ${year ? `${year}년` : '전체'} ${parishName}.zip`;
+      const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name.replace(/[\\/:*?"<>|]/g, '-') });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+      progress.textContent = single ? '내려받았습니다.' : `${files.length}개 달 파일을 내려받았습니다.`;
+    } catch (err) {
+      toast(err.message, 'error');
+      progress.textContent = '';
+    } finally {
+      btn.disabled = false;
+    }
+  },
+  'handover-download': async (btn) => {
+    btn.disabled = true;
+    try {
+      const d = await api('/api/export/all');
+      downloadXlsx(`본당살림 전체 기록 ${d.parishName} ${d.to}.xlsx`, handoverSheets(d));
+      toast('전체 기록 Excel 을 내려받았습니다.');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
   },
   'photos-download': async (btn) => {
     const year = panel.querySelector('#photo-year').value;

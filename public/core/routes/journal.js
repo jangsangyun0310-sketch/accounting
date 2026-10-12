@@ -84,9 +84,13 @@ async function sundaySummary(db, d) {
 }
 
 export async function get({ env, url }) {
-  const db = env.DB;
   const d = url.searchParams.get('date') || todayKST();
   if (!isValidDate(d)) throw bad('날짜 형식이 올바르지 않습니다.', 'BAD_DATE');
+  return json(await journalData(env.DB, d));
+}
+
+/** 하루 사목일지 (화면 · 날짜별 사목일지 Excel 공용) */
+export async function journalData(db, d) {
   const [journal, masses, documents, photos, schedule, parish] = await db.batch([
     db.prepare('SELECT * FROM journals WHERE journal_date = ?').bind(d),
     db.prepare('SELECT mass_time, name, kind, attendance, confessions FROM journal_masses WHERE journal_date = ? ORDER BY seq').bind(d),
@@ -98,7 +102,7 @@ export async function get({ env, url }) {
   const j = journal.results[0] ?? null;
   const prev = await totalsBefore(db, d);
   const row = (r, extra = {}) => ({ time: r.mass_time, name: r.name, kind: r.kind, attendance: 0, confessions: 0, ...extra });
-  return json({
+  return {
     date: d,
     saved: Boolean(j),
     parishName: parish.results[0]?.parish_name ?? '',
@@ -116,7 +120,7 @@ export async function get({ env, url }) {
     notes: j?.notes ?? '',
     sunday: await sundaySummary(db, d),
     updatedAt: j?.updated_at ?? null,
-  });
+  };
 }
 
 function totalsInput(v, label) {
