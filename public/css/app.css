@@ -225,6 +225,18 @@ table.tx-list td { vertical-align: middle; }
 .filters .quick { display: flex; gap: 4px; padding-bottom: 4px; }
 .filters label.check { flex: 0 0 auto; padding-bottom: 8px; }
 p.totals { font-size: 14px; }
+/* 보기 고르기: 한 줄씩 / 날짜별 / 수입 · 지출별 */
+.view-switch { display: flex; align-items: center; gap: 0; margin: 4px 0 10px; font-size: 14px; color: var(--muted); }
+.view-switch button { margin: 0; height: 34px; padding: 0 14px; border-radius: 0; background: #fff; color: var(--text);
+  border: 1px solid var(--line); border-left-width: 0; font-weight: 400; }
+.view-switch button:first-of-type { margin-left: 8px; border-left-width: 1px; border-radius: 6px 0 0 6px; }
+.view-switch button:last-of-type { border-radius: 0 6px 6px 0; }
+.view-switch button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+table.tx-list tr.group-head td { background: var(--accent-soft); font-weight: 600; color: var(--accent); }
+table.tx-list tr.subtotal.total td { background: #e9edf3; }
+h3.group-title { margin: 18px 0 6px; font-size: 16px; }
+h3.group-title.in { color: var(--in); }
+h3.group-title.out { color: var(--out); }
 #result tr[data-history] { cursor: pointer; }
 #result tr[data-history]:hover td { background: #f5f8fc; }
 
@@ -584,3 +596,7 @@ td.num.minus { color: #b42318; }
 .subtabs button.danger-sub { color: var(--danger); border-color: var(--danger); }
 .subtabs button.danger-sub.active { background: var(--danger); color: #fff; }
 @media (max-width: 720px) { .tabs button[data-group] { font-size: 12.5px; letter-spacing: -0.4px; white-space: nowrap; } }
+table.tx-list.fixed-cols { table-layout: fixed; }
+table.tx-list.fixed-cols td { overflow-wrap: anywhere; }
+table.grid td.num.nil { text-align: center; }
+table.tx-list.fixed-cols td:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
