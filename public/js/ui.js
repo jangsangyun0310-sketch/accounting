@@ -12,25 +12,56 @@ const ICON = {
   journal: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M12 6v6M9.5 8.5h5"/></svg>',
   property: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
 };
-// items: [주소, 이름, 화면 key]. 아래 줄은 작은 메뉴가 둘 이상이거나 sub: true 일 때 (재산관리: 나중에 토지 · 건물 자리)
+// items: [주소, 이름, 화면 key]. 묶음마다 아래 줄 끝에 ⚙ 설정 (그 기능에 필요한 설정만)
 const GROUPS = [
   { key: 'acct', label: '회계', items: [['/entry', '거래 입력', 'entry'], ['/ledger', '거래 조회', 'ledger'], ['/closing', '일 마감', 'closing'], ['/report', '결산', 'report']] },
   { key: 'journal', label: '사목일지', items: [['/journal', '사목일지', 'journal']] },
-  { key: 'property', label: '재산관리', sub: true, items: [['/equipment', '비품대장', 'equipment']] },
+  { key: 'property', label: '재산관리', items: [['/equipment', '비품대장', 'equipment']] },
 ];
-// 설정 항목 (settings.js 가 주소의 #항목 으로 화면을 바꾼다)
-const SETTINGS_TABS = [['parish', '성당 정보'], ['approval', '결재선'], ['accounts', '통장'], ['subjects', '예산과목'], ['budget', '연 예산'],
-  ['journal', '사목일지'], ['backup', '백업'], ['members', '함께 사용'], ['account', '초기화 · 탈퇴']];
-
-/** 위 메뉴 아래 줄: [주소, 이름, 지금 화면인지, 위험 표시] 목록 (없으면 빈 배열) */
-function subItems(active) {
-  if (active === 'settings') {
-    const now = SETTINGS_TABS.some(([k]) => k === location.hash.slice(1)) ? location.hash.slice(1) : 'parish';
-    return SETTINGS_TABS.map(([k, label]) => [`/settings#${k}`, label, k === now, k === 'account']);
+/**
+ * 설정 항목 묶음 (settings.js 가 주소의 ?s=묶음#항목 으로 화면을 고른다).
+ * '' = 오른쪽 위 [⚙ 설정]: 성당 전체에 관한 것만.
+ */
+export const SETTINGS_SCOPES = {
+  acct: [['accounts', '통장'], ['subjects', '예산과목'], ['budget', '연 예산'], ['approval-main', '결산서 결재란']],
+  journal: [['journal', '기본 미사 · 총원'], ['approval-daily', '사목일지 결재란']],
+  property: [['equipment-subjects', '비품 과목']],
+  '': [['parish', '성당 정보'], ['backup', '백업'], ['members', '함께 사용'], ['account', '초기화 · 탈퇴']],
+};
+// 예전 주소(#approval 등)도 맞는 묶음으로
+const OLD_TABS = { approval: 'approval-main' };
+/** 지금 주소 → { scope, tab } */
+export function settingsPlace() {
+  let tab = location.hash.slice(1);
+  tab = OLD_TABS[tab] ?? tab;
+  let scope = new URLSearchParams(location.search).get('s') ?? '';
+  if (!(scope in SETTINGS_SCOPES)) scope = '';
+  if (!SETTINGS_SCOPES[scope].some(([k]) => k === tab)) {
+    const owner = Object.keys(SETTINGS_SCOPES).find((sc) => SETTINGS_SCOPES[sc].some(([k]) => k === tab));
+    if (owner != null && !new URLSearchParams(location.search).has('s')) scope = owner;
+    else tab = SETTINGS_SCOPES[scope][0][0];
   }
-  const g = GROUPS.find((x) => x.items.some(([, , key]) => key === active));
-  if (!g || (g.items.length < 2 && !g.sub)) return [];
-  return g.items.map(([path, label, key]) => [path, label, key === active, false]);
+  return { scope, tab };
+}
+
+/** 지금 화면이 속한 묶음 (설정 화면이면 ?s= 묶음, 오른쪽 위 설정이면 null) */
+function groupOf(active) {
+  if (active === 'settings') return GROUPS.find((g) => g.key === settingsPlace().scope) ?? null;
+  return GROUPS.find((x) => x.items.some(([, , key]) => key === active)) ?? null;
+}
+
+/** 위 메뉴 아래 줄: [주소, 이름, 지금 화면인지, 위험 표시] 목록 */
+function subItems(active) {
+  const g = groupOf(active);
+  if (!g) {
+    if (active !== 'settings') return [];
+    const { tab } = settingsPlace(); // 오른쪽 위 [⚙ 설정]: 성당 전체 설정 항목
+    return SETTINGS_SCOPES[''].map(([k, label]) => [`/settings#${k}`, label, k === tab, k === 'account']);
+  }
+  return [
+    ...g.items.map(([path, label, key]) => [path, label, key === active, false]),
+    [`/settings?s=${g.key}`, '⚙ 설정', active === 'settings', false],
+  ];
 }
 
 // [도움말]은 업무 메뉴와 떨어진 오른쪽(로그아웃 옆)에 두고, 지금 보고 있는 화면의 설명으로 바로 연다
@@ -55,7 +86,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
     // (결산 화면도 다른 화면과 같은 폭: A4 폭에 맞추면 메뉴가 두 줄이 된다)
     const width = ['wide', 'narrow'].find((w) => document.querySelector('main.container')?.classList.contains(w));
     const ready = settings.setupCompleted;
-    const group = GROUPS.find((x) => x.items.some(([, , key]) => key === active));
+    const group = groupOf(active);
     const sub = ready ? subItems(active) : [];
     const subHtml = () => sub.map(([path, label, on, danger]) =>
       `<a href="${href(path)}" class="${on ? 'active' : ''}${danger ? ' danger' : ''}">${label}</a>`).join('');
@@ -64,7 +95,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
       <nav>${ready ? `<a href="${href('/')}" class="nav-home ${active === 'home' ? 'active' : ''}"><span class="ni">${ICON.home}</span><span class="nl">홈</span></a>`
         + GROUPS.map((g) => `<a href="${href(g.items[0][0])}" class="${g === group ? 'active' : ''}"><span class="ni">${ICON[g.key]}</span><span class="nl">${g.label}</span></a>`).join('') : ''}</nav>
-      ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' ? 'active' : ''}">⚙ 설정</a>` : ''}
+      ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' && !group ? 'active' : ''}" title="성당 정보 · 백업 · 함께 사용">⚙ 설정</a>` : ''}
       <button type="button" class="more-btn" id="more-btn" aria-expanded="false" aria-label="메뉴 더 보기">⋯</button>
       <span class="account"><a class="help-link ${active === 'help' ? 'active' : ''}" href="${href(HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : '/help')}">도움말</a>
         <button type="button" class="secondary small" id="logout-btn"
@@ -190,6 +221,64 @@ export function approvalBoxHtml(titles) {
     <tr>${titles.map(() => '<td></td>').join('')}</tr></table>`;
 }
 
+const APPROVAL_KIND = {
+  daily: { label: '사목일지', path: '/api/approval-steps/daily' },
+  main: { label: '월말 · 연말결산 · 예산 대비', path: '/api/approval-steps' },
+};
+
+/**
+ * [결재란 고치기]: 그 서류의 결재란을 그 자리에서 바꾼다. kind = 'daily'(사목일지) | 'main'(결산서).
+ * 저장하면 새 직함 목록, 그냥 닫으면 null.
+ */
+export async function editApproval(kind) {
+  const s = await api('/api/settings');
+  const from = kind === 'daily' && s.dailyApprovalSteps.length ? s.dailyApprovalSteps : s.approvalSteps;
+  let titles = from.map((x) => x.title);
+  const { label, path } = APPROVAL_KIND[kind];
+  const dlg = document.createElement('dialog');
+  dlg.className = 'approval-dialog';
+  document.body.append(dlg);
+  const draw = () => {
+    dlg.innerHTML = `
+      <div class="dialog-head"><h3>결재란 고치기 <span class="muted small">${label}</span></h3></div>
+      <label class="inline">결재 단계 수
+        <select class="ad-count">${Array.from({ length: 10 }, (_, i) => `<option ${i + 1 === titles.length ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></label>
+      <div class="form-grid ad-titles">${titles.map((t, i) => `<label>${i + 1}단계 <input data-i="${i}" value="${esc(t)}" maxlength="12"></label>`).join('')}</div>
+      <div class="ad-preview">${approvalBoxHtml(titles.map((t) => t.trim() || '　'))}</div>
+      <p class="help">왼쪽부터 순서대로 인쇄됩니다. 이미 마감한 날의 회계 쪽은 마감 때 결재란으로 남습니다.</p>
+      <div class="dialog-foot"><button type="button" class="secondary" data-close>닫기</button><button type="button" data-save>저장</button></div>`;
+  };
+  draw();
+  dlg.showModal();
+  dlg.querySelector('input')?.focus();
+  return new Promise((resolve) => {
+    let result = null;
+    dlg.addEventListener('close', () => { dlg.remove(); resolve(result); });
+    dlg.addEventListener('change', (e) => {
+      if (!e.target.classList.contains('ad-count')) return;
+      titles = Array.from({ length: Number(e.target.value) }, (_, i) => titles[i] ?? '');
+      draw();
+    });
+    dlg.addEventListener('input', (e) => {
+      if (e.target.dataset.i == null) return;
+      titles[e.target.dataset.i] = e.target.value;
+      dlg.querySelector('.ad-preview').innerHTML = approvalBoxHtml(titles.map((t) => t.trim() || '　'));
+    });
+    dlg.addEventListener('click', async (e) => {
+      if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
+      if (!e.target.closest('[data-save]')) return;
+      try {
+        await api(path, { method: 'PUT', body: { titles } });
+        result = titles.map((t) => t.trim());
+        toast(`${label} 결재란을 저장했습니다.`);
+        dlg.close();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+  });
+}
+
 /** 이체 순액처럼 부호가 의미 있는 금액: +1,000 / -1,000 / 0 */
 export const signedWon = (n) => (n > 0 ? `+${formatWon(n)}` : formatWon(n));
 
@@ -234,3 +323,25 @@ export async function closeDay(date) {
     return false;
   }
 }
+
+// ---------------------------------------------------------------- 결재란 + [결재란 고치기] (사목일지 · 결산서)
+
+/** 서류의 결재란 칸 (인쇄에는 나오지 않는 [결재란 고치기] 버튼 포함). kind = 'daily' | 'main' */
+export function approvalAreaHtml(titles, kind) {
+  return `<div class="r-approval" data-approval-kind="${kind}"><div class="ab">${approvalBoxHtml(titles)}</div>
+    <button type="button" class="secondary small approval-edit no-print" data-approval-edit="${kind}">결재란 고치기</button></div>`;
+}
+
+// [결재란 고치기]를 누르면 창에서 고치고, 화면의 결재란을 바로 바꾼다
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-approval-edit]');
+  if (!b) return;
+  const kind = b.dataset.approvalEdit;
+  const titles = await editApproval(kind);
+  if (!titles) return;
+  document.querySelectorAll(`[data-approval-kind="${kind}"]`).forEach((el) => {
+    el.querySelector('.ab').innerHTML = approvalBoxHtml(titles);
+    el.closest('.r-head')?.classList.toggle('stacked', titles.length > 4);
+  });
+  document.dispatchEvent(new CustomEvent('approval-changed', { detail: { kind, titles } }));
+});

@@ -1,8 +1,8 @@
 // 설정 화면: 위 탭 4개 (성당·결재선 / 통장·과목·예산 / 사목일지 / 백업·계정), 그 안에서 작은 탭으로 나눈다.
-// 주소 #뒤에는 작은 탭 이름 (#accounts, #backup …) — 예전 링크도 그대로 열린다
+// 주소: ?s=묶음#항목 (회계 · 사목일지 · 재산관리 설정은 그 기능의 ⚙ 설정에서, 성당 전체 설정은 ?s 없이) — 예전 #링크도 맞는 묶음으로 열린다
 // 모든 변경은 즉시 서버에 저장되고, 저장 후 목록을 다시 불러온다.
 import { api, esc } from './api.js';
-import { initPage, personName, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
+import { initPage, settingsPlace, SETTINGS_SCOPES, personName, bindAmountInput, attempt, toast, approvalBoxHtml, FUND_LABEL, KIND_LABEL } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { formatDateTimeKST, todayKST } from './shared/dates.js';
 import { href } from './base.js';
@@ -16,13 +16,12 @@ import { handoverSheets } from './handover.js';
 const MAX_STEPS = 10;
 const panel = document.getElementById('panel');
 
-// 설정 항목: 위 메뉴의 아래 줄(ui.js SETTINGS_TABS)에서 #항목 으로 바로 들어온다
-const TAB_TITLES = { parish: '성당 정보', approval: '결재선', accounts: '통장', subjects: '예산과목', budget: '연 예산',
-  journal: '사목일지', backup: '백업', members: '함께 사용 (사용자 변경)', account: '초기화 · 탈퇴' };
-const tabFromHash = () => (location.hash.slice(1) in TAB_TITLES ? location.hash.slice(1) : 'parish');
+const SCOPE_TITLES = { acct: '회계 설정', journal: '사목일지 설정', property: '재산관리 설정', '': '설정' };
+const TAB_TITLES = Object.fromEntries(Object.values(SETTINGS_SCOPES).flat());
+const subtabs = document.getElementById('subtabs');
 
 let settings = null;
-let tab = tabFromHash();
+let { scope, tab } = settingsPlace();
 let editing = null;       // 수정 중인 행: 'account:3', 'subject:7'
 let approvalDraft = null; // 결재선 편집 중 값 { daily: [...], main: [...] }
 let scheduleDraft = null; // 요일별 기본 미사 편집 중 값
@@ -33,8 +32,12 @@ async function reload() {
 }
 
 function render() {
-  document.getElementById('tab-title').textContent = `설정 · ${TAB_TITLES[tab]}`;
-  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, approval: renderApproval, journal: renderJournalTab, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
+  const list = SETTINGS_SCOPES[scope];
+  document.getElementById('tab-title').textContent = scope ? SCOPE_TITLES[scope] : `설정 · ${TAB_TITLES[tab]}`;
+  // 묶음 안 항목이 둘 이상이면 화면 안 작은 탭 (성당 전체 설정은 위 메뉴 아래 줄에 이미 있음)
+  subtabs.hidden = !scope || list.length < 2;
+  subtabs.innerHTML = scope ? list.map(([k, label]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'active' : ''}">${label}</button>`).join('') : '';
+  ({ parish: renderParish, accounts: renderAccounts, subjects: renderSubjects, 'approval-main': () => renderApproval('main'), 'approval-daily': () => renderApproval('daily'), 'equipment-subjects': renderEquipmentSubjects, journal: renderJournalTab, budget: renderBudgetTab, backup: renderBackup, members: renderMembers, account: renderAccount })[tab]();
   panel.querySelectorAll('input[name="openingBalance"]').forEach(bindAmountInput);
   panel.querySelector('[autofocus]')?.focus();
 }
@@ -221,13 +224,13 @@ const APPROVAL_LINES = [
   { key: 'main', title: '월말 · 연말결산 · 예산 대비', help: '월말결산서 · 연말결산서 · 예산 대비 집행의 결재란입니다.' },
 ];
 
-function renderApproval() {
+function renderApproval(only) {
   approvalDraft ??= {
     main: settings.approvalSteps.map((s) => s.title),
     // 일일 결재선을 따로 정한 적이 없으면 월말·연말 결재선과 같게 시작
     daily: (settings.dailyApprovalSteps.length ? settings.dailyApprovalSteps : settings.approvalSteps).map((s) => s.title),
   };
-  panel.innerHTML = APPROVAL_LINES.map(({ key, title, help }) => {
+  panel.innerHTML = APPROVAL_LINES.filter((l) => !only || l.key === only).map(({ key, title, help }) => {
     const steps = approvalDraft[key];
     return `
     <div class="approval-line" data-line="${key}">
@@ -276,6 +279,26 @@ panel.addEventListener('input', (e) => {
   const draft = approvalDraft[line.dataset.line];
   draft[e.target.dataset.i] = e.target.value;
   line.querySelector('.approval-preview').innerHTML = approvalBoxHtml(draft.map((t) => t.trim() || '　'));
+});
+
+// ---------------------------------------------------------------- 재산관리: 비품 과목
+
+function renderEquipmentSubjects() {
+  const list = settings.subjects.filter((x) => x.kind === 'EXPENSE' && x.isActive);
+  panel.innerHTML = `
+    <p>물건을 사는 지출 과목에 체크하세요. 그 과목으로 지출을 입력하면 <b>[비품대장에도 올리기]</b> 칸이 나옵니다.</p>
+    <div class="eq-subjects">${list.map((x) => `<label class="check"><input type="checkbox" data-eq-subject="${x.id}" ${x.isEquipment ? 'checked' : ''}> ${esc(x.name)}</label>`).join('')
+      || '<p class="muted">지출 과목이 없습니다. 회계 → ⚙ 설정 → 예산과목에서 추가하세요.</p>'}</div>
+    <p class="help">체크하면 바로 저장됩니다. 과목을 더하거나 이름을 바꾸는 것은 회계 → ⚙ 설정 → 예산과목에서 합니다.</p>`;
+}
+
+panel.addEventListener('change', async (e) => {
+  const box = e.target.closest('[data-eq-subject]');
+  if (!box) return;
+  const x = settings.subjects.find((y) => y.id === Number(box.dataset.eqSubject));
+  const ok = await attempt(() => api(`/api/subjects/${x.id}`, { method: 'PUT', body: { kind: x.kind, name: x.name, isActive: x.isActive, isEquipment: box.checked } }),
+    box.checked ? `'${x.name}'을(를) 비품 과목으로 정했습니다.` : `'${x.name}'은(는) 이제 비품 과목이 아닙니다.`);
+  if (ok) await reload(); else box.checked = !box.checked;
 });
 
 // ---------------------------------------------------------------- 사목일지: 요일별 기본 미사 · 시작 총원
@@ -894,12 +917,17 @@ panel.addEventListener('keydown', (e) => {
 
 // 위 메뉴의 아래 줄을 누르면 주소의 #항목 이 바뀐다
 addEventListener('hashchange', () => {
-  const next = tabFromHash();
-  if (next === tab || !settings) return;
-  tab = next;
+  const next = settingsPlace();
+  if (next.tab === tab || !settings) return;
+  ({ scope, tab } = next);
   editing = null;
   scheduleDraft = null;
   render();
+});
+
+subtabs.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (b) location.hash = b.dataset.tab;
 });
 
 initPage('settings').then(async () => {

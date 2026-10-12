@@ -2,14 +2,15 @@
 // 입력 내용은 브라우저에 임시 저장되며, 마지막 "설정 완료" 때 한 번에 서버로 전송된다.
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, bindAmountInput, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
+import { initPage, bindAmountInput, toast, FUND_LABEL } from './ui.js';
 import { parseAmount, sumAmounts, formatWon } from './shared/money.js';
 import { isValidDate, todayKST, formatKoreanDate } from './shared/dates.js';
 import { initRestore } from './restore.js';
 
 const DRAFT_KEY = 'bondang.setupDraft.v1';
-const STEPS = ['성당 정보', '일반회계 통장', '특별회계 통장', '예산과목', '결재선', '확인'];
-const MAX_STEPS = 10;
+// 결재선은 처음에 정하지 않는다: 사목일지 · 결산서를 처음 인쇄할 때 그 화면의 [결재란 고치기]로 정한다
+const STEPS = ['성당 정보', '일반회계 통장', '특별회계 통장', '예산과목', '확인'];
+const DEFAULT_APPROVAL = ['담당', '주임신부'];
 
 // 예시 과목: 버튼을 눌렀을 때만 채워지는 제안값. 자유롭게 고치거나 지울 수 있다.
 const SUBJECT_EXAMPLES = {
@@ -24,8 +25,9 @@ let state = loadDraft() ?? {
   parish: { parishName: '', startDate: todayKST(), writerName: '' },
   accounts: { GENERAL: [emptyAccount()], SPECIAL: [emptyAccount()] },
   subjects: { INCOME: [''], EXPENSE: [''] },
-  approvalSteps: ['기안', ''],
 };
+
+state.step = Math.min(state.step, STEPS.length - 1); // 예전 임시 저장(결재선 단계가 있던 때)
 
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
@@ -49,7 +51,7 @@ function render() {
   $('prev').hidden = state.step === 0;
   $('next').textContent = state.step === STEPS.length - 1 ? '설정 완료' : '다음';
   [renderParish, () => renderAccounts('GENERAL'), () => renderAccounts('SPECIAL'),
-    renderSubjects, renderApproval, renderConfirm][state.step]();
+    renderSubjects, renderConfirm][Math.min(state.step, STEPS.length - 1)]();
   panel.querySelector('input, select')?.focus();
   saveDraft();
 }
@@ -190,33 +192,6 @@ function renderSubjects() {
   }
 }
 
-function renderApproval() {
-  const steps = state.approvalSteps;
-  panel.innerHTML = `
-    <h3>결재선</h3>
-    <label class="inline">결재 단계 수
-      <select id="count">${Array.from({ length: MAX_STEPS }, (_, i) =>
-        `<option ${i + 1 === steps.length ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
-    </label>
-    <div class="form-grid" id="titles">
-      ${steps.map((t, i) => `<label>${i + 1}단계 <input data-i="${i}" value="${esc(t)}" maxlength="12"></label>`).join('')}
-    </div>
-    <h4>결산서 결재란 미리보기</h4>
-    <div id="preview">${approvalBoxHtml(steps.map((t) => t.trim() || '　'))}</div>
-    <p class="help">왼쪽부터 순서대로 결재란에 인쇄됩니다. 예) 기안 → 재정부회장 → 사목회장 → 주임신부</p>`;
-
-  $('count').addEventListener('change', (e) => {
-    const n = Number(e.target.value);
-    state.approvalSteps = Array.from({ length: n }, (_, i) => steps[i] ?? '');
-    render();
-  });
-  $('titles').addEventListener('input', (e) => {
-    steps[e.target.dataset.i] = e.target.value;
-    $('preview').innerHTML = approvalBoxHtml(steps.map((t) => t.trim() || '　'));
-    saveDraft();
-  });
-}
-
 function renderConfirm() {
   let payload;
   try {
@@ -227,7 +202,7 @@ function renderConfirm() {
     return;
   }
   $('next').disabled = false;
-  const { parish, accounts, subjects, approvalSteps } = payload;
+  const { parish, accounts, subjects } = payload;
   const fundTable = (fund) => {
     const list = accounts.filter((a) => a.fundCode === fund);
     if (!list.length) return `<p class="muted">${FUND_LABEL[fund]} 통장 없음</p>`;
@@ -249,8 +224,7 @@ function renderConfirm() {
     ${fundTable('SPECIAL')}
     <p><b>수입 과목</b> ${subjects.filter((s) => s.kind === 'INCOME').map((s) => esc(s.name)).join(', ')}</p>
     <p><b>지출 과목</b> ${subjects.filter((s) => s.kind === 'EXPENSE').map((s) => esc(s.name)).join(', ')}</p>
-    <h4>결재란</h4>
-    ${approvalBoxHtml(approvalSteps)}
+    <p class="help">결재란은 처음에 <b>담당 · 주임신부</b>로 시작합니다. 사목일지 · 결산서 화면의 <b>[결재란 고치기]</b>에서 그 서류에 맞게 바꾸세요.</p>
     <p class="help">"설정 완료"를 누르면 저장됩니다. 저장 후에도 설정 화면에서 수정할 수 있습니다.
       (단, 거래가 생기면 운영 개시일을, 마감이 생기면 초기잔액을 바꿀 수 없습니다.)</p>`;
 }
@@ -295,10 +269,7 @@ function buildPayload() {
     subjects.push(...names.map((name) => ({ kind, name })));
   }
 
-  const approvalSteps = state.approvalSteps.map((t) => t.trim());
-  if (approvalSteps.some((t) => !t)) throw stepError(4, '결재 단계 명칭을 모두 입력하세요.');
-  const dupStep = findDuplicate(approvalSteps);
-  if (dupStep) throw stepError(4, `결재 단계 '${dupStep}'이(가) 중복되었습니다.`);
+  const approvalSteps = DEFAULT_APPROVAL;
 
   return { parish, accounts, subjects, approvalSteps };
 }
@@ -357,7 +328,7 @@ $('next').addEventListener('click', async () => {
   }
 });
 
-// Enter 로 다음 칸 이동 (성당 정보·결재선 단계)
+// Enter 로 다음 칸 이동 (성당 정보 단계)
 panel.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || e.defaultPrevented || e.target.tagName !== 'INPUT') return;
   if (e.target.closest('tbody, [data-kind]')) return; // 표·목록은 자체 처리

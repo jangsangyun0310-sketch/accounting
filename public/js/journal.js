@@ -6,7 +6,7 @@
 // 인쇄: 1쪽(사진까지)과 2쪽(회계)이 각각 A4 한 장에 들어가도록, 넘치면 사진 → 전체 순서로 줄인다.
 // 내용이 없는 칸에는 가운데 점(·)이 보이고 그대로 인쇄된다.
 import { api, esc } from './api.js';
-import { initPage, toast, approvalBoxHtml, closeBarHtml, closeDay } from './ui.js';
+import { initPage, toast, approvalAreaHtml, closeBarHtml, closeDay } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, transferTable } from './daily-tables.js';
@@ -52,7 +52,7 @@ function render(j, day, info) {
             <tr><th>작성자</th><td>${esc(j.writerName)}<span class="seal">(인)</span></td></tr>
           </table>
         </div>
-        <div class="r-approval">${approvalBoxHtml(j.approvalSteps)}</div>
+        ${approvalAreaHtml(j.approvalSteps, 'daily')}
       </div>
 
       <h2>1. 신자 현황</h2>

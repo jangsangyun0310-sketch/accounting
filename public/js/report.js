@@ -2,7 +2,7 @@
 // (날짜별 회계는 사목일지 2쪽에 나온다 — 예전 일일결산 주소로 오면 사목일지로 보낸다)
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, toast, approvalBoxHtml, FUND_LABEL } from './ui.js';
+import { initPage, toast, approvalAreaHtml, FUND_LABEL } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, monthStart, todayKST } from './shared/dates.js';
 import { downloadXlsx, reportSheet } from './excel.js';
@@ -142,7 +142,7 @@ function renderPeriod(r) {
             <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
           </table>
         </div>
-        <div class="r-approval">${approvalBoxHtml(r.approvalSteps)}</div>
+        ${approvalAreaHtml(r.approvalSteps, 'main')}
       </div>
 
       <h2>1. 회계별 현황</h2>
@@ -241,7 +241,7 @@ function renderBudget(r) {
             <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
           </table>
         </div>
-        <div class="r-approval">${approvalBoxHtml(r.approvalSteps)}</div>
+        ${approvalAreaHtml(r.approvalSteps, 'main')}
       </div>
       <h2>1. 수입</h2>
       ${budgetTable(r.income, '수입', 'INCOME')}
