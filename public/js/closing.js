@@ -1,7 +1,7 @@
 // 일 마감 화면: 마감 달력, 날짜별 현황·마감 정보, 마감/마감취소, 기록
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, personName, toast, approvalBoxHtml, signedWon } from './ui.js';
+import { initPage, personName, toast, signedWon } from './ui.js';
 import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 
@@ -100,9 +100,7 @@ async function loadDetail(date) {
           ? '<span class="in">✔ 마감 시점 잔액과 현재 계산 잔액이 일치합니다.</span>'
           : `<span class="error">✖ 마감 시점과 잔액이 다릅니다: ${info.verification.mismatches.map((m) =>
             `${esc(m.name)} (마감 ${m.snapshot == null ? '-' : formatWon(m.snapshot)} / 현재 ${m.current == null ? '-' : formatWon(m.current)})`).join(', ')}</span>`}</dd>
-      </dl>
-      <h4>마감 당시 결재선</h4>
-      ${approvalBoxHtml(c.approvalSteps)}` : ''}
+      </dl>` : ''}
 
     <div class="detail-actions">
       ${info.canClose ? `<button type="button" data-close-date="${date}">이 날짜 마감하기</button>` : ''}
