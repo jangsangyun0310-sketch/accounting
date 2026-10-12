@@ -403,8 +403,8 @@ td, th { overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 적요도 칸 안
 .help-box ol { padding-left: 20px; line-height: 1.8; margin: 6px 0; }
 
 /* ---- 도움말 ---- */
-.help-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; max-width: 1040px; margin: 0 auto; padding: 16px; align-items: start; }
-.help-toc { position: sticky; top: 96px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 12px 8px; }
+.help-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; max-width: 1280px; margin: 0 auto; padding: 16px; align-items: start; } /* 다른 화면과 같은 폭 · 같은 왼쪽 선 */
+.help-toc { position: sticky; top: 89px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 12px 8px; } /* 위 메뉴 아래 본문 시작 위치와 같게 (오른쪽 본문 상자와 위 끝 맞춤) */
 .help-toc b { display: block; padding: 0 10px 8px; font-size: 14px; }
 .help-toc a { display: block; padding: 7px 10px; border-radius: 4px; color: var(--text); text-decoration: none; font-size: 14px; transition: background-color .25s, color .25s; }
 .help-toc a:hover { background: var(--accent-soft); }
@@ -412,7 +412,7 @@ td, th { overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 적요도 칸 안
 .help-toc a.dim { opacity: .35; }
 .help-toc .tn { display: inline-block; width: 24px; color: var(--muted); }
 .help-toc a.on .tn { color: #cfe0f5; }
-.help-main section { padding: 18px 22px; margin-bottom: 18px; line-height: 1.75; scroll-margin-top: 6px; }
+.help-main section { padding: 18px 22px; margin-bottom: 18px; line-height: 1.75; scroll-margin-top: -1px; } /* 이동하면 차례 상자와 같은 높이(89px)에 멈춤 (html 의 90px 와 합쳐서) */
 .help-main { padding-bottom: 55vh; } /* 마지막 항목도 화면 위까지 올라오게 */
 .help-main section.flash { animation: help-flash 1.4s ease-out; }
 @keyframes help-flash { 0% { box-shadow: 0 0 0 3px rgba(31, 78, 140, .55); } 100% { box-shadow: 0 0 0 3px rgba(31, 78, 140, 0); } }
