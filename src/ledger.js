@@ -22,6 +22,7 @@ import m0013 from '../public/migrations/0013_cash.sql';
 import m0014 from '../public/migrations/0014_journal_photos.sql';
 import m0015 from '../public/migrations/0015_tx_payers.sql';
 import m0016 from '../public/migrations/0016_income_deduction.sql';
+import m0017 from '../public/migrations/0017_equipment.sql';
 
 const MIGRATION_FILES = [
   { name: '0001_init.sql', sql: m0001 },
@@ -39,6 +40,7 @@ const MIGRATION_FILES = [
   { name: '0014_journal_photos.sql', sql: m0014 },
   { name: '0015_tx_payers.sql', sql: m0015 },
   { name: '0016_income_deduction.sql', sql: m0016 },
+  { name: '0017_equipment.sql', sql: m0017 },
 ];
 
 export class Ledger extends DurableObject {

@@ -15,6 +15,7 @@ import * as backup from './routes/backup.js';
 import * as budgets from './routes/budgets.js';
 import * as journal from './routes/journal.js';
 import * as exporter from './routes/export.js';
+import * as equipment from './routes/equipment.js';
 
 const routes = [
   ['GET', '/api/health', system.health],
@@ -60,6 +61,14 @@ const routes = [
   ['PUT', '/api/journal/photo', journal.savePhoto],
   ['GET', '/api/journal/photos', journal.listPhotos],
   ['GET', '/api/journal/photo', journal.getPhoto],
+  ['GET', '/api/equipment', equipment.list],
+  ['POST', '/api/equipment', equipment.create],
+  ['DELETE', '/api/equipment/photos/:photoId', equipment.removePhoto],
+  ['PUT', '/api/equipment/:id', equipment.update],
+  ['POST', '/api/equipment/:id/dispose', equipment.dispose],
+  ['POST', '/api/equipment/:id/delete', equipment.strike],
+  ['GET', '/api/equipment/:id/photos', equipment.photos],
+  ['POST', '/api/equipment/:id/photos', equipment.addPhoto],
   ['GET', '/api/export/all', exporter.all],
   ['GET', '/api/export/journals', exporter.journals],
   ['GET', '/api/backup', backup.download],

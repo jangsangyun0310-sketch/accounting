@@ -20,10 +20,11 @@
       <a href="#journal"><span class="tn">5</span>사목일지</a>
       <a href="#report"><span class="tn">6</span>결산서 인쇄</a>
       <a href="#ledger"><span class="tn">7</span>거래 조회</a>
-      <a href="#backup"><span class="tn">8</span>백업</a>
-      <a href="#import"><span class="tn">9</span>예전 장부 가져오기</a>
-      <a href="#members"><span class="tn">10</span>사무장이 바뀌었을 때</a>
-      <a href="#settings"><span class="tn">11</span>설정 바꾸기</a>
+      <a href="#equipment"><span class="tn">8</span>비품대장</a>
+      <a href="#backup"><span class="tn">9</span>백업</a>
+      <a href="#import"><span class="tn">10</span>예전 장부 가져오기</a>
+      <a href="#members"><span class="tn">11</span>사무장이 바뀌었을 때</a>
+      <a href="#settings"><span class="tn">12</span>설정 바꾸기</a>
       <a href="#faq"><span class="tn">?</span>자주 묻는 질문</a>
     </nav>
 
@@ -141,8 +142,19 @@
         <div class="tip">💡 통장을 하나 고르면 거래마다 잔액이 나와서 <b>은행 통장 사본과 한 줄씩 맞춰 볼</b> 수 있습니다.</div>
       </section>
 
+      <section id="equipment" data-keywords="비품 비품대장 재산 재산대장 물건 관리번호 폐기 삭제 두 줄 사진 영수증 비품 과목 구입">
+        <h2><span class="hn">8</span>비품대장</h2>
+        <p>성당 물건(마이크, 복합기, 탁자 등)을 적어 두는 대장입니다. 관리번호는 <b>구매연도-순번</b>(예 2026-007)으로 저절로 붙습니다.</p>
+        <p><b>지출하면서 바로 올리기:</b> 먼저 <a href="#settings">설정 → 예산과목</a>에서 비품구입비 같은 과목을 [수정] → <b>비품 과목</b>으로 체크합니다. 그 과목으로 지출을 입력하면 <b>[비품대장에도 올리기]</b> 칸이 나옵니다. 품명(비우면 적요) · 수량 · 둘 곳만 적고 저장하면, 구매일자 · 금액은 거래에서 그대로 들어갑니다. 대장에 올릴 필요 없는 물건이면 체크를 끄세요.</p>
+        <p><b>예전 비품:</b> 비품대장 화면에서 <b>[＋ 비품 추가]</b>로 하나씩 올립니다.</p>
+        <p><b>고치기:</b> 올린 날에는 모든 칸을 고칠 수 있습니다. <b>다음 날부터는 둘 곳 · 비고만</b> 바꿀 수 있습니다(종이 대장처럼). 잘못 올렸으면 [삭제]하고 다시 올리세요.</p>
+        <p><b>폐기 · 삭제:</b> 버리거나 남에게 준 물건은 <b>[폐기…]</b>로 폐기일자를 적습니다(회색으로 남고 합계에서 빠짐). 잘못 올린 줄은 <b>[삭제]</b>하면 <span style="color:#c62828;text-decoration:line-through double">빨간 두 줄</span>로 남습니다. 둘 다 평소에는 목록에서 숨기고, [보기 → 전체]에서 보입니다.</p>
+        <p><b>사진:</b> 줄을 눌러 물건 · 영수증 사진을 4장까지 붙일 수 있습니다.</p>
+        <div class="tip">💡 지출 거래를 고치거나 지우면 비품대장도 따라갑니다. 금액 · 날짜를 고치면 비품도 바뀌고, 거래를 지우면 비품 줄에 두 줄이 그어집니다.</div>
+      </section>
+
       <section id="backup" data-keywords="백업 내려받기 파일 json 보관 USB 엑셀 Excel 사목일지 인수인계">
-        <h2><span class="hn">8</span>백업</h2>
+        <h2><span class="hn">9</span>백업</h2>
         <p>장부는 본당살림 서버에 저장되지만, 만일에 대비해 <b>한 달에 한 번</b>쯤 <b>[설정 → 백업 → 백업 파일 내려받기]</b>로 장부 전체를 파일로 받아 USB나 OneDrive에 두세요. 백업한 지 오래되면 홈 화면에 빨간 글씨로 알려 주고, 거기서 <b>[지금 백업]</b>을 눌러도 됩니다.</p>
         <p><b>날짜별 사목일지 Excel:</b> 같은 곳의 <b>[사목일지 Excel 내려받기]</b>는 한글 문서를 날짜별로 철해 두듯이 <b>하루치 사목일지를 시트 한 장</b>으로 받습니다. 한 달에 한 파일(<code>사목일지 2026-10.xlsx</code>)이고, 시트 이름은 <code>10-04(일)</code>처럼 날짜입니다. 시트 안은 인쇄하는 사목일지와 같아서(1쪽 사목일지 · 사진, 2쪽 회계) 그대로 A4 두 장으로 인쇄됩니다.</p>
         <ul>
@@ -154,7 +166,7 @@
       </section>
 
       <section id="import" data-keywords="예전 장부 가져오기 복구 bondang json 비밀번호 파일">
-        <h2><span class="hn">9</span>예전 장부 가져오기</h2>
+        <h2><span class="hn">10</span>예전 장부 가져오기</h2>
         <p>예전 장부 파일(.bondang)이나 백업 파일(.json)이 있으면, 최초 설정 화면 맨 위 <b>[예전 장부 가져오기]</b>에서 파일을 고릅니다. .bondang 파일은 그 파일의 비밀번호를 넣습니다.</p>
         <ol>
           <li>파일 고르기 → (.bondang 이면) 비밀번호 넣고 [파일 열기]</li>
@@ -165,7 +177,7 @@
       </section>
 
       <section id="members" data-keywords="사무장 바뀜 인수인계 함께 사용 함께 쓰는 사람 추가 빼기 계정 이메일 다른 계정">
-        <h2><span class="hn">10</span>사무장이 바뀌었을 때</h2>
+        <h2><span class="hn">11</span>사무장이 바뀌었을 때</h2>
         <p><b>[설정 → 함께 사용]</b>에서 새 사무장의 구글 이메일을 추가하면, 그 계정으로 로그인하는 순간 같은 장부가 열립니다. 함께 쓰는 사람은 모두 같은 권한(입력·마감·결산·설정)을 가집니다.</p>
         <ol>
           <li>전 사무장이 <b>새 사무장의 구글 이메일</b>을 추가합니다.</li>
@@ -177,7 +189,7 @@
       </section>
 
       <section id="settings" data-keywords="설정 성당 정보 통장 예산과목 결재선 사목일지 기본 미사 시작 총원 연 예산 백업 함께 사용 초기화 탈퇴 사용 중지">
-        <h2><span class="hn">11</span>설정 바꾸기</h2>
+        <h2><span class="hn">12</span>설정 바꾸기</h2>
         <p>위쪽 탭 4개 안에서 작은 탭을 고릅니다.</p>
         <table class="grid">
           <thead><tr><th>위 탭</th><th>작은 탭</th><th>바꿀 수 있는 것</th></tr></thead>
@@ -202,7 +214,7 @@
         <details><summary>마감한 날의 거래를 고치고 싶어요.</summary><p>[일 마감]에서 그날까지 마감취소를 한 뒤 고치고, 다시 마감하세요.</p></details>
         <details><summary>통장이 더 이상 필요 없어요.</summary><p>거래가 있는 통장은 지울 수 없고 [사용 중지]로 바꿉니다. 지난 결산서는 그대로 남습니다.</p></details>
         <details><summary>다른 성당에도 알려 주고 싶어요.</summary><p>오른쪽 위 <b>[공유하기]</b>를 누르면 사이트 주소를 복사할 수 있습니다. 카카오톡이나 문자로 보내 주세요. 각 성당 장부는 따로 만들어져서 우리 성당 자료는 전달되지 않습니다.</p></details>
-        <details><summary>사무장이 바뀌면요?</summary><p><a href="#members">9. 사무장이 바뀌었을 때</a>를 보세요.</p></details>
+        <details><summary>사무장이 바뀌면요?</summary><p><a href="#members">11. 사무장이 바뀌었을 때</a>를 보세요.</p></details>
         <details><summary>문의는 어디로 하나요?</summary><p><a href="mailto:jangsangyun0310@gmail.com">jangsangyun0310@gmail.com</a> 으로 보내 주세요.</p></details>
       </section>
     </main>

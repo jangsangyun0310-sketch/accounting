@@ -147,6 +147,17 @@ export function handoverSheets(d) {
   });
 
   sheets.push({
+    name: '비품대장',
+    header: 1,
+    widths: [11, 22, 22, 7, 12, 14, 16, 16, 12, 34],
+    rows: [
+      ['관리번호', '품명', '규격·모델', '수량', '구매일자', '구매금액', '구매처', '둘 곳', '폐기일자', '비고'].map(b),
+      ...(d.equipment ?? []).map((x) => [x.item_no, x.name, x.spec, x.quantity, x.purchase_date, x.price, x.vendor, x.location, x.disposed_at ?? '',
+        [x.deleted_at ? `삭제 ${x.deleted_at}${x.delete_reason ? ` · ${x.delete_reason}` : ''}` : x.dispose_reason, x.note].filter(Boolean).join(' / ')]),
+    ],
+  });
+
+  sheets.push({
     name: '설정',
     widths: [10, 24, 10, 14],
     rows: [

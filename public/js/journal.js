@@ -10,6 +10,7 @@ import { initPage, toast, approvalBoxHtml, closeBarHtml, closeDay } from './ui.j
 import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 import { accountBalances, cashTable, detailTable, fundSummaryTable, hasCash, transferTable } from './daily-tables.js';
+import { shrinkPhoto } from './photo.js';
 
 const $ = (id) => document.getElementById(id);
 const paper = $('paper');
@@ -115,24 +116,6 @@ function photosHtml(photos, keep = {}) {
         value="${esc(keep[p.slot] ?? p.caption ?? '')}" aria-label="사진 설명"></div>
     </div>`).join('')}</div>` : ''}
     ${list.length < 2 ? '<button type="button" class="secondary row-add no-print photo-pick photo-add">+ 사진 추가 <small>(2장까지)</small></button>' : ''}`;
-}
-
-/** 휴대폰 사진(수 MB)을 긴 쪽 1600px JPEG 로 줄인다 (약 0.3MB) */
-async function shrinkPhoto(file) {
-  const bitmap = await createImageBitmap(file).catch(() => { throw new Error('사진 파일을 열 수 없습니다. JPG · PNG 사진을 골라 주세요.'); });
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  for (const q of [0.82, 0.7, 0.55]) {
-    const url = canvas.toDataURL('image/jpeg', q);
-    if (url.length < 1_400_000) return url;
-  }
-  throw new Error('사진이 너무 큽니다.');
 }
 
 const photoInput = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });

@@ -24,7 +24,7 @@ export async function getSettings({ env }) {
        ORDER BY f.sort_order, a.sort_order, a.id`
     ),
     db.prepare(
-      `SELECT s.id, s.kind, s.parent_id, s.code, s.name, s.sort_order, s.is_active, s.allow_deduction,
+      `SELECT s.id, s.kind, s.parent_id, s.code, s.name, s.sort_order, s.is_active, s.allow_deduction, s.is_equipment,
               (SELECT COUNT(*) FROM transactions t WHERE t.subject_id = s.id) AS tx_count
        FROM budget_subjects s ORDER BY s.kind DESC, s.sort_order, s.id`
     ),
@@ -52,6 +52,7 @@ export async function getSettings({ env }) {
       id: s.id, kind: s.kind, parentId: s.parent_id, code: s.code, name: s.name,
       sortOrder: s.sort_order, isActive: s.is_active === 1, txCount: s.tx_count,
       allowDeduction: s.allow_deduction === 1, // 수입 차감(−) 허용 (봉헌권 등)
+      isEquipment: s.is_equipment === 1, // 비품 과목: 이 과목으로 지출하면 비품대장에도 올릴 수 있음
     })),
     approvalSteps: steps.results,
     // 일일결산·사목일지 결재선. 비어 있으면 approvalSteps 를 그대로 쓴다
@@ -184,13 +185,16 @@ export async function updateSubject({ request, env, actor, params }) {
   const isActive = bool(body.isActive, '사용 여부');
   // 수입 차감(−) 허용: 수입 과목만. 보내지 않으면 그대로 둔다
   const allowDeduction = body.allowDeduction == null ? null : (bool(body.allowDeduction, '차감 허용') && s.kind === 'INCOME' ? 1 : 0);
+  // 비품 과목: 지출 과목만. 보내지 않으면 그대로 둔다
+  const isEquipment = body.isEquipment == null ? null : (bool(body.isEquipment, '비품 과목') && s.kind === 'EXPENSE' ? 1 : 0);
   const before = await requireRow(db, 'budget_subjects', id, '과목');
   await db.batch([
     db.prepare(
       `UPDATE budget_subjects SET kind = ?, name = ?, is_active = ?,
               allow_deduction = CASE WHEN ? = 'EXPENSE' THEN 0 ELSE COALESCE(?, allow_deduction) END,
+              is_equipment = CASE WHEN ? = 'INCOME' THEN 0 ELSE COALESCE(?, is_equipment) END,
               updated_at = ?, updated_by = ? WHERE id = ?`
-    ).bind(s.kind, s.name, isActive ? 1 : 0, s.kind, allowDeduction, new Date().toISOString(), actor.email, id),
+    ).bind(s.kind, s.name, isActive ? 1 : 0, s.kind, allowDeduction, s.kind, isEquipment, new Date().toISOString(), actor.email, id),
     auditRowStatement(db, { actor: actor.email, action: 'UPDATE', table: 'budget_subjects', id, beforeJson: before }),
   ]);
   return json({ ok: true });

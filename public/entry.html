@@ -46,6 +46,19 @@
         <datalist id="payer-list"></datalist>
         <label class="f-memo">적요 <input id="memo" maxlength="100" placeholder="예) 홍길동 10월 교무금"></label>
         <button type="button" id="save" class="save">저장 <kbd>Enter</kbd></button>
+        <div class="eq-entry" id="eq-entry" hidden>
+          <div id="eq-new">
+            <label class="eq-check"><input type="checkbox" id="eq-on" checked> 비품대장에도 올리기</label>
+            <span class="muted small">— 비품 과목이라 켜져 있습니다. 대장에 올릴 필요 없는 물건이면 끄세요.</span>
+            <div class="eq-fields" id="eq-fields">
+              <label>품명 <input id="eq-name" maxlength="50" placeholder="비우면 적요 그대로"></label>
+              <label>규격·모델 <input id="eq-spec" maxlength="60"></label>
+              <label class="qty">수량 <input id="eq-qty" inputmode="numeric" maxlength="6" value="1"></label>
+              <label>둘 곳 <input id="eq-location" maxlength="40" placeholder="예) 성전, 사무실"></label>
+            </div>
+          </div>
+          <div id="eq-linked" class="eq-linked" hidden></div>
+        </div>
       </div>
       <p class="help f-transfer transfer-help">💡 <b>이체·입금</b>은 사무실 현금을 통장에 입금하거나 통장끼리 돈을 옮길 때 씁니다. 성당의 돈이 늘거나 줄지 않으므로 <b>수입·지출에 잡히지 않습니다.</b> 예) 사무실 현금 → 보통예금 3,000,000</p>
       <p class="help entry-help-keys">Enter: 다음 칸 → 마지막 칸에서 저장. 저장 후에는 통장·과목이 유지되고 금액 칸으로 돌아갑니다.</p>

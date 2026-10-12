@@ -16,7 +16,8 @@ export const TX_SELECT = `
          t.amount, t.memo, t.voucher_no, t.status, t.replaces_id,
          (SELECT r.id FROM transactions r WHERE r.replaces_id = t.id) AS replaced_by_id,
          t.void_reason, t.voided_at, t.voided_by, t.created_at, t.created_by,
-         (SELECT py.payer FROM tx_payers py WHERE py.tx_id = t.id) AS payer
+         (SELECT py.payer FROM tx_payers py WHERE py.tx_id = t.id) AS payer,
+         (SELECT e.item_no FROM equipment e WHERE e.tx_id = t.id AND e.deleted_at IS NULL ORDER BY e.id DESC LIMIT 1) AS equipment_no
   FROM transactions t
   JOIN accounts a ON a.id = t.account_id
   JOIN funds f ON f.id = a.fund_id
@@ -44,6 +45,7 @@ export function mapTx(r) {
     memo: r.memo,
     voucherNo: r.voucher_no,
     payer: r.payer ?? '', // 납부자 (특별회계 수입만)
+    equipmentNo: r.equipment_no ?? null, // 이 지출로 올린 비품의 관리번호
     status: r.status,
     replacesId: r.replaces_id,
     replacedById: r.replaced_by_id,

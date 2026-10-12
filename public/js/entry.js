@@ -65,6 +65,30 @@ function updateDeductField() {
   if (!show) $('deduct').checked = false;
 }
 
+/**
+ * 비품대장에도 올리기: 비품 과목(설정에서 표시한 지출 과목)으로 지출할 때만.
+ * 고치는 거래가 이미 비품으로 올라가 있으면 그 관리번호만 보여 준다.
+ */
+function updateEquipmentField() {
+  const subject = settings.subjects.find((s) => s.id === Number($('subject').value));
+  const linkedNo = editing?.equipmentNo ?? null;
+  $('eq-entry').hidden = !(kind === 'OUT' && (subject?.isEquipment || linkedNo));
+  $('eq-new').hidden = Boolean(linkedNo);
+  $('eq-linked').hidden = !linkedNo;
+  if (linkedNo) {
+    $('eq-linked').innerHTML = `📦 이 지출로 올린 비품: <a href="${href(`/equipment?no=${encodeURIComponent(linkedNo)}`)}">${esc(linkedNo)}</a>
+      <span class="muted small">(금액 · 날짜를 고치면 비품대장도 따라 바뀝니다)</span>`;
+  }
+  $('eq-fields').hidden = !$('eq-on').checked;
+}
+
+function resetEquipmentFields() {
+  $('eq-on').checked = true;
+  for (const id of ['eq-name', 'eq-spec', 'eq-location']) $(id).value = '';
+  $('eq-qty').value = '1';
+  $('eq-fields').hidden = false;
+}
+
 /** 전에 적은 납부자 이름 (자동 완성) */
 async function loadPayers() {
   const { payers } = await api('/api/payers');
@@ -93,6 +117,7 @@ function setKind(next, values = prefs[next] ?? {}) {
   }
   updatePayerField();
   updateDeductField();
+  updateEquipmentField();
 }
 
 // ---------------------------------------------------------------- 하루 현황
@@ -213,7 +238,8 @@ function rowHtml(r, index) {
       <td class="small">${fund}</td>
       <td>${isTransfer ? `${esc(r.fromName)} → ${esc(r.toName ?? '')}` : esc(r.accountName)}</td>
       <td>${esc(r.subjectName ?? '')}</td>
-      <td>${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : ''}${esc(r.memo)}</td>
+      <td>${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : ''}${esc(r.memo)}${r.equipmentNo
+        ? ` <a class="small" href="${href(`/equipment?no=${encodeURIComponent(r.equipmentNo)}`)}" title="비품대장에 올라간 비품">📦${esc(r.equipmentNo)}</a>` : ''}</td>
       <td class="num ${r.deduction ? 'minus' : ''}">${r.type === 'IN' ? formatWon(r.deduction ? -r.amount : r.amount) : ''}</td>
       <td class="num">${r.type === 'OUT' ? formatWon(r.amount) : ''}</td>
       <td class="num">${isTransfer ? formatWon(r.amount) : ''}</td>
@@ -235,6 +261,7 @@ function resetForNext() {
   $('memo').value = '';
   $('payer').value = '';
   $('deduct').checked = false;
+  resetEquipmentFields();
   $('amount').focus();
 }
 
@@ -269,6 +296,15 @@ async function save() {
     body.accountId = Number($('account').value);
     body.subjectId = Number($('subject').value);
     if (!$('payer-field').hidden && body.direction === 'IN') body.payer = $('payer').value;
+    if (!$('eq-entry').hidden && !$('eq-new').hidden && $('eq-on').checked) {
+      const name = $('eq-name').value.trim() || body.memo.trim();
+      if (!name) {
+        toast('비품 품명을 적어 주세요. (비우면 적요가 품명이 됩니다)', 'error');
+        $('eq-name').focus();
+        return;
+      }
+      body.equipment = { name, spec: $('eq-spec').value, quantity: $('eq-qty').value, location: $('eq-location').value };
+    }
     if (!body.accountId || !body.subjectId) {
       toast('통장과 예산과목을 선택하세요.', 'error');
       return;
@@ -312,6 +348,9 @@ function startEdit(row) {
   $('memo').value = row.memo;
   $('payer').value = row.payer ?? '';
   $('deduct').checked = Boolean(row.deduction);
+  resetEquipmentFields();
+  $('eq-on').checked = false; // 고칠 때는 꺼 둔다 (예전에 일부러 안 올린 지출일 수 있음)
+  updateEquipmentField();
   $('edit-label').textContent = `#${row.id} ${{ IN: '수입', OUT: '지출', TRANSFER: '이체' }[row.type]} 거래를`;
   $('edit-banner').hidden = false;
   $('entry').classList.add('editing');
@@ -330,6 +369,8 @@ function endEdit(restore = true) {
     $('amount').value = '';
     $('memo').value = '';
     $('payer').value = '';
+    resetEquipmentFields();
+    updateEquipmentField();
     renderLock();
     renderList();
   }
@@ -368,7 +409,8 @@ $('close-bar').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-close-day]');
   if (b && await closeDay(b.dataset.closeDay)) await loadDay();
 });
-$('subject').addEventListener('change', updateDeductField);
+$('subject').addEventListener('change', () => { updateDeductField(); updateEquipmentField(); });
+$('eq-on').addEventListener('change', updateEquipmentField);
 $('prev-day').addEventListener('click', () => changeDate(addDays($('date').value, -1)));
 $('next-day').addEventListener('click', () => changeDate(addDays($('date').value, 1)));
 $('today').addEventListener('click', () => changeDate(todayKST()));

@@ -28,6 +28,8 @@ const DB_ERRORS = {
   TRANSFER_MISMATCH: [400, '이체의 출금·입금 내역이 맞지 않습니다.'],
   ALREADY_REPLACED: [409, '이미 수정된 거래입니다. 화면을 새로고침하세요.'],
   RESTORE_NOT_EMPTY: [409, '이미 데이터가 있는 곳에는 복구할 수 없습니다.'],
+  EQUIPMENT_LOCKED: [409, '비품대장에 올린 내용은 고칠 수 없습니다. 잘못 올렸으면 [삭제] 후 다시 올리세요.'],
+  EQUIPMENT_NO_DELETE: [409, '비품대장의 줄은 지울 수 없습니다. [삭제]하면 두 줄을 그어 남깁니다.'],
   SETUP_DONE: [409, '최초 설정이 이미 완료되었습니다. 변경은 설정 화면에서 하세요.'],
 };
 
@@ -72,7 +74,9 @@ export function auditStatement(db, { actor, entity, entityId, action, before = n
 const SNAPSHOT_COLUMNS = {
   parish_settings: ['parish_name', 'start_date', 'writer_name', 'setup_completed'],
   accounts: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active', 'is_cash'],
-  budget_subjects: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active', 'allow_deduction'],
+  budget_subjects: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active', 'allow_deduction', 'is_equipment'],
+  equipment: ['id', 'item_no', 'name', 'spec', 'quantity', 'purchase_date', 'price', 'vendor',
+    'location', 'note', 'tx_id', 'disposed_at', 'dispose_reason', 'deleted_at', 'delete_reason'],
   transactions: ['id', 'tx_date', 'kind', 'direction', 'account_id', 'subject_id', 'transfer_group', 'amount',
     'memo', 'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by'],
 };

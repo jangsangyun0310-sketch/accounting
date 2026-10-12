@@ -6,7 +6,7 @@
 //   { v: 값, bold: true } 처럼 쓰면 굵게. header: 위에서 몇 줄을 굵은 머리줄로 할지 (틀 고정도 함께)
 //
 // 양식 모양 시트 (날짜별 사목일지)에 쓰는 것:
-//   칸 { v, st: { bold, size, fill: 'EEF1F5', border: true, h: 'center', v: 'top', wrap: true, shrink: true, color: '888888' } }
+//   칸 { v, st: { bold, size, fill: 'EEF1F5', border: true, h: 'center', v: 'top', wrap: true, shrink: true, color: '888888', strike: true } }
 //     (st 가 있으면 값이 없어도 칸을 쓴다 — 병합칸 테두리)
 //   시트 { merges: ['A1:G1'], heights: { 행(0부터): pt }, breaks: [이 행부터 새 장(0부터)],
 //          page: { scale: 100, margins: { top, bottom, left, right } (인치), footer: '&C&P / &N' } (A4 세로),
@@ -61,7 +61,7 @@ function styleBook() {
     id(st, isNum) {
       const key = JSON.stringify([st, isNum]);
       if (keys.has(key)) return keys.get(key);
-      const font = add(fonts, `<font>${st.bold ? '<b/>' : ''}<sz val="${st.size ?? 10}"/>${st.color ? `<color rgb="FF${st.color}"/>` : ''}<name val="맑은 고딕"/><family val="2"/></font>`);
+      const font = add(fonts, `<font>${st.bold ? '<b/>' : ''}${st.strike ? '<strike/>' : ''}<sz val="${st.size ?? 10}"/>${st.color ? `<color rgb="FF${st.color}"/>` : ''}<name val="맑은 고딕"/><family val="2"/></font>`);
       const fill = st.fill ? add(fills, `<fill><patternFill patternType="solid"><fgColor rgb="FF${st.fill}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
       const line = '<color rgb="FF666666"/>';
       const border = st.border ? add(borders, `<border><left style="thin">${line}</left><right style="thin">${line}</right><top style="thin">${line}</top><bottom style="thin">${line}</bottom><diagonal/></border>`) : 0;

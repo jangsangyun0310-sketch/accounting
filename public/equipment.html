@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>비품대장 - 본당살림</title>
+  <link rel="icon" href="/img/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/icon-180.png">
+  <link rel="stylesheet" href="/css/app.css">
+  <style media="print">@page { size: A4 landscape; margin: 10mm; }</style>
+</head>
+<body class="page-equipment">
+  <header id="topbar" class="topbar"><div class="topbar-inner wide"><a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a></div></header>
+  <main class="container wide">
+    <section class="eq-page">
+      <div class="eq-bar no-print">
+        <button type="button" id="add">＋ 비품 추가</button>
+        <label>보기
+          <select id="show">
+            <option value="live">사용 중인 비품</option>
+            <option value="all">전체 (폐기 · 삭제 포함)</option>
+          </select>
+        </label>
+        <label>찾기 <input id="q" maxlength="30" placeholder="품명 · 둘 곳"></label>
+        <span class="eq-tools">
+          <button type="button" class="secondary small" id="excel">Excel로 내려받기</button>
+          <button type="button" class="secondary small" id="print">인쇄 (A4)</button>
+        </span>
+      </div>
+      <h1 class="print-only" id="print-title">비품대장</h1>
+      <p id="totals" class="totals"></p>
+      <div id="list"><p class="muted">불러오는 중…</p></div>
+      <p class="help no-print">줄을 누르면 자세히 보고 사진을 붙일 수 있습니다. 올린 날에는 모든 칸을 고칠 수 있고, 다음 날부터는 <b>둘 곳 · 비고</b>만 바꿀 수 있습니다.</p>
+    </section>
+  </main>
+  <dialog id="eq-dialog"></dialog>
+  <script type="module" src="/js/equipment.js"></script>
+</body>
+</html>

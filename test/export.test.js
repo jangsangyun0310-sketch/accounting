@@ -36,7 +36,7 @@ test('전체 자료를 한 번에 주고, 시트로 만들 수 있다', async ()
 
   const sheets = handoverSheets(d);
   assert.deepEqual(sheets.map((x) => x.name).filter((n) => !n.startsWith('과목별')),
-    ['안내', '거래 내역', '월별 결산', '통장 · 현금', '사목일지', '개인별 납부', '설정']);
+    ['안내', '거래 내역', '월별 결산', '통장 · 현금', '사목일지', '개인별 납부', '비품대장', '설정']);
   assert.ok(buildXlsx(sheets).length > 1000);
 });
 

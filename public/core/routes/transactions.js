@@ -5,6 +5,7 @@ import { auditRowStatement, auditStatement, readRowJson } from '../lib/db.js';
 import { computeDay, searchTransactions } from '../lib/ledger.js';
 import { amount, bad, date, id as parseId, oneOf, text } from '../lib/validate.js';
 import { isValidDate, todayKST } from '../../js/shared/dates.js';
+import { linkedInput, linkedInsertStatements, txDeletedStatement, txUpdatedStatements } from './equipment.js';
 
 // ---------------------------------------------------------------- 입력 검증
 
@@ -24,6 +25,8 @@ function normalInput(body) {
     direction: oneOf(body?.direction, ['IN', 'OUT'], '수입/지출 구분'),
     accountId: parseId(body?.accountId, '통장'),
     subjectId: parseId(body?.subjectId, '예산과목'),
+    // 비품대장에도 올리기 (비품 과목 지출일 때만 들어간다)
+    equipment: body?.equipment ? linkedInput(body.equipment) : null,
   };
 }
 
@@ -135,6 +138,7 @@ export async function create({ request, env, actor }) {
     insertNormal(db, t, actor.email, now),
     ...(t.payer ? [insertPayer(db, t.payer, actor.email, now)] : []),
     createAudit(db, actor.email),
+    ...(t.equipment ? linkedInsertStatements(db, t.equipment, '(SELECT MAX(id) FROM transactions)', [], actor.email, now) : []),
   ]);
   return json({ ok: true, id: created.results[0].id }, 201);
 }
@@ -151,7 +155,11 @@ export async function createTransfer({ request, env, actor }) {
 export async function remove({ env, actor, params }) {
   const db = env.DB;
   const target = await loadTarget(db, parseId(params.id, '거래 번호'));
-  await db.batch(await deleteStatements(db, target, actor.email));
+  const now = new Date().toISOString();
+  await db.batch([
+    ...await deleteStatements(db, target, actor.email),
+    ...target.ids.map((id) => txDeletedStatement(db, id, actor.email, now)), // 이어진 비품은 두 줄로
+  ]);
   return json({ ok: true });
 }
 
@@ -167,6 +175,11 @@ export async function update({ request, env, actor, params }) {
     statements.push(insertNormal(db, input, actor.email, now, target.ids[0]));
     if (input.payer) statements.push(insertPayer(db, input.payer, actor.email, now, target.ids[0]));
     statements.push(createAudit(db, actor.email));
+    // 이어진 비품: 날짜 · 금액이 바뀌면 따라가고, 아직 없는데 올리기를 골랐으면 새로 올린다
+    const id = target.ids[0];
+    statements.push(...await txUpdatedStatements(db, id, input, actor.email, now));
+    const linked = await db.prepare('SELECT 1 FROM equipment WHERE tx_id = ? AND deleted_at IS NULL AND disposed_at IS NULL').bind(id).first();
+    if (input.equipment && !linked) statements.push(...linkedInsertStatements(db, input.equipment, '?', [id], actor.email, now));
   }
   else statements.push(...transferStatements(db, input, actor.email, now, target.ids));
   await db.batch(statements);

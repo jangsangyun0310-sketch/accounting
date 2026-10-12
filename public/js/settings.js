@@ -170,14 +170,15 @@ function renderSubjects() {
     }).join('')}
     </div>
     <p class="help">사용된 과목은 삭제할 수 없습니다. 더 이상 쓰지 않는 과목은 [수정]에서 "사용"을 해제하세요.</p>
-    <p class="help">💡 <b>차감(−) 허용</b>: 봉헌권처럼 미리 수입으로 잡은 금액을 주일헌금에서 빼야 하는 수입 과목은 [수정]에서 체크합니다. 거래 입력에서 그 과목을 고르면 [차감(−)] 칸이 나오고, 수입 내역에 마이너스로 들어갑니다.</p>`;
+    <p class="help">💡 <b>차감(−) 허용</b>: 봉헌권처럼 미리 수입으로 잡은 금액을 주일헌금에서 빼야 하는 수입 과목은 [수정]에서 체크합니다. 거래 입력에서 그 과목을 고르면 [차감(−)] 칸이 나오고, 수입 내역에 마이너스로 들어갑니다.</p>
+    <p class="help">💡 <b>비품 과목</b>: 비품구입비처럼 물건을 사는 지출 과목은 [수정]에서 체크합니다. 그 과목으로 지출을 입력하면 [비품대장에도 올리기] 칸이 나옵니다.</p>`;
 }
 
 function subjectViewRow(s, i, count) {
   return `
     <tr class="${s.isActive ? '' : 'inactive'}">
       <td class="order">${orderButtons('subject', s.id, i, count)}</td>
-      <td>${esc(s.name)}${s.allowDeduction ? ' <span class="tag-deduct" title="수입 내역에 − 로 넣을 수 있음">차감(−)</span>' : ''}</td>
+      <td>${esc(s.name)}${s.allowDeduction ? ' <span class="tag-deduct" title="수입 내역에 − 로 넣을 수 있음">차감(−)</span>' : ''}${s.isEquipment ? ' <span class="tag-deduct" title="이 과목으로 지출하면 비품대장에도 올릴 수 있음">비품</span>' : ''}</td>
       <td class="status">${s.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
       <td class="actions">
         <button type="button" class="secondary small" data-action="edit" data-key="subject:${s.id}">수정</button>
@@ -192,7 +193,7 @@ function subjectEditRow(s) {
     <tr data-form="subject-edit" data-id="${s.id}" data-kind="${s.kind}" class="editing">
       <td></td>
       <td><input name="name" value="${esc(s.name)}" maxlength="30" autofocus>
-        ${s.kind === 'INCOME' ? `<label class="check small" title="봉헌권처럼 미리 수입으로 잡은 금액을 빼는 줄(−)을 넣을 수 있게"><input type="checkbox" name="allowDeduction" ${s.allowDeduction ? 'checked' : ''}> 차감(−) 허용</label>` : ''}</td>
+        ${s.kind === 'INCOME' ? `<label class="check small" title="봉헌권처럼 미리 수입으로 잡은 금액을 빼는 줄(−)을 넣을 수 있게"><input type="checkbox" name="allowDeduction" ${s.allowDeduction ? 'checked' : ''}> 차감(−) 허용</label>` : `<label class="check small" title="이 과목으로 지출을 입력하면 비품대장에도 올리는 칸이 나옵니다"><input type="checkbox" name="isEquipment" ${s.isEquipment ? 'checked' : ''}> 비품 과목</label>`}</td>
       <td><label class="check"><input type="checkbox" name="isActive" ${s.isActive ? 'checked' : ''}> 사용</label></td>
       <td class="actions">
         <button type="button" class="small" data-action="subject-save" data-id="${s.id}">저장</button>
@@ -703,6 +704,7 @@ const actions = {
     const row = btn.closest('tr');
     const body = { kind: row.dataset.kind, name: field(row, 'name').value, isActive: field(row, 'isActive').checked };
     if (field(row, 'allowDeduction')) body.allowDeduction = field(row, 'allowDeduction').checked;
+    if (field(row, 'isEquipment')) body.isEquipment = field(row, 'isEquipment').checked;
     if (await attempt(() => api(`/api/subjects/${btn.dataset.id}`, { method: 'PUT', body }), '저장했습니다.')) {
       editing = null;
       await reload();

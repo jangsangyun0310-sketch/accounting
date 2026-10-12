@@ -21,7 +21,7 @@ export async function all({ env, actor }) {
   for (let m = from.slice(0, 7); m <= to.slice(0, 7); m = addDays(`${m}-01`, 31).slice(0, 7)) months.push(m);
   const years = [...new Set(months.map((m) => m.slice(0, 4)))];
 
-  const [tx, accountsNow, settingsRows, journals, masses, documents, donors] = await Promise.all([
+  const [tx, accountsNow, settingsRows, journals, masses, documents, donors, equipment] = await Promise.all([
     searchTransactions(db, { from, to }, 1_000_000),
     computePeriod(db, to, to),
     db.batch([
@@ -41,6 +41,7 @@ export async function all({ env, actor }) {
        WHERE t.status = 'POSTED' AND t.kind = 'NORMAL' AND t.direction = 'IN' AND f.code = 'SPECIAL'
        ORDER BY substr(t.tx_date, 1, 4), p.payer, t.tx_date, t.id`
     ).all(),
+    db.prepare('SELECT * FROM equipment ORDER BY purchase_date, id').all(),
   ]);
 
   const monthly = [];
@@ -84,6 +85,7 @@ export async function all({ env, actor }) {
     masses: masses.results,
     documents: documents.results,
     donors: donors.results,
+    equipment: equipment.results,
   });
 }
 

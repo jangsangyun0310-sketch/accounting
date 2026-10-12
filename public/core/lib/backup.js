@@ -17,7 +17,7 @@ export const TABLES = [
       'created_at', 'created_by', 'updated_at', 'updated_by', 'is_cash'], defaults: { is_cash: 0 } },
   { name: 'budget_subjects', order: 'parent_id IS NOT NULL, id',
     columns: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active',
-      'created_at', 'created_by', 'updated_at', 'updated_by', 'allow_deduction'], defaults: { allow_deduction: 0 } },
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'allow_deduction', 'is_equipment'], defaults: { allow_deduction: 0, is_equipment: 0 } },
   { name: 'approval_steps', order: 'seq', columns: ['seq', 'title'] },
   // optional: 이 표가 생기기 전(2026-10-08 이전)의 백업 파일에는 없다 → 빈 표로 본다
   { name: 'budgets', order: 'year, subject_id', optional: true,
@@ -44,6 +44,11 @@ export const TABLES = [
       'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by', 'created_at', 'created_by'] },
   // 납부자 (2026-10-11 이전 백업에는 없다). 거래 다음에 넣는다
   { name: 'tx_payers', order: 'tx_id', optional: true, columns: ['tx_id', 'payer', 'updated_at', 'updated_by'] },
+  // 비품대장 (2026-10-12 이전 백업에는 없다). 사진은 넣지 않는다
+  { name: 'equipment', order: 'id', optional: true,
+    columns: ['id', 'item_no', 'name', 'spec', 'quantity', 'purchase_date', 'price', 'vendor', 'location',
+      'note', 'tx_id', 'disposed_at', 'dispose_reason', 'deleted_at', 'delete_reason',
+      'created_at', 'created_by', 'updated_at', 'updated_by'] },
   { name: 'daily_closings', order: 'close_date',
     columns: ['close_date', 'status', 'approval_snapshot', 'balance_snapshot', 'writer_name', 'closed_at', 'closed_by',
       'reopened_at', 'reopened_by', 'reopen_reason'] },
