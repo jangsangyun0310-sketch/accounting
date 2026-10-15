@@ -2,7 +2,7 @@
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, personName, toast, signedWon } from './ui.js';
-import { formatWon } from './shared/money.js';
+import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 
 const $ = (id) => document.getElementById(id);
@@ -57,6 +57,55 @@ async function loadCalendar() {
   $('legend-locked').hidden = !calendar.days.some((d) => d.status === 'locked');
 }
 
+// ---------------------------------------------------------------- 특별회계 요약 (양업 사목일지에 붙여넣기)
+
+function specialSummary(day) {
+  const special = day.accounts.filter((a) => a.fundCode === 'SPECIAL');
+  if (!special.length) return '';
+  const fundOf = new Map(day.accounts.map((a) => [a.id, a.fundCode]));
+  const [y, m, d] = day.date.split('-').map(Number);
+  const w = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  const list = (key) => special.filter((a) => a[key] !== 0).map((a) => `${a.name} ${formatWon(a[key])}`).join(' / ') || '없음';
+  // 이체는 출금 쪽 한 줄만 (특별회계 통장이 한쪽이라도 걸린 것)
+  const transfers = day.transactions.filter((t) => t.kind === 'TRANSFER' && t.direction === 'OUT'
+    && (t.fundCode === 'SPECIAL' || fundOf.get(t.counterpartAccountId) === 'SPECIAL'));
+  return [
+    `[특별회계] ${day.date}(${w})`,
+    `수입 ${formatWon(sumAmounts(special.map((a) => a.income)))}원 · 지출 ${formatWon(sumAmounts(special.map((a) => a.expense)))}원`,
+    `- 수입: ${list('income')}`,
+    `- 지출: ${list('expense')}`,
+    ...transfers.map((t) => `- 이체: ${t.accountName}에서 ${t.counterpartName}(으)로 ${formatWon(t.amount)}원`),
+    '잔액',
+    ...special.map((a) => `- ${a.name} ${formatWon(a.end)}`),
+    `- 합계 ${formatWon(sumAmounts(special.map((a) => a.end)))}`,
+  ].join('\n');
+}
+
+function summaryHtml(day, closed) {
+  const text = specialSummary(day);
+  if (!text) return '';
+  if (!closed) return '<p class="help">마감하면 양업 사목일지에 붙여 넣을 특별회계 요약이 여기 나옵니다.</p>';
+  return `
+    <div class="special-summary">
+      <div class="special-summary-head">
+        <h3>특별회계 요약 <span class="muted small">양업 사목일지에 붙여 넣기</span></h3>
+        <button type="button" class="secondary small" data-copy-summary>복사</button>
+      </div>
+      <textarea id="special-summary" readonly rows="${text.split('\n').length}">${esc(text)}</textarea>
+    </div>`;
+}
+
+async function copySummary() {
+  const box = $('special-summary');
+  try {
+    await navigator.clipboard.writeText(box.value);
+  } catch {
+    box.select();
+    document.execCommand('copy');
+  }
+  toast('특별회계 요약을 복사했습니다. 양업 사목일지에 붙여 넣으세요.');
+}
+
 // ---------------------------------------------------------------- 날짜 상세
 
 async function loadDetail(date) {
@@ -109,6 +158,7 @@ async function loadDetail(date) {
       ${closed && !info.canReopen ? '<p class="help">마감취소는 가장 마지막 마감일부터 순서대로만 할 수 있습니다.</p>' : ''}
       ${date > info.today ? '<p class="help">미래 날짜는 마감할 수 없습니다.</p>' : ''}
     </div>
+    ${summaryHtml(day, closed || covered)}
 `;
 }
 
@@ -209,6 +259,7 @@ $('next-month').addEventListener('click', () => {
 document.addEventListener('click', (e) => {
   const close = e.target.closest('[data-close-date]');
   if (close) { run(goto(close.dataset.closeDate).then(() => openCloseDialog(close.dataset.closeDate))); return; }
+  if (e.target.closest('[data-copy-summary]')) { run(copySummary()); return; }
   const reopen = e.target.closest('[data-reopen]');
   if (reopen) { openReopenDialog(reopen.dataset.reopen); return; }
   if (e.target.closest('[data-cancel]') || e.target === $('action-dialog')) $('action-dialog').close();
