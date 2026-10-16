@@ -23,7 +23,7 @@
         <div class="kind-toggle" role="radiogroup" aria-label="거래 구분">
           <button type="button" data-kind="IN" class="in">수입 <kbd>F2</kbd></button>
           <button type="button" data-kind="OUT" class="out">지출 <kbd>F3</kbd></button>
-          <button type="button" data-kind="TRANSFER" class="transfer" title="사무실 현금을 통장에 입금하거나 통장끼리 돈을 옮길 때">이체·입금 <kbd>F4</kbd></button>
+          <button type="button" data-kind="TRANSFER" class="transfer" title="통장끼리 돈을 옮길 때">이체 <kbd>F4</kbd></button>
         </div>
       </div>
 
@@ -37,43 +37,27 @@
 
       <div class="entry-fields" id="fields">
         <label class="f-normal">통장 <select id="account"></select></label>
-        <label class="f-normal">예산과목 <select id="subject"></select></label>
-        <label class="f-transfer">보내는 곳 (출금) <select id="from-account"></select></label>
-        <label class="f-transfer">받는 곳 (입금) <select id="to-account"></select></label>
-        <label class="f-amount">금액(원) <input id="amount" placeholder="0"></label>
-        <label class="f-deduct" id="deduct-field" hidden title="봉헌권처럼 미리 수입으로 잡은 금액을 빼는 줄 (수입 내역에 − 로 들어감)"><input type="checkbox" id="deduct"> 차감(−)</label>
-        <label class="f-payer" id="payer-field" hidden>납부자 <input id="payer" maxlength="30" list="payer-list" autocomplete="off" placeholder="예) 홍길동(베드로)"></label>
+        <label class="f-transfer">보내는 통장 (출금) <select id="from-account"></select></label>
+        <label class="f-transfer">받는 통장 (입금) <select id="to-account"></select></label>
+        <label class="f-payer" id="payer-field" hidden>봉헌자 <span class="req">*</span> <input id="payer" maxlength="30" list="payer-list" autocomplete="off" placeholder="이름 (꼭 적기)"></label>
         <datalist id="payer-list"></datalist>
-        <label class="f-memo">적요 <input id="memo" maxlength="100" placeholder="예) 홍길동 10월 교무금"></label>
+        <label class="f-amount">금액(원) <input id="amount" placeholder="0"></label>
+        <label class="f-memo">내용 <input id="memo" maxlength="100" placeholder="예) 성소후원"></label>
         <button type="button" id="save" class="save">저장 <kbd>Enter</kbd></button>
-        <div class="eq-entry" id="eq-entry" hidden>
-          <div id="eq-new">
-            <label class="eq-check"><input type="checkbox" id="eq-on" checked> 비품대장에도 올리기</label>
-            <span class="muted small">— 비품 과목이라 켜져 있습니다. 대장에 올릴 필요 없는 물건이면 끄세요.</span>
-            <div class="eq-fields" id="eq-fields">
-              <label>품명 <input id="eq-name" maxlength="50" placeholder="비우면 적요 그대로"></label>
-              <label>규격·모델 <input id="eq-spec" maxlength="60"></label>
-              <label class="qty">수량 <input id="eq-qty" inputmode="numeric" maxlength="6" value="1"></label>
-              <label>둘 곳 <input id="eq-location" maxlength="40" placeholder="예) 성전, 사무실"></label>
-            </div>
-          </div>
-          <div id="eq-linked" class="eq-linked" hidden></div>
-        </div>
       </div>
-      <p class="help f-transfer transfer-help">💡 <b>이체·입금</b>은 사무실 현금을 통장에 입금하거나 통장끼리 돈을 옮길 때 씁니다. 성당의 돈이 늘거나 줄지 않으므로 <b>수입·지출에 잡히지 않습니다.</b> 예) 사무실 현금 → 보통예금 3,000,000</p>
+      <p class="help f-transfer transfer-help">💡 <b>이체</b>는 통장끼리 돈을 옮길 때 씁니다. 수입·지출에 잡히지 않고 두 통장의 잔액만 바뀝니다.</p>
     </section>
 
     <section>
-      <div class="section-head"><h2>하루 현황 <small id="summary-date" class="muted"></small></h2><a id="report-link" href="/report?type=daily">일일결산서 보기·인쇄 →</a></div>
-      <div id="summary"></div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h2>거래 내역</h2>
+      <div class="section-head book-head">
+        <h2>통장 가계부 <small id="book-month" class="muted"></small></h2>
+        <span class="book-nav">
+          <button type="button" class="secondary small" id="book-prev" title="전달">◀</button>
+          <button type="button" class="secondary small" id="book-next" title="다음 달">▶</button>
+        </span>
       </div>
-      <div id="list"></div>
-      <div id="close-bar"></div>
+      <div class="book-tabs" id="book-tabs" role="tablist" aria-label="통장"></div>
+      <div id="book"></div>
     </section>
   </main>
   <script type="module" src="/js/entry.js"></script>

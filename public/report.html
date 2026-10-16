@@ -12,36 +12,23 @@
 <body class="report-page">
   <header id="topbar" class="topbar no-print"><div class="topbar-inner a4"><a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a></div></header>
   <div class="report-tabs no-print" id="report-tabs" role="tablist">
-    <button type="button" data-type="daily">일일결산</button>
-    <button type="button" data-type="month">월말결산</button>
-    <button type="button" data-type="year">연말결산</button>
-    <button type="button" data-type="budget">예산 대비</button>
-    <button type="button" data-type="accounts">통장별 내역</button>
-    <button type="button" data-type="donors">개인별 납부</button>
+    <button type="button" data-type="month">월말결산서</button>
+    <button type="button" data-type="cashbook">금전출납부</button>
+    <button type="button" data-type="gl">총계정원장</button>
+    <button type="button" data-type="donors">봉헌자 조회</button>
   </div>
   <div class="report-toolbar no-print">
     <div class="date-nav">
       <button type="button" class="secondary small" id="prev" title="이전">◀</button>
-      <input type="date" id="day" aria-label="결산일" hidden>
       <input type="month" id="month" aria-label="결산 월">
-      <select id="year" aria-label="결산 연도"></select>
+      <select id="year" aria-label="연도" hidden></select>
       <button type="button" class="secondary small" id="next" title="다음">▶</button>
-      <button type="button" class="secondary small" id="now">오늘</button>
-    </div>
-    <div class="range-nav" id="range-nav" hidden>
-      <input type="date" id="from" aria-label="시작일"> ~ <input type="date" id="to" aria-label="종료일">
-      <button type="button" class="secondary small" data-range="month">이번 달</button>
-      <button type="button" class="secondary small" data-range="last">지난달</button>
-      <button type="button" class="secondary small" data-range="year">올해</button>
+      <button type="button" class="secondary small" id="now">이번 달</button>
     </div>
     <span class="toolbar-actions">
       <button type="button" class="secondary" id="excel">Excel로 내려받기</button>
       <button type="button" id="print">인쇄</button>
     </span>
-    <div class="range-nav range-nav2" id="range-nav2" hidden>
-      <select id="account" aria-label="통장"><option value="">통장 전체</option></select>
-      <button type="button" id="search-accounts">조회</button>
-    </div>
     <span id="state"></span>
   </div>
   <details class="print-guide no-print"><summary>인쇄 설정 안내</summary>인쇄 창에서 용지 <b>A4</b> · 여백 <b>기본값</b> · 배율 <b>기본값(100)</b> · 머리글과 바닥글 <b>해제</b>로 맞춥니다.</details>

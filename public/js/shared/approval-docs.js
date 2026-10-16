@@ -2,9 +2,9 @@
 export const APPROVAL_DOC_LABEL = {
   journal: '사목일지',
   daily: '일일결산',
-  month: '월말결산',
+  month: '결산서',
   year: '연말결산',
   budget: '예산 대비',
   accounts: '통장별 내역',
-  donors: '개인별 납부',
+  donors: '봉헌자 내역',
 };

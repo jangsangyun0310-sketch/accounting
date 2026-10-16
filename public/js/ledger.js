@@ -52,7 +52,7 @@ const canHavePayer = (r) => r.kind === 'NORMAL' && r.direction === 'IN' && r.fun
 function payerCell(r) {
   if (!canHavePayer(r)) return '';
   return `<div class="payer-row" data-id="${r.id}">
-    ${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : '<span class="muted small">납부자 없음</span>'}
+    ${r.payer ? `<span class="payer-name" title="봉헌자">${esc(r.payer)}</span>` : '<span class="muted small">봉헌자 없음</span>'}
     <button type="button" class="link-btn payer-edit">이름 고치기</button></div>`;
 }
 
@@ -83,7 +83,7 @@ const normalOnly = (rows) => rows.filter((r) => r.kind === 'NORMAL');
 
 function txRow(r, showBalance) {
   const isIn = isDeposit(r);
-  const target = r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${esc(r.counterpartName ?? '')}` : esc(r.subjectName ?? '');
+  const target = r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${esc(r.counterpartName ?? '')}` : '';
   return `
       <tr>
         <td>${esc(r.date)}</td>
@@ -98,7 +98,7 @@ function txRow(r, showBalance) {
       </tr>`;
 }
 
-const tableHead = (showBalance) => `<thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>과목·상대통장</th><th>적요</th>
+const tableHead = (showBalance) => `<thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>상대통장</th><th>내용</th>
         <th class="num">입금</th><th class="num">출금</th>${showBalance ? '<th class="num">잔액</th>' : ''}<th>입력자</th></tr></thead>`;
 
 function render(data, byAccount) {
@@ -151,7 +151,6 @@ function render(data, byAccount) {
       이체출금 <b>${formatWon(t.transferOut)}</b>
       <span class="muted">(${data.rows.length}건)</span>
       <span class="totals-tools">
-        ${byAccount ? `<a class="button secondary" href="${href(`/report?type=accounts&from=${$('from').value}&to=${$('to').value}&account=${$('account').value}`)}">이 통장 내역 인쇄 (A4)</a>` : ''}
         ${data.rows.length ? '<button type="button" class="secondary" id="excel">Excel로 내려받기</button>' : ''}
       </span>
     </p>
@@ -192,7 +191,7 @@ $('result').addEventListener('click', async (e) => {
   if (!box) return;
   const row = last?.data.rows.find((r) => r.id === Number(box.dataset.id));
   if (e.target.closest('.payer-edit')) {
-    box.innerHTML = `<input class="payer-input" maxlength="30" list="payer-list" value="${esc(row?.payer ?? '')}" aria-label="납부자">
+    box.innerHTML = `<input class="payer-input" maxlength="30" list="payer-list" value="${esc(row?.payer ?? '')}" aria-label="봉헌자">
       <button type="button" class="small payer-save">저장</button><button type="button" class="secondary small payer-cancel">취소</button>`;
     box.querySelector('input').focus();
     if (!$('payer-list')) {
@@ -209,7 +208,7 @@ $('result').addEventListener('click', async (e) => {
       await api(`/api/transactions/${row.id}/payer`, { method: 'PUT', body: { payer } });
       row.payer = payer;
       box.outerHTML = payerCell(row);
-      toast('납부자를 고쳤습니다.');
+      toast('봉헌자를 고쳤습니다.');
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -228,11 +227,11 @@ $('result').addEventListener('click', (e) => {
   if (!e.target.closest('#excel') || !last) return;
   const { data, byAccount } = last;
   const showBalance = byAccount && data.rows.some((r) => r.balanceAfter != null);
-  const head = ['날짜', '구분', '통장', '회계', '과목·상대통장', '적요', '납부자', '입금', '출금', ...(showBalance ? ['잔액'] : []), '입력자'];
+  const head = ['날짜', '구분', '통장', '회계', '상대통장', '내용', '봉헌자', '입금', '출금', ...(showBalance ? ['잔액'] : []), '입력자'];
   const widths = [12, 10, 16, 10, 18, 30, 16, 13, 13, ...(showBalance ? [14] : []), 24];
   const line = (r) => [
     r.date, typeLabel(r), r.accountName, FUND_LABEL[r.fundCode],
-    r.kind === 'TRANSFER' ? `${isDeposit(r) ? '←' : '→'} ${r.counterpartName ?? ''}` : (r.subjectName ?? ''),
+    r.kind === 'TRANSFER' ? `${isDeposit(r) ? '←' : '→'} ${r.counterpartName ?? ''}` : '',
     r.memo ?? '', r.payer ?? '', inAmount(r) || null, outAmount(r) || null,
     ...(showBalance ? [r.balanceAfter] : []), personName(r.createdBy),
   ];

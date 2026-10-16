@@ -15,7 +15,7 @@ function setup() {
   };
   const tx = (direction, account, subject, amount, memo = '') => api('POST', '/api/transactions', {
     date: '2026-10-02', direction, accountId: accountId(db, account),
-    subjectId: subjectId(db, direction === 'IN' ? 'INCOME' : 'EXPENSE', subject), amount: String(amount), memo,
+    subjectId: subjectId(db, direction === 'IN' ? 'INCOME' : 'EXPENSE', subject), amount: String(amount), memo, payer: '봉헌자',
   });
   return { db, api, tx };
 }
@@ -87,7 +87,7 @@ test('월말결산: 기초·기말 잔액, 과목별 합계(회계별), 일자�
   await tx('IN', '주일학교 예치금', '후원금', 70000);                  // 10/02 특별
   await tx('OUT', '경상비', '관리운영비', 50000);                       // 10/02
   await api('POST', '/api/transactions', {                             // 10/05 일반 후원금
-    date: '2026-10-05', direction: 'IN', accountId: accountId(db, '기타 후원금'), subjectId: subjectId(db, 'INCOME', '후원금'), amount: '1000',
+    date: '2026-10-05', direction: 'IN', accountId: accountId(db, '기타 후원금'), subjectId: subjectId(db, 'INCOME', '후원금'), amount: '1000', payer: '봉헌자',
   });
   await api('POST', '/api/transfers', { date: '2026-10-05', fromAccountId: 1, toAccountId: 7, amount: '500000' });
   await api('POST', '/api/transactions', {                             // 11월은 제외되어야 함

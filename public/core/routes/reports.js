@@ -148,12 +148,14 @@ export async function accounts({ env, url }) {
   if (from > to) throw bad('시작일이 종료일보다 늦습니다.', 'BAD_RANGE');
 
   const db = env.DB;
+  // 결재란: doc=month 이면 결산서(월말결산서 · 금전출납부 · 총계정원장 공용), 아니면 통장별 내역
+  const doc = p.get('doc') === 'month' ? 'month' : 'accounts';
   const [summary, txs, parish, lastClosed, steps] = await Promise.all([
     computePeriod(db, from, to),
     db.prepare(`${TX_SELECT} WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED' ORDER BY t.tx_date, t.id`).bind(from, to).all(),
     db.prepare('SELECT parish_name, writer_name FROM parish_settings WHERE id = 1').first(),
     db.prepare(`SELECT MAX(close_date) AS d FROM daily_closings WHERE status = 'CLOSED'`).first('d'),
-    approvalOf(db, 'accounts'),
+    approvalOf(db, doc),
   ]);
   const rows = txs.results.map(mapTx);
 
@@ -163,21 +165,22 @@ export async function accounts({ env, url }) {
       balance = sumAmounts([balance, t.direction === 'IN' ? t.amount : -t.amount]);
       return {
         id: t.id, date: t.date, kind: t.kind, direction: t.direction, deduction: t.deduction,
-        subjectName: t.subjectName, counterpartName: t.counterpartName,
+        subjectName: t.subjectName, counterpartName: t.counterpartName, payer: t.payer,
         memo: t.memo, voucherNo: t.voucherNo, amount: t.amount, balance,
       };
     });
     const inSum = sumAmounts([a.income, a.transferIn]);
     const outSum = sumAmounts([a.expense, a.transferOut]);
     if (balance !== a.end) throw new Error(`통장 ${a.name}: 거래 합계와 기말 잔액이 맞지 않습니다.`);
-    return { id: a.id, name: a.name, fundCode: a.fundCode, isCash: a.isCash, prev: a.prev, in: inSum, out: outSum, end: a.end, rows: items };
+    return {
+      id: a.id, name: a.name, fundCode: a.fundCode, isCash: a.isCash, prev: a.prev, in: inSum, out: outSum, end: a.end,
+      // 이체를 뺀 수입 · 지출과 이체 (월말결산서 · 금전출납부용)
+      income: a.income, expense: a.expense, transferIn: a.transferIn, transferOut: a.transferOut,
+      rows: items,
+    };
   }).sort((a, b) => b.isCash - a.isCash); // 사무실 현금을 맨 위에
-  const total = {
-    prev: sumAmounts(list.map((a) => a.prev)),
-    in: sumAmounts(list.map((a) => a.in)),
-    out: sumAmounts(list.map((a) => a.out)),
-    end: sumAmounts(list.map((a) => a.end)),
-  };
+  const total = Object.fromEntries(['prev', 'in', 'out', 'end', 'income', 'expense', 'transferIn', 'transferOut']
+    .map((k) => [k, sumAmounts(list.map((a) => a[k]))]));
 
   return json({
     from,
@@ -204,12 +207,11 @@ export async function donors({ env, url }) {
   const db = env.DB;
   const [rows, parish, lastClosed, steps] = await Promise.all([
     db.prepare(
-      `SELECT p.payer, t.id, t.tx_date, s.name AS subject_name, t.amount
+      `SELECT p.payer, t.id, t.tx_date, a.name AS subject_name, t.memo, t.amount
        FROM tx_payers p
        JOIN transactions t ON t.id = p.tx_id
        JOIN accounts a ON a.id = t.account_id
        JOIN funds f ON f.id = a.fund_id
-       LEFT JOIN budget_subjects s ON s.id = t.subject_id
        WHERE t.status = 'POSTED' AND t.kind = 'NORMAL' AND t.direction = 'IN' AND f.code = 'SPECIAL'
          AND t.tx_date BETWEEN ? AND ?
        ORDER BY p.payer, t.tx_date, t.id`
@@ -222,7 +224,8 @@ export async function donors({ env, url }) {
   const byPayer = new Map();
   for (const r of rows.results) {
     if (!byPayer.has(r.payer)) byPayer.set(r.payer, []);
-    byPayer.get(r.payer).push({ id: r.id, date: r.tx_date, subjectName: r.subject_name ?? '', amount: r.amount });
+    // 헌금 종류 = 통장 (특별회계는 통장이 과목 역할)
+    byPayer.get(r.payer).push({ id: r.id, date: r.tx_date, subjectName: r.subject_name ?? '', memo: r.memo ?? '', amount: r.amount });
   }
   const base = (name) => name.replace(/\([^)]*\)|\s/g, '');
   const groups = new Map();

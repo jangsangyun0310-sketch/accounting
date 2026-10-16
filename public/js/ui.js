@@ -14,9 +14,9 @@ const ICON = {
   property: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
 };
 // items: [주소, 이름, 화면 key]. 묶음마다 아래 줄 끝에 ⚙ 설정 (그 기능에 필요한 설정만)
+// 본당살림은 특별회계만 (일반회계 · 사목일지는 양업). 사목일지 화면은 메뉴에서 뺐다
 const GROUPS = [
-  { key: 'acct', label: '회계', items: [['/entry', '거래 입력', 'entry'], ['/closing', '일 마감', 'closing'], ['/ledger', '거래 조회', 'ledger'], ['/report', '결산서', 'report']] },
-  { key: 'journal', label: '사목일지', items: [['/journal', '사목일지', 'journal']] },
+  { key: 'acct', label: '특별회계', items: [['/entry', '거래 입력', 'entry'], ['/closing', '일 마감', 'closing'], ['/ledger', '거래 조회', 'ledger'], ['/report', '결산서', 'report']] },
   { key: 'property', label: '재산관리', items: [['/equipment', '비품대장', 'equipment']] },
 ];
 /**
@@ -24,9 +24,7 @@ const GROUPS = [
  * '' = 오른쪽 위 [⚙ 설정]: 성당 전체에 관한 것만.
  */
 export const SETTINGS_SCOPES = {
-  acct: [['accounts', '통장'], ['subjects', '예산과목'], ['budget', '연 예산'], ['approval-main', '결산서 결재란']],
-  journal: [['journal', '기본 미사 · 총원'], ['approval-daily', '사목일지 결재란']],
-  property: [['equipment-subjects', '비품 과목']],
+  acct: [['accounts', '통장'], ['approval-main', '결산서 결재란']],
   '': [['parish', '성당 정보'], ['backup', '백업'], ['members', '함께 사용'], ['account', '초기화 · 탈퇴']],
 };
 // 예전 주소(#approval 등)도 맞는 묶음으로
@@ -62,7 +60,8 @@ function subItems(active) {
   return [
     // 묶음 이름과 같은 메뉴(사목일지 → 사목일지)는 위 메뉴와 겹치니 아래 줄에서 뺀다
     ...g.items.filter(([, label]) => label !== g.label).map(([path, label, key]) => [path, label, key === active, false]),
-    [`/settings?s=${g.key}`, `⚙ ${g.label} 설정`, active === 'settings', false, 'setting'], // 메뉴 바로 뒤에 버튼 모양으로
+    // 메뉴 바로 뒤에 버튼 모양으로 (설정할 것이 있는 묶음만)
+    ...(SETTINGS_SCOPES[g.key] ? [[`/settings?s=${g.key}`, `⚙ ${g.label} 설정`, active === 'settings', false, 'setting']] : []),
   ];
 }
 

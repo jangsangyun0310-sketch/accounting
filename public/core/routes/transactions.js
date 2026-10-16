@@ -21,13 +21,40 @@ function commonFields(body) {
 function normalInput(body) {
   return {
     ...commonFields(body),
-    payer: text(body?.payer, '납부자', { max: 30, required: false }),
+    payer: text(body?.payer, '봉헌자', { max: 30, required: false }),
     direction: oneOf(body?.direction, ['IN', 'OUT'], '수입/지출 구분'),
     accountId: parseId(body?.accountId, '통장'),
-    subjectId: parseId(body?.subjectId, '예산과목'),
+    // 과목은 화면에서 고르지 않는다 (통장이 과목 역할). 없으면 checkNormal 이 기본 과목을 채운다
+    subjectId: body?.subjectId ? parseId(body.subjectId, '예산과목') : null,
     // 비품대장에도 올리기 (비품 과목 지출일 때만 들어간다)
     equipment: body?.equipment ? linkedInput(body.equipment) : null,
   };
+}
+
+const DEFAULT_SUBJECT = { INCOME: '특별회계 수입', EXPENSE: '특별회계 지출' };
+
+/**
+ * 수입·지출 저장 전 확인: 과목이 없으면 기본 과목(없으면 만든다), 특별회계 수입이면 봉헌자 필수.
+ * 연말정산 때 봉헌자 이름으로 내역을 모으기 때문에 비워 둘 수 없다.
+ */
+async function checkNormal(db, t, actor) {
+  const fund = await db.prepare('SELECT f.code FROM accounts a JOIN funds f ON f.id = a.fund_id WHERE a.id = ?').bind(t.accountId).first('code');
+  if (fund === 'SPECIAL' && t.direction === 'IN' && !t.payer) throw bad('수입은 봉헌자 이름을 적어야 합니다.', 'PAYER_REQUIRED');
+  if (t.subjectId) return t;
+  const kind = t.direction === 'IN' ? 'INCOME' : 'EXPENSE';
+  const pick = () => db.prepare(
+    'SELECT id FROM budget_subjects WHERE kind = ? AND name = ? AND parent_id IS NULL'
+  ).bind(kind, DEFAULT_SUBJECT[kind]).first('id');
+  let subjectId = await pick();
+  if (!subjectId) {
+    const now = new Date().toISOString();
+    await db.prepare(
+      `INSERT INTO budget_subjects (kind, name, sort_order, created_at, created_by, updated_at, updated_by)
+       VALUES (?1, ?2, 0, ?3, ?4, ?3, ?4) ON CONFLICT DO NOTHING`
+    ).bind(kind, DEFAULT_SUBJECT[kind], now, actor).run();
+    subjectId = await pick();
+  }
+  return { ...t, subjectId };
 }
 
 function transferInput(body) {
@@ -131,8 +158,8 @@ export async function search({ env, url }) {
 
 /** POST /api/transactions : 수입·지출 입력 */
 export async function create({ request, env, actor }) {
-  const t = normalInput(await readJson(request));
   const db = env.DB;
+  const t = await checkNormal(db, normalInput(await readJson(request)), actor.email);
   const now = new Date().toISOString();
   const [created] = await db.batch([
     insertNormal(db, t, actor.email, now),
@@ -168,7 +195,7 @@ export async function update({ request, env, actor, params }) {
   const body = await readJson(request);
   const db = env.DB;
   const target = await loadTarget(db, parseId(params.id, '거래 번호'));
-  const input = target.kind === 'NORMAL' ? normalInput(body) : transferInput(body);
+  const input = target.kind === 'NORMAL' ? await checkNormal(db, normalInput(body), actor.email) : transferInput(body);
   const now = new Date().toISOString();
   const statements = await deleteStatements(db, target, actor.email);
   if (target.kind === 'NORMAL') {
@@ -193,14 +220,14 @@ export async function update({ request, env, actor, params }) {
 export async function setPayer({ request, env, actor, params }) {
   const db = env.DB;
   const id = parseId(params.id, '거래 번호');
-  const payer = text((await readJson(request))?.payer, '납부자', { max: 30, required: false });
+  const payer = text((await readJson(request))?.payer, '봉헌자', { max: 30 });
   const row = await db.prepare(
     `SELECT t.kind, t.direction, f.code AS fund_code FROM transactions t
      JOIN accounts a ON a.id = t.account_id JOIN funds f ON f.id = a.fund_id WHERE t.id = ? AND t.status = 'POSTED'`
   ).bind(id).first();
   if (!row) throw new ApiError(404, 'NOT_FOUND', '거래를 찾을 수 없습니다. 화면을 새로고침하세요.');
   if (row.kind !== 'NORMAL' || row.direction !== 'IN' || row.fund_code !== 'SPECIAL') {
-    throw bad('납부자는 특별회계 수입에만 적을 수 있습니다.', 'PAYER_NOT_ALLOWED');
+    throw bad('봉헌자는 특별회계 수입에만 적을 수 있습니다.', 'PAYER_NOT_ALLOWED');
   }
   const before = await db.prepare('SELECT payer FROM tx_payers WHERE tx_id = ?').bind(id).first('payer');
   const now = new Date().toISOString();

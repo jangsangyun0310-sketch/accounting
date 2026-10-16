@@ -232,6 +232,18 @@ details summary { cursor: pointer; color: var(--accent); margin: 8px 0; }
 
 /* ---- 거래 목록 ---- */
 table.tx-list td { vertical-align: middle; }
+/* 통장 가계부 (거래 입력 화면 아래) */
+.book-head { display: flex; align-items: center; gap: 10px; }
+.book-head .book-nav { display: flex; gap: 4px; }
+.book-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.book-tabs button { margin: 0; height: 34px; padding: 0 14px; border-radius: 17px; background: #fff; color: var(--text);
+  border: 1px solid var(--line); font-weight: 400; }
+.book-tabs button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+table.book td.date { width: 64px; text-align: center; white-space: nowrap; }
+table.book tr.carry td { color: var(--muted); }
+table.book tr.today-row td { background: #f7fbff; }
+table.book .xfer { color: #4b5563; font-weight: 600; }
+.entry-fields .req { color: var(--out); }
 .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; color: #fff; white-space: nowrap; }
 .badge.in { background: var(--in); }
 .badge.out { background: var(--out); }

@@ -64,7 +64,7 @@ function renderAccounts() {
   const openingLocked = settings.locks.openingBalance;
   panel.innerHTML = `
     ${openingLocked ? '<p class="notice">마감된 날짜가 있어 초기잔액은 변경할 수 없습니다. 새 통장은 0원으로 시작하고, 돈은 거래나 이체로 넣으세요. (과거 결산서 보호)</p>' : ''}
-    ${['GENERAL', 'SPECIAL'].map((fund) => {
+    ${['GENERAL', 'SPECIAL'].filter((f) => f === 'SPECIAL' || settings.accounts.some((a) => a.fundCode === f)).map((fund) => {
       const list = settings.accounts.filter((a) => a.fundCode === fund);
       return `
       <h3>${FUND_LABEL[fund]}</h3>
@@ -90,8 +90,7 @@ function renderAccounts() {
       </table>`;
     }).join('')}
     <p class="help">거래가 있는 통장은 삭제할 수 없습니다. 더 이상 쓰지 않는 통장은 [수정]에서 "사용"을 해제하세요.</p>
-    <p class="help">💡 <b>사무실 현금</b>은 종류를 <b>현금</b>으로 골라 일반회계 · 특별회계에 하나씩 등록합니다 (은행 · 계좌번호 없음). 결산서에 <b>보유 현금</b>으로 통장과 따로 나옵니다.
-      처음 등록할 때 금고에 있는 돈은 이미 통장 수입으로 들어가 있으니, <b>이체·입금</b>으로 "통장 → 현금"을 한 번 넣어 맞춥니다.</p>`;
+    <p class="help">💡 통장마다 가계부가 한 권씩 생깁니다. 과목 대신 통장으로 나눕니다 (예: 성소 예치금, 사회복지 예치금).</p>`;
 }
 
 /** 통장 / 현금 고르기. 현금이면 은행·계좌번호 칸을 막는다 (아래 change 이벤트) */
@@ -220,15 +219,15 @@ function orderButtons(type, id, i, count) {
 // ---------------------------------------------------------------- 결재선
 
 // 서류별 결재란: ⚙ 회계 설정 → 결산서 결재란(결산서 6종), ⚙ 사목일지 설정 → 사목일지 결재란
-const REPORT_DOCS = ['daily', 'month', 'year', 'budget', 'accounts', 'donors'];
+const REPORT_DOCS = ['month', 'donors'];
 const APPROVAL_HELP = {
   journal: '날마다 인쇄하는 사목일지 1쪽의 결재란입니다.',
   daily: '일일결산서의 결재란입니다. 마감한 날은 마감할 때의 결재란으로 인쇄됩니다.',
-  month: '월말결산서의 결재란입니다.',
+  month: '월말결산서 · 금전출납부 · 총계정원장에 함께 쓰는 결재란입니다. 서류마다 첫 장에만 인쇄됩니다.',
   year: '연말결산서의 결재란입니다.',
   budget: '예산 대비 집행의 결재란입니다.',
   accounts: '통장별 입출금 내역의 결재란입니다.',
-  donors: '개인별 납부 현황 · 내역서(한 사람 한 장)의 결재란입니다.',
+  donors: '봉헌자 조회 · 내역서(한 사람 한 장)의 결재란입니다. 보통은 없음으로 둡니다.',
 };
 
 function renderApproval(docs) {

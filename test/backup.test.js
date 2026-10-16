@@ -21,7 +21,7 @@ async function richDb() {
   const api = client(db);
   const tx = (date, direction, account, subject, amount, memo = '') => api('POST', '/api/transactions', {
     date, direction, accountId: accountId(db, account),
-    subjectId: subjectId(db, direction === 'IN' ? 'INCOME' : 'EXPENSE', subject), amount: String(amount), memo,
+    subjectId: subjectId(db, direction === 'IN' ? 'INCOME' : 'EXPENSE', subject), amount: String(amount), memo, payer: '봉헌자',
   });
   await tx('2026-10-01', 'IN', '교무금', '교무금', 300000, '홍길동');
   const { body: wrong } = await tx('2026-10-01', 'OUT', '경상비', '관리운영비', 12000, '오기');
@@ -98,7 +98,7 @@ test('백업 → 빈 DB 에 복구: 모든 표가 원본과 같고, 잔액·마�
   assert.equal(blocked.body.error.code, 'DATE_CLOSED');
   // 복구 후 복구 세션 우회는 다시 막힘 (사용중지 통장 거래)
   const inactive = await restoreApi('POST', '/api/transactions', {
-    date: '2026-10-03', direction: 'IN', accountId: accountId(target, '제대 후원금'), subjectId: subjectId(target, 'INCOME', '후원금'), amount: '1',
+    date: '2026-10-03', direction: 'IN', accountId: accountId(target, '제대 후원금'), subjectId: subjectId(target, 'INCOME', '후원금'), amount: '1', payer: '봉헌자',
   });
   assert.equal(inactive.body.error.code, 'ACCOUNT_INACTIVE');
 });

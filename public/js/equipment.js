@@ -42,7 +42,7 @@ function render() {
   $('totals').innerHTML = `사용 중 <b>${live.length}건</b> · 구매금액 합계 <b>${formatWon(live.reduce((n, x) => n + x.price, 0))}</b>원`
     + (items.length > live.length ? ` <span class="muted">(폐기 · 삭제 ${items.length - live.length}건 제외)</span>` : '');
   if (!rows.length) {
-    $('list').innerHTML = `<p class="muted">${items.length ? '조건에 맞는 비품이 없습니다.' : '아직 올린 비품이 없습니다. [＋ 비품 추가]를 누르거나, 비품 과목으로 지출을 입력하면 올라옵니다.'}</p>`;
+    $('list').innerHTML = `<p class="muted">${items.length ? '조건에 맞는 비품이 없습니다.' : '아직 올린 비품이 없습니다. [＋ 비품 추가]를 눌러 적어 넣으세요.'}</p>`;
     return;
   }
   $('list').innerHTML = `

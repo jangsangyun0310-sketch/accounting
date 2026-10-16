@@ -8,26 +8,21 @@ import { isValidDate, todayKST, formatKoreanDate } from './shared/dates.js';
 import { initRestore } from './restore.js';
 
 const DRAFT_KEY = 'bondang.setupDraft.v1';
-// 결재선은 처음에 정하지 않는다: 사목일지 · 결산서를 처음 인쇄할 때 그 화면의 [결재란 고치기]로 정한다
-const STEPS = ['성당 정보', '일반회계 통장', '특별회계 통장', '예산과목', '확인'];
-const DEFAULT_APPROVAL = ['담당', '주임신부'];
-
-// 예시 과목: 버튼을 눌렀을 때만 채워지는 제안값. 자유롭게 고치거나 지울 수 있다.
-const SUBJECT_EXAMPLES = {
-  INCOME: ['교무금', '주일헌금', '감사헌금', '미사예물', '후원금', '이자수입', '기타수입'],
-  EXPENSE: ['인건비', '전례비', '사목활동비', '관리운영비', '시설수선비', '교구납부금', '사회복지비', '기타지출'],
-};
+// 본당살림은 특별회계만 (일반회계는 양업). 과목은 쓰지 않고 통장이 과목 역할 — 장부 안에는 기본 과목 하나씩만 둔다
+const STEPS = ['성당 정보', '특별회계 통장', '확인'];
+const DEFAULT_APPROVAL = ['기안자', '재정부회장', '사목회장', '주임신부'];
+const DEFAULT_SUBJECTS = [{ kind: 'INCOME', name: '특별회계 수입' }, { kind: 'EXPENSE', name: '특별회계 지출' }];
 
 const emptyAccount = () => ({ name: '', bankName: '', accountNo: '', openingBalance: '' });
 
 let state = loadDraft() ?? {
   step: 0,
   parish: { parishName: '', startDate: todayKST(), writerName: '' },
-  accounts: { GENERAL: [emptyAccount()], SPECIAL: [emptyAccount()] },
-  subjects: { INCOME: [''], EXPENSE: [''] },
+  accounts: { SPECIAL: [emptyAccount()] },
 };
 
-state.step = Math.min(state.step, STEPS.length - 1); // 예전 임시 저장(결재선 단계가 있던 때)
+if (!state.accounts?.SPECIAL) state = { ...state, step: 0, accounts: { SPECIAL: [emptyAccount()] } }; // 예전 임시 저장
+state.step = Math.min(state.step, STEPS.length - 1);
 
 const $ = (id) => document.getElementById(id);
 const panel = $('panel');
@@ -50,8 +45,7 @@ function render() {
     `<li class="${i === state.step ? 'current' : i < state.step ? 'done' : ''}">${i + 1}. ${s}</li>`).join('');
   $('prev').hidden = state.step === 0;
   $('next').textContent = state.step === STEPS.length - 1 ? '설정 완료' : '다음';
-  [renderParish, () => renderAccounts('GENERAL'), () => renderAccounts('SPECIAL'),
-    renderSubjects, renderConfirm][Math.min(state.step, STEPS.length - 1)]();
+  [renderParish, () => renderAccounts('SPECIAL'), renderConfirm][Math.min(state.step, STEPS.length - 1)]();
   panel.querySelector('input, select')?.focus();
   saveDraft();
 }
@@ -80,7 +74,7 @@ function renderAccounts(fund) {
       <thead><tr><th>통장명</th><th>은행</th><th>계좌번호</th><th class="num">초기잔액(원)</th><th></th></tr></thead>
       <tbody>${rows.map((r, i) => `
         <tr data-i="${i}">
-          <td><input data-f="name" value="${esc(r.name)}" maxlength="30" placeholder="예) 경상비"></td>
+          <td><input data-f="name" value="${esc(r.name)}" maxlength="30" placeholder="예) 성소 예치금"></td>
           <td><input data-f="bankName" value="${esc(r.bankName)}" maxlength="30"></td>
           <td><input data-f="accountNo" value="${esc(r.accountNo)}" maxlength="40"></td>
           <td><input data-f="openingBalance" value="${esc(r.openingBalance)}" placeholder="0"></td>
@@ -90,7 +84,7 @@ function renderAccounts(fund) {
       <tfoot><tr><td colspan="3">합계</td><td class="num" id="sum"></td><td></td></tr></tfoot>
     </table>
     <button type="button" id="add" class="secondary">+ 통장 추가</button>
-    <p class="help">마지막 칸에서 Enter 를 누르면 새 줄이 추가됩니다. ${fund === 'SPECIAL' ? '특별회계 통장이 없으면 비워 두세요.' : ''}</p>`;
+    <p class="help">마지막 칸에서 Enter 를 누르면 새 줄이 추가됩니다. 통장마다 가계부가 한 권씩 생깁니다 (과목 대신 통장으로 나눕니다).</p>`;
 
   panel.querySelectorAll('input[data-f="openingBalance"]').forEach(bindAmountInput);
   const updateSum = () => { $('sum').textContent = safeSum(rows); };
@@ -136,62 +130,6 @@ function safeSum(rows) {
   }
 }
 
-function renderSubjects() {
-  panel.innerHTML = `
-    <h3>예산과목</h3>
-    <p class="help">거래를 입력할 때 고를 과목입니다. 교구 예산서의 과목명을 그대로 쓰는 것을 권장합니다.
-      <button type="button" id="examples" class="link">예시 과목 넣기</button></p>
-    <div class="two-col">
-      ${['INCOME', 'EXPENSE'].map((kind) => `
-        <div data-kind="${kind}">
-          <h4>${kind === 'INCOME' ? '수입' : '지출'} 과목</h4>
-          ${state.subjects[kind].map((name, i) => `
-            <div class="list-row">
-              <input data-i="${i}" value="${esc(name)}" maxlength="30">
-              <button type="button" class="icon" data-remove="${i}" title="삭제">✕</button>
-            </div>`).join('')}
-          <button type="button" class="secondary" data-add>+ 추가</button>
-        </div>`).join('')}
-    </div>`;
-
-  panel.querySelectorAll('[data-kind]').forEach((box) => {
-    const list = state.subjects[box.dataset.kind];
-    box.addEventListener('input', (e) => { list[e.target.dataset.i] = e.target.value; saveDraft(); });
-    box.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
-      e.preventDefault();
-      const inputs = [...box.querySelectorAll('input')];
-      const idx = inputs.indexOf(e.target);
-      if (idx === inputs.length - 1) addTo(box.dataset.kind);
-      else inputs[idx + 1].focus();
-    });
-    box.addEventListener('click', (e) => {
-      const rm = e.target.closest('[data-remove]');
-      if (rm) {
-        list.splice(Number(rm.dataset.remove), 1);
-        if (list.length === 0) list.push('');
-        render();
-      }
-      if (e.target.closest('[data-add]')) addTo(box.dataset.kind);
-    });
-  });
-
-  $('examples').addEventListener('click', () => {
-    for (const kind of ['INCOME', 'EXPENSE']) {
-      const current = state.subjects[kind].map((s) => s.trim()).filter(Boolean);
-      state.subjects[kind] = [...current, ...SUBJECT_EXAMPLES[kind].filter((s) => !current.includes(s))];
-    }
-    render();
-  });
-
-  function addTo(kind) {
-    state.subjects[kind].push('');
-    render();
-    const inputs = panel.querySelectorAll(`[data-kind="${kind}"] input`);
-    inputs[inputs.length - 1].focus();
-  }
-}
-
 function renderConfirm() {
   let payload;
   try {
@@ -202,7 +140,7 @@ function renderConfirm() {
     return;
   }
   $('next').disabled = false;
-  const { parish, accounts, subjects } = payload;
+  const { parish, accounts } = payload;
   const fundTable = (fund) => {
     const list = accounts.filter((a) => a.fundCode === fund);
     if (!list.length) return `<p class="muted">${FUND_LABEL[fund]} 통장 없음</p>`;
@@ -220,11 +158,8 @@ function renderConfirm() {
       <dt>운영 개시일</dt><dd>${formatKoreanDate(parish.startDate)}</dd>
       <dt>작성자</dt><dd>${esc(parish.writerName) || '<span class="muted">(없음)</span>'}</dd>
     </dl>
-    ${fundTable('GENERAL')}
     ${fundTable('SPECIAL')}
-    <p><b>수입 과목</b> ${subjects.filter((s) => s.kind === 'INCOME').map((s) => esc(s.name)).join(', ')}</p>
-    <p><b>지출 과목</b> ${subjects.filter((s) => s.kind === 'EXPENSE').map((s) => esc(s.name)).join(', ')}</p>
-    <p class="help">결재란은 처음에 <b>담당 · 주임신부</b>로 시작합니다. 사목일지 · 결산서 화면의 <b>[결재란 고치기]</b>에서 그 서류에 맞게 바꾸세요.</p>
+    <p class="help">결재란은 처음에 <b>기안자 · 재정부회장 · 사목회장 · 주임신부</b>로 시작합니다. 결산서 화면의 <b>[결재란 고치기]</b>에서 바꿀 수 있습니다.</p>
     <p class="help">"설정 완료"를 누르면 저장됩니다. 저장 후에도 설정 화면에서 수정할 수 있습니다.
       (단, 거래가 생기면 운영 개시일을, 마감이 생기면 초기잔액을 바꿀 수 없습니다.)</p>`;
 }
@@ -239,7 +174,7 @@ function buildPayload() {
   if (!isValidDate(parish.startDate)) throw stepError(0, '운영 개시일을 입력하세요.');
 
   const accounts = [];
-  for (const [fund, stepNo] of [['GENERAL', 1], ['SPECIAL', 2]]) {
+  for (const [fund, stepNo] of [['SPECIAL', 1]]) {
     for (const r of state.accounts[fund]) {
       const blank = !r.name.trim() && !r.bankName.trim() && !r.accountNo.trim() && !r.openingBalance.trim();
       if (blank) continue;
@@ -259,19 +194,9 @@ function buildPayload() {
   const dupAccount = findDuplicate(accounts.map((a) => a.name));
   if (dupAccount) throw stepError(1, `통장명 '${dupAccount}'이(가) 중복되었습니다.`);
 
-  const subjects = [];
-  for (const kind of ['INCOME', 'EXPENSE']) {
-    const names = state.subjects[kind].map((s) => s.trim()).filter(Boolean);
-    const label = kind === 'INCOME' ? '수입' : '지출';
-    if (!names.length) throw stepError(3, `${label} 과목을 1개 이상 입력하세요.`);
-    const dup = findDuplicate(names);
-    if (dup) throw stepError(3, `${label} 과목 '${dup}'이(가) 중복되었습니다.`);
-    subjects.push(...names.map((name) => ({ kind, name })));
-  }
-
   const approvalSteps = DEFAULT_APPROVAL;
 
-  return { parish, accounts, subjects, approvalSteps };
+  return { parish, accounts, subjects: DEFAULT_SUBJECTS, approvalSteps };
 }
 
 function findDuplicate(list) {
@@ -331,7 +256,7 @@ $('next').addEventListener('click', async () => {
 // Enter 로 다음 칸 이동 (성당 정보 단계)
 panel.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || e.defaultPrevented || e.target.tagName !== 'INPUT') return;
-  if (e.target.closest('tbody, [data-kind]')) return; // 표·목록은 자체 처리
+  if (e.target.closest('tbody')) return; // 표는 자체 처리
   e.preventDefault();
   const inputs = [...panel.querySelectorAll('input, select')];
   const next = inputs[inputs.indexOf(e.target) + 1];

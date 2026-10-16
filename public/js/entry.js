@@ -1,20 +1,26 @@
-// 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제, 하루 현황
+// 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제 + 통장 가계부 (통장마다 한 달 내역과 잔액)
+// 과목은 고르지 않는다 (통장이 과목 역할). 수입은 봉헌자를 꼭 적는다 (연말정산 때 이름으로 모음).
 import { href } from './base.js';
 import { api, esc } from './api.js';
-import { initPage, bindAmountInput, toast, signedWon, closeNoticeHtml, FUND_LABEL } from './ui.js';
-import { formatWon, parseAmount, sumAmounts } from './shared/money.js';
-import { addDays, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
+import { initPage, bindAmountInput, toast } from './ui.js';
+import { formatWon, parseAmount } from './shared/money.js';
+import { addDays, formatKoreanDate, isValidDate, monthStart, todayKST } from './shared/dates.js';
 
-const PREF_KEY = 'bondang.entryPrefs.v1';
+const PREF_KEY = 'bondang.entryPrefs.v2';
 const $ = (id) => document.getElementById(id);
 
 let settings = null;
-let day = null;
+let day = null;         // 입력 날짜의 하루 현황 (잠김 여부)
+let lastClosed = null;  // 마지막 마감일 (이 날까지는 고칠 수 없음)
 let kind = 'IN';        // 'IN' 수입 | 'OUT' 지출 | 'TRANSFER' 이체
-let editing = null;     // 수정 중인 거래 (목록의 행 객체)
-let beforeEdit = null;  // 수정 시작 전 입력칸 상태 (수정이 끝나면 되돌림)
+let editing = null;     // 수정 중인 거래 (가계부의 행 객체)
+let beforeEdit = null;  // 수정 시작 전 구분 (수정이 끝나면 되돌림)
 let saving = false;
 let prefs = loadPrefs();
+let bookAccountId = null;
+let bookMonth = null;   // 'YYYY-MM'
+let book = null;        // 가계부 조회 결과
+let bookSeq = 0;
 
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem(PREF_KEY)) ?? {}; } catch { return {}; }
@@ -25,20 +31,11 @@ function savePrefs() {
 
 // ---------------------------------------------------------------- 선택 목록
 
-function accountOptions(selectedId) {
-  return ['GENERAL', 'SPECIAL'].map((fund) => {
-    const list = settings.accounts.filter((a) => a.fundCode === fund && (a.isActive || a.id === selectedId));
-    if (!list.length) return '';
-    // 사무실 현금은 색으로 구분
-    return `<optgroup label="${FUND_LABEL[fund]}">${list.map((a) =>
-      `<option value="${a.id}" ${a.isCash ? 'class="cash-opt"' : ''}>${esc(a.name)}${a.isCash && !a.name.includes('현금') ? ' (현금)' : ''}${a.isActive ? '' : ' (사용중지)'}</option>`).join('')}</optgroup>`;
-  }).join('');
-}
+const usable = (selectedId) => settings.accounts.filter((a) => a.isActive || a.id === selectedId);
 
-function subjectOptions(subjectKind, selectedId) {
-  return settings.subjects
-    .filter((s) => s.kind === subjectKind && (s.isActive || s.id === selectedId))
-    .map((s) => `<option value="${s.id}">${esc(s.name)}${s.isActive ? '' : ' (사용중지)'}</option>`).join('');
+function accountOptions(selectedId) {
+  return usable(selectedId).map((a) =>
+    `<option value="${a.id}">${esc(a.name)}${a.isActive ? '' : ' (사용중지)'}</option>`).join('');
 }
 
 function setSelect(select, html, value) {
@@ -46,10 +43,7 @@ function setSelect(select, html, value) {
   if (value != null && select.querySelector(`option[value="${value}"]`)) select.value = String(value);
 }
 
-/**
- * 납부자 칸: 특별회계 통장의 수입일 때만 (교무금·봉헌권 등 일반회계는 양업시스템에서 관리).
- * 개인별 납부(연말정산 준비)에 쓰인다.
- */
+/** 봉헌자 칸: 특별회계 통장의 수입일 때 (꼭 적어야 저장됨) */
 function updatePayerField() {
   const account = settings.accounts.find((a) => a.id === Number($('account').value));
   const show = kind === 'IN' && account?.fundCode === 'SPECIAL';
@@ -57,45 +51,13 @@ function updatePayerField() {
   if (!show) $('payer').value = '';
 }
 
-/** 차감(−) 칸: 수입에서 "차감 허용" 과목(봉헌권 등)을 골랐을 때만 */
-function updateDeductField() {
-  const subject = settings.subjects.find((s) => s.id === Number($('subject').value));
-  const show = kind === 'IN' && Boolean(subject?.allowDeduction);
-  $('deduct-field').hidden = !show;
-  if (!show) $('deduct').checked = false;
-}
-
-/**
- * 비품대장에도 올리기: 비품 과목(설정에서 표시한 지출 과목)으로 지출할 때만.
- * 고치는 거래가 이미 비품으로 올라가 있으면 그 관리번호만 보여 준다.
- */
-function updateEquipmentField() {
-  const subject = settings.subjects.find((s) => s.id === Number($('subject').value));
-  const linkedNo = editing?.equipmentNo ?? null;
-  $('eq-entry').hidden = !(kind === 'OUT' && (subject?.isEquipment || linkedNo));
-  $('eq-new').hidden = Boolean(linkedNo);
-  $('eq-linked').hidden = !linkedNo;
-  if (linkedNo) {
-    $('eq-linked').innerHTML = `📦 이 지출로 올린 비품: <a href="${href(`/equipment?no=${encodeURIComponent(linkedNo)}`)}">${esc(linkedNo)}</a>
-      <span class="muted small">(금액 · 날짜를 고치면 비품대장도 따라 바뀝니다)</span>`;
-  }
-  $('eq-fields').hidden = !$('eq-on').checked;
-}
-
-function resetEquipmentFields() {
-  $('eq-on').checked = true;
-  for (const id of ['eq-name', 'eq-spec', 'eq-location']) $(id).value = '';
-  $('eq-qty').value = '1';
-  $('eq-fields').hidden = false;
-}
-
-/** 전에 적은 납부자 이름 (자동 완성) */
+/** 전에 적은 봉헌자 이름 (자동 완성) */
 async function loadPayers() {
   const { payers } = await api('/api/payers');
   $('payer-list').innerHTML = payers.map((p) => `<option value="${esc(p)}">`).join('');
 }
 
-/** 구분 전환: 해당 구분에 맞는 입력칸과 마지막으로 쓴 통장·과목을 보여준다 */
+/** 구분 전환: 해당 구분에 맞는 입력칸과 마지막으로 쓴 통장을 보여준다 */
 function setKind(next, values = prefs[next] ?? {}) {
   kind = next;
   document.querySelectorAll('.kind-toggle button').forEach((b) => {
@@ -104,23 +66,20 @@ function setKind(next, values = prefs[next] ?? {}) {
   });
   $('entry').dataset.kind = kind;
   if (kind === 'TRANSFER') {
-    setSelect($('from-account'), accountOptions(values.fromAccountId), values.fromAccountId);
+    setSelect($('from-account'), accountOptions(values.fromAccountId), values.fromAccountId ?? bookAccountId);
     setSelect($('to-account'), accountOptions(values.toAccountId), values.toAccountId);
-    // 처음 쓸 때 두 칸이 같은 통장이면 받는 곳을 다른 통장으로
+    // 두 칸이 같은 통장이면 받는 곳을 다른 통장으로
     if ($('to-account').value === $('from-account').value) {
       const other = [...$('to-account').options].find((o) => o.value !== $('from-account').value);
       if (other) $('to-account').value = other.value;
     }
   } else {
-    setSelect($('account'), accountOptions(values.accountId), values.accountId);
-    setSelect($('subject'), subjectOptions(kind === 'IN' ? 'INCOME' : 'EXPENSE', values.subjectId), values.subjectId);
+    setSelect($('account'), accountOptions(values.accountId), values.accountId ?? bookAccountId);
   }
   updatePayerField();
-  updateDeductField();
-  updateEquipmentField();
 }
 
-// ---------------------------------------------------------------- 하루 현황
+// ---------------------------------------------------------------- 입력 날짜
 
 async function loadDay() {
   const date = $('date').value;
@@ -128,20 +87,21 @@ async function loadDay() {
   const [next, info] = await Promise.all([api(`/api/day?date=${date}`), api(`/api/closings/${date}`)]);
   if (next.date !== $('date').value) return; // 그 사이 날짜가 바뀜
   day = next;
-  // 거래 내역 아래: 마감 전이면 한 줄 안내 (마감은 [일 마감] 화면에서)
-  $('close-bar').innerHTML = closeNoticeHtml(info);
+  lastClosed = info.lastClosed ?? null;
   $('date-label').textContent = formatKoreanDate(date);
-  $('summary-date').textContent = formatKoreanDate(date);
   renderLock();
-  renderSummary();
-  renderList();
+  if (date.slice(0, 7) !== bookMonth) {
+    bookMonth = date.slice(0, 7);
+    await loadBook();
+  } else {
+    renderBook();
+  }
 }
 
 function renderLock() {
   const locked = day.locked;
   $('lock-banner').hidden = !locked;
   $('lock-link').href = href(`/closing?date=${day.date}`);
-  $('report-link').href = href(`/report?type=daily&daily=${day.date}`);
   $('fields').querySelectorAll('input, select, button').forEach((el) => { el.disabled = locked; });
   document.querySelectorAll('.kind-toggle button').forEach((b) => { b.disabled = locked || isKindLocked(b.dataset.kind); });
 }
@@ -152,101 +112,89 @@ function isKindLocked(k) {
   return (editing.type === 'TRANSFER') !== (k === 'TRANSFER');
 }
 
-function renderSummary() {
-  const row = (label, r, cls = '') => `
-    <tr class="${cls}"><td>${label}</td>
-      <td class="num">${formatWon(r.prev)}</td>
-      <td class="num in">${formatWon(r.income)}</td>
-      <td class="num out">${formatWon(r.expense)}</td>
-      <td class="num">${signedWon(r.transferIn - r.transferOut)}</td>
-      <td class="num"><b>${formatWon(r.end)}</b></td></tr>`;
-  $('summary').innerHTML = `
-    <table class="grid summary">
-      <thead><tr><th>구분</th><th class="num">전일잔액</th><th class="num">수입</th><th class="num">지출</th>
-        <th class="num">이체</th><th class="num">당일잔액</th></tr></thead>
-      <tbody>
-        ${day.funds.map((f) => row(esc(f.name), f)).join('')}
-        ${row('합계', day.total, 'total')}
-      </tbody>
-    </table>
-    <details>
-      <summary>통장별 보기</summary>
-      <table class="grid summary">
-        <thead><tr><th>통장</th><th class="num">전일잔액</th><th class="num">수입</th><th class="num">지출</th>
-          <th class="num">이체</th><th class="num">당일잔액</th></tr></thead>
-        <tbody>${day.accounts.map((a) => row(`${esc(a.name)} <span class="muted">${FUND_LABEL[a.fundCode]}</span>`, a)).join('')}</tbody>
-      </table>
-    </details>`;
+// ---------------------------------------------------------------- 통장 가계부
+
+const monthEnd = (ym) => addDays(`${addDays(`${ym}-01`, 31).slice(0, 7)}-01`, -1);
+
+async function loadBook() {
+  if (!bookAccountId) return;
+  const seq = ++bookSeq;
+  const r = await api(`/api/transactions?from=${bookMonth}-01&to=${monthEnd(bookMonth)}&accountId=${bookAccountId}`);
+  if (seq !== bookSeq) return; // 늦게 온 예전 결과는 버린다
+  book = r;
+  renderBook();
 }
 
-/** 이체 한 쌍은 목록에서 한 줄로 합쳐 보여준다 */
-function mergedRows(txs) {
-  const rows = [];
-  const seen = new Set();
-  for (const t of txs) {
-    // 수입 차감은 수입 줄로 (금액은 − 로 보임)
-    if (t.kind !== 'TRANSFER') { rows.push({ ...t, type: t.deduction ? 'IN' : t.direction }); continue; }
-    if (seen.has(t.transferGroup)) continue;
-    seen.add(t.transferGroup);
-    const pair = txs.filter((x) => x.transferGroup === t.transferGroup);
-    const out = pair.find((x) => x.direction === 'OUT') ?? t;
-    const inn = pair.find((x) => x.direction === 'IN');
-    rows.push({
-      ...out,
+function renderTabs() {
+  $('book-tabs').innerHTML = usable(bookAccountId).map((a) =>
+    `<button type="button" role="tab" data-book="${a.id}" class="${a.id === bookAccountId ? 'active' : ''}"
+      aria-selected="${a.id === bookAccountId}">${esc(a.name)}</button>`).join('');
+}
+
+/** 가계부 한 줄 (이체는 상대 통장을 화살표로) */
+function bookRow(t) {
+  if (t.kind === 'TRANSFER') {
+    const out = t.direction === 'OUT';
+    return {
+      ...t,
       type: 'TRANSFER',
-      fromAccountId: out.accountId,
-      fromName: out.accountName,
-      fromFund: out.fundCode,
-      toAccountId: inn?.accountId ?? out.counterpartAccountId,
-      toName: inn?.accountName ?? out.counterpartName,
-      toFund: inn?.fundCode,
-    });
+      fromAccountId: out ? t.accountId : t.counterpartAccountId,
+      toAccountId: out ? t.counterpartAccountId : t.accountId,
+      fromName: out ? t.accountName : t.counterpartName,
+      toName: out ? t.counterpartName : t.accountName,
+      what: `이체 ${out ? '→' : '←'} ${t.counterpartName ?? ''}`,
+    };
   }
-  return rows;
+  return { ...t, type: t.direction, what: '' };
 }
 
-function renderList() {
-  const rows = mergedRows(day.transactions);
-  const sum = (type) => sumAmounts(rows.filter((r) => r.type === type).map((r) => (r.deduction ? -r.amount : r.amount)));
-  if (!rows.length) {
-    $('list').innerHTML = '<p class="muted">거래가 없습니다.</p>';
-    return;
-  }
-  $('list').innerHTML = `
-    <table class="grid tx-list">
-      <thead><tr><th class="no">No</th><th>구분</th><th>회계</th><th>통장</th><th>과목</th><th>적요</th>
-        <th class="num">수입</th><th class="num">지출</th><th class="num">이체</th><th class="actions"></th></tr></thead>
-      <tbody>${rows.map(rowHtml).join('')}</tbody>
-      <tfoot><tr class="total"><td colspan="6">합계 (${rows.length}건)</td>
-        <td class="num">${formatWon(sum('IN'))}</td><td class="num">${formatWon(sum('OUT'))}</td>
-        <td class="num">${formatWon(sum('TRANSFER'))}</td><td></td></tr></tfoot>
-    </table>`;
+function renderBook() {
+  renderTabs();
+  const [y, m] = bookMonth.split('-').map(Number);
+  const account = settings.accounts.find((a) => a.id === bookAccountId);
+  $('book-month').textContent = `${account ? `${account.name} · ` : ''}${y}년 ${m}월`;
+  if (!book) { $('book').innerHTML = '<p class="muted">불러오는 중…</p>'; return; }
+  const rows = book.rows.filter((t) => t.status === 'POSTED').map(bookRow);
+  const md = (d) => `${d.slice(5, 7)}.${d.slice(8, 10)}`;
+  const inSum = book.totals.income + book.totals.transferIn;
+  const outSum = book.totals.expense + book.totals.transferOut;
+  const end = rows.length ? rows[rows.length - 1].balanceAfter : book.openingBalance;
+  $('book').innerHTML = `
+    <table class="grid tx-list book">
+      <thead><tr><th class="date">날짜</th><th>내용</th><th>봉헌자</th><th class="num">수입</th><th class="num">지출</th>
+        <th class="num">잔액</th><th class="actions"></th></tr></thead>
+      <tbody>
+        <tr class="carry"><td class="date">${md(`${bookMonth}-01`)}</td><td>전월이월</td><td></td><td></td><td></td>
+          <td class="num">${formatWon(book.openingBalance)}</td><td></td></tr>
+        ${rows.map((r) => {
+          const editable = !(lastClosed && r.date <= lastClosed);
+          const isIn = r.direction === 'IN';
+          return `<tr class="${editing && editing.id === r.id ? 'editing' : ''} ${r.date === $('date').value ? 'today-row' : ''}">
+            <td class="date">${md(r.date)}</td>
+            <td>${r.what ? `<span class="xfer">${esc(r.what)}</span> ` : ''}${esc(r.memo)}</td>
+            <td>${esc(r.payer)}</td>
+            <td class="num in">${isIn ? formatWon(r.amount) : ''}</td>
+            <td class="num out">${isIn ? '' : formatWon(r.amount)}</td>
+            <td class="num">${r.balanceAfter == null ? '' : formatWon(r.balanceAfter)}</td>
+            <td class="actions">${editable ? `
+              <button type="button" class="secondary small" data-edit="${r.id}">수정</button>
+              <button type="button" class="danger small" data-delete="${r.id}">삭제</button>` : ''}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot><tr class="total"><td></td><td>이 달 합계 (${rows.length}건)</td><td></td>
+        <td class="num">${formatWon(inSum)}</td><td class="num">${formatWon(outSum)}</td>
+        <td class="num">${formatWon(end)}</td><td></td></tr></tfoot>
+    </table>
+    ${book.truncated ? '<p class="error">거래가 너무 많아 일부만 보입니다.</p>' : ''}`;
 }
 
-function rowHtml(r, index) {
-  const isTransfer = r.type === 'TRANSFER';
-  const badge = r.deduction ? '<span class="badge deduct">수입차감</span>'
-    : { IN: '<span class="badge in">수입</span>', OUT: '<span class="badge out">지출</span>', TRANSFER: '<span class="badge transfer">이체</span>' }[r.type];
-  const fund = isTransfer
-    ? (r.fromFund === r.toFund ? FUND_LABEL[r.fromFund] : `${FUND_LABEL[r.fromFund]}→${FUND_LABEL[r.toFund] ?? ''}`)
-    : FUND_LABEL[r.fundCode];
-  const editingNow = editing && editing.id === r.id;
-  return `
-    <tr class="${editingNow ? 'editing' : ''}">
-      <td class="no">${index + 1}</td>
-      <td>${badge}</td>
-      <td class="small">${fund}</td>
-      <td>${isTransfer ? `${esc(r.fromName)} → ${esc(r.toName ?? '')}` : esc(r.accountName)}</td>
-      <td>${esc(r.subjectName ?? '')}</td>
-      <td>${r.payer ? `<span class="payer-name" title="납부자">${esc(r.payer)}</span>` : ''}${esc(r.memo)}${r.equipmentNo
-        ? ` <a class="small" href="${href(`/equipment?no=${encodeURIComponent(r.equipmentNo)}`)}" title="비품대장에 올라간 비품">📦${esc(r.equipmentNo)}</a>` : ''}</td>
-      <td class="num ${r.deduction ? 'minus' : ''}">${r.type === 'IN' ? formatWon(r.deduction ? -r.amount : r.amount) : ''}</td>
-      <td class="num">${r.type === 'OUT' ? formatWon(r.amount) : ''}</td>
-      <td class="num">${isTransfer ? formatWon(r.amount) : ''}</td>
-      <td class="actions">${day.locked ? '' : `
-        <button type="button" class="secondary small" data-edit="${r.id}">수정</button>
-        <button type="button" class="danger small" data-delete="${r.id}">삭제</button>`}</td>
-    </tr>`;
+function selectBook(accountId) {
+  if (!accountId || accountId === bookAccountId) return;
+  bookAccountId = accountId;
+  book = null;
+  renderBook();
+  loadBook().catch((err) => toast(err.message, 'error'));
 }
 
 // ---------------------------------------------------------------- 입력·저장
@@ -260,9 +208,7 @@ function resetForNext() {
   $('amount').value = '';
   $('memo').value = '';
   $('payer').value = '';
-  $('deduct').checked = false;
-  resetEquipmentFields();
-  $('amount').focus();
+  visibleFields()[0]?.focus();
 }
 
 async function save() {
@@ -286,30 +232,27 @@ async function save() {
     body.fromAccountId = Number($('from-account').value);
     body.toAccountId = Number($('to-account').value);
     if (body.fromAccountId === body.toAccountId) {
-      toast('보내는 곳과 받는 곳이 같은 통장입니다.', 'error');
+      toast('보내는 통장과 받는 통장이 같습니다.', 'error');
       $('to-account').focus();
       return;
     }
     pref = { fromAccountId: body.fromAccountId, toAccountId: body.toAccountId };
   } else {
-    body.direction = kind === 'IN' && $('deduct').checked ? 'OUT' : kind; // 수입 차감은 통장에서 빠지는 쪽
+    body.direction = kind;
     body.accountId = Number($('account').value);
-    body.subjectId = Number($('subject').value);
-    if (!$('payer-field').hidden && body.direction === 'IN') body.payer = $('payer').value;
-    if (!$('eq-entry').hidden && !$('eq-new').hidden && $('eq-on').checked) {
-      const name = $('eq-name').value.trim() || body.memo.trim();
-      if (!name) {
-        toast('비품 품명을 적어 주세요. (비우면 적요가 품명이 됩니다)', 'error');
-        $('eq-name').focus();
-        return;
-      }
-      body.equipment = { name, spec: $('eq-spec').value, quantity: $('eq-qty').value, location: $('eq-location').value };
-    }
-    if (!body.accountId || !body.subjectId) {
-      toast('통장과 예산과목을 선택하세요.', 'error');
+    if (!body.accountId) {
+      toast('통장을 선택하세요.', 'error');
       return;
     }
-    pref = { accountId: body.accountId, subjectId: body.subjectId };
+    if (!$('payer-field').hidden) {
+      body.payer = $('payer').value.trim();
+      if (!body.payer) {
+        toast('수입은 봉헌자 이름을 꼭 적어야 합니다.', 'error');
+        $('payer').focus();
+        return;
+      }
+    }
+    pref = { accountId: body.accountId };
   }
   saving = true;
   $('save').disabled = true;
@@ -320,15 +263,18 @@ async function save() {
       const restore = beforeEdit;
       endEdit(false);
       setKind(restore.kind);
-      resetForNext();
     } else {
       await api(kind === 'TRANSFER' ? '/api/transfers' : '/api/transactions', { method: 'POST', body });
       toast('저장했습니다.');
       prefs[kind] = pref; // 수정이 아닌 새 입력만 다음 입력의 기본값으로 기억
       savePrefs();
-      resetForNext();
     }
+    resetForNext();
+    // 저장한 통장의 가계부를 보여 준다
+    const shown = kind === 'TRANSFER' ? body.fromAccountId : body.accountId;
+    if (shown !== bookAccountId) { bookAccountId = shown; book = null; }
     await loadDay();
+    await loadBook();
     if (body.payer) loadPayers().catch(() => {});
   } catch (err) {
     toast(err.message, 'error');
@@ -338,24 +284,26 @@ async function save() {
   }
 }
 
-function startEdit(row) {
+async function startEdit(row) {
+  // 다른 날짜의 거래면 입력 날짜를 그 날로 옮긴다
+  if (row.date !== $('date').value) {
+    $('date').value = row.date;
+    await loadDay();
+  }
   if (!editing) beforeEdit = { kind };
   editing = row;
   setKind(row.type, row.type === 'TRANSFER'
     ? { fromAccountId: row.fromAccountId, toAccountId: row.toAccountId }
-    : { accountId: row.accountId, subjectId: row.subjectId });
+    : { accountId: row.accountId });
   $('amount').value = formatWon(row.amount);
   $('memo').value = row.memo;
   $('payer').value = row.payer ?? '';
-  $('deduct').checked = Boolean(row.deduction);
-  resetEquipmentFields();
-  $('eq-on').checked = false; // 고칠 때는 꺼 둔다 (예전에 일부러 안 올린 지출일 수 있음)
-  updateEquipmentField();
-  $('edit-label').textContent = `#${row.id} ${{ IN: '수입', OUT: '지출', TRANSFER: '이체' }[row.type]} 거래를`;
+  $('edit-label').textContent = `${row.date.slice(5).replace('-', '.')} ${{ IN: '수입', OUT: '지출', TRANSFER: '이체' }[row.type]} 거래를`;
   $('edit-banner').hidden = false;
   $('entry').classList.add('editing');
   renderLock();
-  renderList();
+  renderBook();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   $('amount').focus();
   $('amount').select();
 }
@@ -369,10 +317,8 @@ function endEdit(restore = true) {
     $('amount').value = '';
     $('memo').value = '';
     $('payer').value = '';
-    resetEquipmentFields();
-    updateEquipmentField();
     renderLock();
-    renderList();
+    renderBook();
   }
   beforeEdit = null;
 }
@@ -380,15 +326,15 @@ function endEdit(restore = true) {
 async function deleteRow(row) {
   const what = row.type === 'TRANSFER'
     ? `이체 ${row.fromName} → ${row.toName} ${formatWon(row.amount)}원`
-    : `${row.accountName} ${formatWon(row.amount)}원 (${row.memo || row.subjectName})`;
-  if (!confirm(`${what}
+    : `${row.accountName} ${formatWon(row.amount)}원${row.memo ? ` (${row.memo})` : ''}`;
+  if (!confirm(`${row.date} ${what}
 
 이 거래를 삭제할까요?`)) return;
   try {
     await api(`/api/transactions/${row.id}`, { method: 'DELETE' });
     toast('삭제했습니다.');
     if (editing?.id === row.id) endEdit();
-    await loadDay();
+    await loadBook();
   } catch (err) {
     toast(err.message, 'error');
   }
@@ -403,10 +349,14 @@ function changeDate(next) {
   loadDay().catch((err) => toast(err.message, 'error'));
 }
 
+const run = (p) => p.catch((err) => toast(err.message, 'error'));
+
 $('date').addEventListener('change', () => changeDate($('date').value));
-$('account').addEventListener('change', updatePayerField);
-$('subject').addEventListener('change', () => { updateDeductField(); updateEquipmentField(); });
-$('eq-on').addEventListener('change', updateEquipmentField);
+$('account').addEventListener('change', () => {
+  updatePayerField();
+  selectBook(Number($('account').value));
+});
+$('from-account').addEventListener('change', () => selectBook(Number($('from-account').value)));
 $('prev-day').addEventListener('click', () => changeDate(addDays($('date').value, -1)));
 $('next-day').addEventListener('click', () => changeDate(addDays($('date').value, 1)));
 $('today').addEventListener('click', () => changeDate(todayKST()));
@@ -444,10 +394,30 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && editing && !document.querySelector('dialog[open]')) endEdit();
 });
 
-$('list').addEventListener('click', (e) => {
-  const find = (id) => mergedRows(day.transactions).find((r) => r.id === Number(id));
+// 통장 고르기: 가계부가 바뀌고, 수입·지출 입력 통장도 따라간다
+$('book-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-book]');
+  if (!b) return;
+  const id = Number(b.dataset.book);
+  if (!editing && kind !== 'TRANSFER' && $('account').querySelector(`option[value="${id}"]`)) {
+    $('account').value = String(id);
+    updatePayerField();
+  }
+  selectBook(id);
+});
+const shiftMonth = (dir) => {
+  bookMonth = addDays(`${bookMonth}-01`, dir > 0 ? 31 : -1).slice(0, 7);
+  book = null;
+  renderBook();
+  run(loadBook());
+};
+$('book-prev').addEventListener('click', () => shiftMonth(-1));
+$('book-next').addEventListener('click', () => shiftMonth(1));
+
+$('book').addEventListener('click', (e) => {
+  const find = (id) => book.rows.map(bookRow).find((r) => r.id === Number(id));
   const ed = e.target.closest('[data-edit]');
-  if (ed) startEdit(find(ed.dataset.edit));
+  if (ed) run(startEdit(find(ed.dataset.edit)));
   const del = e.target.closest('[data-delete]');
   if (del) deleteRow(find(del.dataset.delete));
 });
@@ -463,10 +433,14 @@ initPage('entry').then(async (ctx) => {
   if (isValidDate(param)) start = param;
   $('date').value = start;
   $('date').min = settings.parish.startDate;
+  const first = usable(null)[0];
+  bookAccountId = (usable(null).find((a) => a.id === prefs.IN?.accountId) ?? first)?.id ?? null;
   setKind('IN');
+  bookAccountId = Number($('account').value) || bookAccountId;
+  if (!bookAccountId) $('book').innerHTML = `<p class="muted">등록된 통장이 없습니다. <a href="${href('/settings?s=acct#accounts')}">통장 등록</a></p>`;
   loadPayers().catch(() => {});
   await loadDay();
   visibleFields()[0]?.focus();
 }).catch((err) => {
-  $('list').innerHTML = `<p class="error">${esc(err.message)}</p>`;
+  $('book').innerHTML = `<p class="error">${esc(err.message)}</p>`;
 });
