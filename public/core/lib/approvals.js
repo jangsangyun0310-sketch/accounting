@@ -1,7 +1,7 @@
 // 서류별 결재란 (doc_approvals). titles 가 빈 배열이면 그 서류에는 결재란이 없다.
 
 /** 결재란을 따로 두는 서류 */
-export const APPROVAL_DOCS = ['journal', 'daily', 'month', 'year', 'budget', 'accounts', 'donors'];
+export const APPROVAL_DOCS = ['journal', 'daily', 'month', 'year', 'budget', 'accounts', 'donors', 'week'];
 
 /** 처음 설정할 때: 받은 결재선을 사목일지 · 결산서에 넣고, 통장별 내역 · 개인별 납부는 결재란 없이 */
 export const DEFAULT_EMPTY_DOCS = ['accounts', 'donors'];

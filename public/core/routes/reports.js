@@ -148,8 +148,8 @@ export async function accounts({ env, url }) {
   if (from > to) throw bad('시작일이 종료일보다 늦습니다.', 'BAD_RANGE');
 
   const db = env.DB;
-  // 결재란: doc=month 이면 결산서(월말결산서 · 금전출납부 · 총계정원장 공용), 아니면 통장별 내역
-  const doc = p.get('doc') === 'month' ? 'month' : 'accounts';
+  // 결재란: doc=month 이면 결산서(월말결산서 · 금전출납부 · 총계정원장 공용), week 는 주간결산서, 아니면 통장별 내역
+  const doc = ['month', 'week'].includes(p.get('doc')) ? p.get('doc') : 'accounts';
   const [summary, txs, parish, lastClosed, steps] = await Promise.all([
     computePeriod(db, from, to),
     db.prepare(`${TX_SELECT} WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED' ORDER BY t.tx_date, t.id`).bind(from, to).all(),

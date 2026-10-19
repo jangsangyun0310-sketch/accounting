@@ -19,4 +19,5 @@ export const MIGRATIONS = [
   '0016_income_deduction.sql',
   '0017_equipment.sql',
   '0018_doc_approvals.sql',
+  '0019_week_approval.sql',
 ];

@@ -41,7 +41,7 @@ test('최초 설정: 빈 DB 에 한 번에 저장되고 두 번째는 거부', a
   assert.deepEqual(s.accounts.map((a) => [a.fundCode, a.name, a.openingBalance, a.sortOrder]),
     [['GENERAL', '경상비', 1500000, 1], ['SPECIAL', '건축 기금', 0, 1]]);
   const line = ['담당', '신부']; // 처음 결재선은 사목일지 · 결산서에 들어가고, 통장별 내역 · 개인별 납부는 결재란 없이
-  assert.deepEqual(s.approvals, { journal: line, daily: line, month: line, year: line, budget: line, accounts: [], donors: [] });
+  assert.deepEqual(s.approvals, { journal: line, daily: line, month: line, year: line, budget: line, accounts: [], donors: [], week: line });
   assert.equal(s.subjects.length, 3);
 
   const again = await api('POST', '/api/setup', setupPayload());

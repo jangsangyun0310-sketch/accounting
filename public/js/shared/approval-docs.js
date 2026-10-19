@@ -2,6 +2,7 @@
 export const APPROVAL_DOC_LABEL = {
   journal: '사목일지',
   daily: '일일결산',
+  week: '주간결산서',
   month: '결산서',
   year: '연말결산',
   budget: '예산 대비',
