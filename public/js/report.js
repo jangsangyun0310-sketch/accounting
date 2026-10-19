@@ -260,6 +260,39 @@ function renderMonthSheet() {
       ${reportHeadHtml('', r.approvalSteps, 'month')}
       ${shown.map((a) => sheetSection(a, month, notes)).join('') || '<p class="empty">인쇄할 통장을 고르세요</p>'}
     </article>`;
+  fitMonthSheet();
+}
+
+/**
+ * 고른 통장이 A4 한 장보다 적으면 줄 높이 · 글자 크기를 함께 키워 한 장을 꽉 채운다 (보기 좋게, 너무 커지지 않게 상한).
+ * 한 장을 넘으면 기본 크기 그대로 (다음 장으로).
+ */
+function fitMonthSheet() {
+  const art = $('paper').querySelector('article.ms');
+  if (!art?.querySelector('.ms-sec')) return;
+  const zoom = $('paper').style.zoom;
+  $('paper').style.zoom = '';
+  art.classList.add('measuring'); // 인쇄에 안 나오는 버튼은 빼고 잰다
+  const set = (row) => {
+    const k = (row - 4.4) / (12 - 4.4); // 0 (기본) ~ 1 (가장 크게)
+    art.style.setProperty('--ms-row', `${row}mm`);
+    art.style.setProperty('--ms-font', `${(9 + 3 * k).toFixed(2)}pt`);
+    art.style.setProperty('--ms-head', `${(10.5 + 3 * k).toFixed(2)}pt`);
+    art.style.setProperty('--ms-gap', `${(3 + 7 * k).toFixed(2)}mm`);
+    return art.getBoundingClientRect().height <= mm(PAGE_MM);
+  };
+  if (set(4.4)) {
+    // 한 장에 드는 가장 큰 줄 높이 (4.4mm ~ 12mm)
+    let lo = 4.4;
+    let hi = 12;
+    for (let i = 0; i < 12; i++) {
+      const mid = (lo + hi) / 2;
+      if (set(mid)) lo = mid; else hi = mid;
+    }
+    set(Math.floor(lo * 10) / 10);
+  }
+  art.classList.remove('measuring');
+  $('paper').style.zoom = zoom;
 }
 
 /** 비고 저장 (그 달 비고를 통째로) */
