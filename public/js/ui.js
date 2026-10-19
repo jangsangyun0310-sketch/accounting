@@ -97,7 +97,6 @@ export async function initPage(active, { requireSetup = true } = {}) {
       <nav>${ready ? `<a href="${href('/')}" class="nav-home ${active === 'home' ? 'active' : ''}"><span class="ni">${ICON.home}</span><span class="nl">홈</span></a>`
         + GROUPS.map((g) => `<a href="${href(g.home ?? g.items[0][0])}" class="${g === group ? 'active' : ''}"><span class="ni">${ICON[g.key]}</span><span class="nl">${g.label}</span></a>`).join('') : ''}</nav>
       ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' && !group ? 'active' : ''}" title="성당 정보 · 백업 · 함께 사용">⚙ 성당 설정</a>` : ''}
-      <button type="button" class="more-btn" id="more-btn" aria-expanded="false" aria-label="메뉴 더 보기">⋯</button>
       <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button>
       <span class="account"><a class="help-link ${active === 'help' ? 'active' : ''}" href="${href(HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : '/help')}">도움말</a>
         <button type="button" class="secondary small" id="logout-btn"
@@ -112,11 +111,14 @@ export async function initPage(active, { requireSetup = true } = {}) {
     }
     bar.querySelector('#share-btn')?.addEventListener('click', openShareDialog);
     bar.querySelector('#logout-btn')?.addEventListener('click', logout);
-    // 휴대폰: [⋯]를 누르면 로그아웃·공유하기가 펼쳐진다
-    bar.querySelector('#more-btn')?.addEventListener('click', (e) => {
-      const open = bar.classList.toggle('menu-open');
-      e.currentTarget.setAttribute('aria-expanded', String(open));
-    });
+    // 휴대폰: 위 막대에는 공유하기 · 로그아웃을 두지 않고, ⚙ 성당 설정 화면 맨 아래에 둔다
+    if (active === 'settings' && !group) {
+      document.querySelector('main')?.insertAdjacentHTML('beforeend', `<div class="mobile-account">
+        <button type="button" class="secondary" data-mobile-share>공유하기</button>
+        <button type="button" class="secondary" data-mobile-logout>로그아웃</button></div>`);
+      document.querySelector('[data-mobile-share]')?.addEventListener('click', openShareDialog);
+      document.querySelector('[data-mobile-logout]')?.addEventListener('click', logout);
+    }
     document.body.classList.toggle('has-bottom-nav', Boolean(settings.setupCompleted));
   }
   // 입력자 · 처리자: 내 로그인 메일은 결산서 작성자 이름으로 보여 준다 (기록은 메일 그대로)

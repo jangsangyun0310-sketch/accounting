@@ -485,11 +485,11 @@ td, th { overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 적요도 칸 안
 
 /* ======================================================================
    휴대폰 화면 (폭 720px 이하)
-   - 위: 로고 · [설정] · [도움말] · [⋯](로그아웃·공유하기) 한 줄
+   - 위: 로고 · [설정] · [도움말] 한 줄 (공유하기 · 로그아웃은 ⚙ 성당 설정 화면 맨 아래)
    - 아래: 홈 · 거래 입력 · 거래 조회 · 일 마감 · 결산 고정 메뉴 바
    - 표: 숫자는 한 줄로, 넓은 표는 옆으로 밀어서 본다
    ====================================================================== */
-.topbar nav .ni, .topbar .more-btn { display: none; }
+.topbar nav .ni, .mobile-account { display: none; }
 td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
 
 @media (max-width: 720px) {
@@ -497,20 +497,12 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   .topbar-inner { gap: 8px; padding: 0 12px; }
   .topbar .brand { margin-right: auto; }
   .topbar .brand img { height: 36px; }
-  .topbar .settings-link, .topbar .help-link, .topbar .more-btn, .topbar .account button, .topbar .share-btn { height: 36px; padding: 0 10px; font-size: 14px; }
+  .topbar .settings-link, .topbar .help-link, .topbar .account button, .topbar .share-btn { height: 36px; padding: 0 10px; font-size: 14px; }
   .topbar .account, .topbar .share-btn + .account { margin-left: 0; order: 3; }
-  .topbar .more-btn { order: 4; }
   .topbar .account button, .topbar .share-btn { display: none; }
-  .topbar .more-btn { display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #1d2330; border: 1.5px solid #4b5563; border-radius: 4px; font-size: 18px; width: 40px; padding: 0; }
-  /* [⋯]를 누르면 버튼 아래에 작은 창으로 로그아웃·공유하기 */
-  .topbar-inner { position: relative; }
-  .topbar.menu-open .account button, .topbar.menu-open .share-btn {
-    display: inline-flex; position: absolute; right: 12px; width: 150px; justify-content: center; z-index: 40;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .15);
-  }
-  .topbar.menu-open .account button { top: 46px; }
-  .topbar.menu-open .share-btn { top: 88px; }
-  .topbar.menu-open .more-btn { background: var(--accent-soft); }
+  /* ⚙ 성당 설정 화면 맨 아래: 공유하기 · 로그아웃 */
+  .mobile-account { display: flex; gap: 10px; justify-content: center; margin: 24px 0 8px; }
+  .mobile-account button { min-width: 120px; }
 
   /* 아래 고정 메뉴 바 */
   .topbar nav {
