@@ -94,6 +94,9 @@ body.report-page { background: #e9ecf0; }
 .ms-pick { max-width: 210mm; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 14px; }
 .ms-pick label { display: inline-flex; flex-direction: row; gap: 5px; align-items: center; font-weight: 600; margin: 0; }
 .ms-pick .muted { font-weight: normal; }
+/* 인쇄 순서 번호: 자리는 늘 잡아 두어 체크해도 통장 위치가 움직이지 않게 */
+.ms-pick .pick-no { display: inline-block; width: 20px; height: 18px; line-height: 18px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 12px; text-align: center; }
+.ms-pick .pick-no.off { visibility: hidden; }
 .r-table .amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .r-table .amt.strong { font-weight: 700; }
 .r-table td.nil { text-align: center; } /* 내용 없는 칸의 가운데 점 */

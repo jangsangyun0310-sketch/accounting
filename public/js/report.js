@@ -304,8 +304,7 @@ function renderMonthSheet() {
   const picked = pickedIds(list);
   const no = (id) => picked.indexOf(id) + 1; // 몇 번째로 인쇄되는지
   $('warning').innerHTML = `<div class="ms-pick">인쇄할 통장:
-    ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${no(a.id) ? 'checked' : ''}> ${esc(a.name)}${no(a.id)
-      ? ` <span class="pick-no">${no(a.id)}</span>` : ''}</label>`).join('')}
+    ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${no(a.id) ? 'checked' : ''}> ${esc(a.name)}<span class="pick-no${no(a.id) ? '' : ' off'}">${no(a.id) || ''}</span></label>`).join('')}
     ${picked.length === list.length
       ? '<button type="button" class="secondary small" data-pick-all="0">모두 해제</button>'
       : '<button type="button" class="secondary small" data-pick-all="1">모두 체크</button>'}
