@@ -10,9 +10,9 @@ import { downloadXlsx, reportSheet } from './excel.js';
 const $ = (id) => document.getElementById(id);
 
 const TYPES = {
-  month: { title: '월 말 결 산 서', name: '월말결산서' },
-  cashbook: { title: '금 전 출 납 부', name: '금전출납부' },
-  gl: { title: '총 계 정 원 장', name: '총계정원장' },
+  month: { title: '월말결산서', name: '월말결산서' },
+  cashbook: { title: '금전출납부', name: '금전출납부' },
+  gl: { title: '총계정원장', name: '총계정원장' },
   donors: { name: '봉헌자 조회' }, // 봉헌자별 1년 내역 (연말정산 준비)
 };
 let type = 'month';
@@ -99,11 +99,10 @@ function render() {
     <article class="report ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
       ${reportHeadHtml(`
-          <h1>특별회계 ${info.title}${closed ? '' : ' <small>(가결산)</small>'}</h1>
+          <h1 class="one-line">특별회계 ${info.title}${closed ? '' : ' <small>(가결산)</small>'}</h1>
           <table class="r-meta">
             <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
             <tr><th>기 간</th><td>${y}년 ${m}월 1일 ~ ${m}월 ${Number(r.to.slice(8))}일</td></tr>
-            <tr><th>작성자</th><td>${esc(r.writerName)}<span class="seal">(인)</span></td></tr>
           </table>`, r.approvalSteps, 'month')}
       ${body}
     </article>`;
