@@ -161,7 +161,13 @@ function fillPage() {
 // 내역 = 거래의 '내용' (같은 글자끼리 한 줄, 내용이 없으면 기타), 통장끼리 옮긴 돈은 '이체 받음' · '이체 보냄'. 줄은 누계가 큰 순.
 // 전월누계 = 1월 1일부터 지난달 말까지, 금월액 = 이번 달, 누계 = 둘의 합.
 
-const picked = new Set(); // 인쇄할 통장 (화면을 열 때마다 아무것도 고르지 않은 채로 시작)
+const PRINT_KEY = 'bondang.monthSheetSkip'; // 인쇄하지 않을 통장 (이 컴퓨터에 기억)
+function skipped() {
+  try { return new Set(JSON.parse(localStorage.getItem(PRINT_KEY)) ?? []); } catch { return new Set(); }
+}
+function setSkipped(set) {
+  try { localStorage.setItem(PRINT_KEY, JSON.stringify([...set])); } catch { /* 저장 불가 환경 */ }
+}
 
 /** 통장 하나의 내역 줄: [{ name, side: 'IN'|'OUT', p: 전월누계, m: 금월액 }] (누계 큰 순) */
 function sheetLines(a, monthStart) {
@@ -229,17 +235,18 @@ function renderMonthSheet() {
     + ' <span class="muted">· 노란 칸(비고)은 적고 [비고 저장]을 누르세요.</span>';
   const order = (a) => { const i = accountOrder.indexOf(a.id); return i < 0 ? 1e9 : i; };
   const list = [...fundAccounts(r)].sort((p, q) => order(p) - order(q));
+  const skip = skipped();
   $('warning').innerHTML = `<div class="ms-pick">인쇄할 통장:
-    ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${picked.has(a.id) ? 'checked' : ''}> ${esc(a.name)}</label>`).join('')}
+    ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${skip.has(a.id) ? '' : 'checked'}> ${esc(a.name)}</label>`).join('')}
     <span class="muted">· 순서는 ⚙ 특별회계 설정 → 통장에서 ▲▼</span></div>`;
   const notes = new Map(r.notes.map((n) => [`${n.accountId}|${n.key}`, n.note]));
-  const shown = list.filter((a) => picked.has(a.id));
+  const shown = list.filter((a) => !skip.has(a.id));
   $('paper').innerHTML = `
     <article class="report ms ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
       <h1 class="ms-title">${y}년 ${m}월 특별회계 결산서${closed ? '' : ' <small>(가결산)</small>'}</h1>
       ${reportHeadHtml('', r.approvalSteps, 'month')}
-      ${shown.map((a) => sheetSection(a, month, notes)).join('') || '<p class="empty no-print">위에서 인쇄할 통장을 고르세요</p>'}
+      ${shown.map((a) => sheetSection(a, month, notes)).join('') || '<p class="empty">인쇄할 통장을 고르세요</p>'}
     </article>`;
 }
 
@@ -518,12 +525,14 @@ $('paper').addEventListener('input', (e) => {
   notesDirty = true;
   $('save-notes').classList.remove('secondary');
 });
-// 인쇄할 통장 고르기 (다른 달로 옮겨도 그대로, 화면을 새로 열면 다시 비움). 적던 비고는 화면에 남긴다
+// 인쇄할 통장 고르기 (고른 것은 이 컴퓨터에 기억). 적던 비고는 화면에 남긴다
 $('warning').addEventListener('change', (e) => {
   const c = e.target.closest('[data-pick]');
   if (!c) return;
   const keep = new Map([...$('paper').querySelectorAll('input.note')].map((i) => [`${i.dataset.acc}|${i.dataset.key}`, i.value]));
-  if (c.checked) picked.add(Number(c.dataset.pick)); else picked.delete(Number(c.dataset.pick));
+  const set = skipped();
+  if (c.checked) set.delete(Number(c.dataset.pick)); else set.add(Number(c.dataset.pick));
+  setSkipped(set);
   renderMonthSheet();
   for (const i of $('paper').querySelectorAll('input.note')) {
     const v = keep.get(`${i.dataset.acc}|${i.dataset.key}`);
