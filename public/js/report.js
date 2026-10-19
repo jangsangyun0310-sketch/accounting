@@ -326,7 +326,6 @@ function sheetSection(a, month, notes) {
 function renderMonthSheet() {
   const r = monthReport;
   const month = currentValue();
-  const [y, m] = month.split('-').map(Number);
   const closed = r.status === 'CLOSED';
   document.title = `월말결산서 ${month} - 본당살림`;
   $('state').innerHTML = (closed
@@ -351,8 +350,12 @@ function renderMonthSheet() {
     <article class="report ms ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
       <div class="ms-head-block">
-        <h1 class="ms-title">${y}년 ${m}월 특별회계 결산서${closed ? '' : ' <small>(가결산)</small>'}</h1>
-        ${reportHeadHtml('', r.approvalSteps, 'month')}
+        ${reportHeadHtml(`
+          <h1 class="one-line">특별회계 월말결산서${closed ? '' : ' <small>(가결산)</small>'}</h1>
+          <table class="r-meta">
+            <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
+            <tr><th>기 간</th><td>${periodText(`${month}-01`, r.to, false)}</td></tr>
+          </table>`, r.approvalSteps, 'month')}
       </div>
       ${shown.map((a) => sheetSection(a, month, notes)).join('') || '<p class="empty">인쇄할 통장을 고르세요</p>'}
     </article>`;

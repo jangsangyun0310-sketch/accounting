@@ -70,8 +70,6 @@ body.report-page { background: #e9ecf0; }
 .report.fit h2 { font-size: var(--fit-head); margin-top: var(--fit-gap); }
 
 /* 월말결산서 (특별회계 결산서 양식): 기본 10pt, 남는 자리는 report.js 가 키워 채운다 */
-.ms h1.ms-title { text-align: center; font-size: 17pt; letter-spacing: 1px; margin: 0 0 1mm; }
-.ms h1.ms-title small { font-size: 10pt; color: #b42318; letter-spacing: 0; }
 .ms .r-head { margin-bottom: 1mm; }
 .ms h2 { margin: var(--ms-gap, 3mm) 0 1mm; font-size: var(--ms-head, 10.5pt); }
 .ms-sec { break-inside: avoid; }
