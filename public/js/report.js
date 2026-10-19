@@ -161,13 +161,19 @@ function fillPage() {
 // 내역 = 거래의 '내용' (같은 글자끼리 한 줄, 내용이 없으면 기타), 통장끼리 옮긴 돈은 '이체 받음' · '이체 보냄'. 줄은 누계가 큰 순.
 // 전월누계 = 1월 1일부터 지난달 말까지, 금월액 = 이번 달, 누계 = 둘의 합.
 
-const PRINT_KEY = 'bondang.monthSheetSkip'; // 인쇄하지 않을 통장 (이 컴퓨터에 기억)
-function skipped() {
-  try { return new Set(JSON.parse(localStorage.getItem(PRINT_KEY)) ?? []); } catch { return new Set(); }
+// 인쇄할 통장: 체크한 순서대로 인쇄 (이 컴퓨터에 기억). 처음에는 모든 통장을 설정 순서대로
+const PRINT_KEY = 'bondang.monthSheetPick';
+/** 인쇄할 통장 id (인쇄 순서) — list 는 지금 있는 통장 (설정 순서) */
+function pickedIds(list) {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(PRINT_KEY)); } catch { /* 저장 불가 환경 */ }
+  const ids = new Set(list.map((a) => a.id));
+  return Array.isArray(saved) ? saved.filter((id) => ids.has(id)) : [...ids];
 }
-function setSkipped(set) {
-  try { localStorage.setItem(PRINT_KEY, JSON.stringify([...set])); } catch { /* 저장 불가 환경 */ }
+function setPicked(ids) {
+  try { localStorage.setItem(PRINT_KEY, JSON.stringify(ids)); } catch { /* 저장 불가 환경 */ }
 }
+let pickList = []; // 지금 화면의 통장 (설정 순서)
 
 /** 통장 하나의 내역 줄: [{ name, side: 'IN'|'OUT', p: 전월누계, m: 금월액 }] (누계 큰 순) */
 function sheetLines(a, monthStart) {
@@ -235,15 +241,18 @@ function renderMonthSheet() {
     + ' <span class="muted">· 노란 칸(비고)은 적고 [비고 저장]을 누르세요.</span>';
   const order = (a) => { const i = accountOrder.indexOf(a.id); return i < 0 ? 1e9 : i; };
   const list = [...fundAccounts(r)].sort((p, q) => order(p) - order(q));
-  const skip = skipped();
+  pickList = list;
+  const picked = pickedIds(list);
+  const no = (id) => picked.indexOf(id) + 1; // 몇 번째로 인쇄되는지
   $('warning').innerHTML = `<div class="ms-pick">인쇄할 통장:
-    ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${skip.has(a.id) ? '' : 'checked'}> ${esc(a.name)}</label>`).join('')}
-    ${list.every((a) => !skip.has(a.id))
+    ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${no(a.id) ? 'checked' : ''}> ${esc(a.name)}${no(a.id)
+      ? ` <span class="pick-no">${no(a.id)}</span>` : ''}</label>`).join('')}
+    ${picked.length === list.length
       ? '<button type="button" class="secondary small" data-pick-all="0">모두 해제</button>'
       : '<button type="button" class="secondary small" data-pick-all="1">모두 체크</button>'}
-    <span class="muted">· 순서는 ⚙ 특별회계 설정 → 통장에서 ▲▼</span></div>`;
+    <span class="muted">· 체크한 순서대로 인쇄됩니다 (번호)</span></div>`;
   const notes = new Map(r.notes.map((n) => [`${n.accountId}|${n.key}`, n.note]));
-  const shown = list.filter((a) => !skip.has(a.id));
+  const shown = picked.map((id) => list.find((a) => a.id === id));
   $('paper').innerHTML = `
     <article class="report ms ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
@@ -528,12 +537,10 @@ $('paper').addEventListener('input', (e) => {
   notesDirty = true;
   $('save-notes').classList.remove('secondary');
 });
-// 인쇄할 통장 고르기 (고른 것은 이 컴퓨터에 기억). 적던 비고는 화면에 남긴다
+// 인쇄할 통장 고르기: 체크하면 맨 뒤에 붙고, 풀면 빠진다 (이 컴퓨터에 기억). 적던 비고는 화면에 남긴다
 function repick(change) {
   const keep = new Map([...$('paper').querySelectorAll('input.note')].map((i) => [`${i.dataset.acc}|${i.dataset.key}`, i.value]));
-  const set = skipped();
-  change(set);
-  setSkipped(set);
+  setPicked(change(pickedIds(pickList)));
   renderMonthSheet();
   for (const i of $('paper').querySelectorAll('input.note')) {
     const v = keep.get(`${i.dataset.acc}|${i.dataset.key}`);
@@ -544,14 +551,13 @@ $('warning').addEventListener('change', (e) => {
   const c = e.target.closest('[data-pick]');
   if (!c) return;
   const id = Number(c.dataset.pick);
-  repick((set) => (c.checked ? set.delete(id) : set.add(id)));
+  repick((ids) => (c.checked ? [...ids.filter((x) => x !== id), id] : ids.filter((x) => x !== id)));
 });
-// 버튼 하나: 모두 체크되어 있으면 [모두 해제], 아니면 [모두 체크]
+// 버튼 하나: 모두 체크되어 있으면 [모두 해제], 아니면 [모두 체크] (체크해 둔 것 뒤에 나머지를 설정 순서대로)
 $('warning').addEventListener('click', (e) => {
   const b = e.target.closest('[data-pick-all]');
   if (!b) return;
-  const ids = [...$('warning').querySelectorAll('[data-pick]')].map((c) => Number(c.dataset.pick));
-  repick((set) => ids.forEach((id) => (b.dataset.pickAll === '1' ? set.delete(id) : set.add(id))));
+  repick((ids) => (b.dataset.pickAll === '1' ? [...ids, ...pickList.map((a) => a.id).filter((id) => !ids.includes(id))] : []));
 });
 addEventListener('beforeunload', (e) => { if (notesDirty) e.preventDefault(); });
 
