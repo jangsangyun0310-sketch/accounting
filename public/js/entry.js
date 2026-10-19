@@ -141,12 +141,6 @@ async function loadBook() {
   renderBook();
 }
 
-function renderTabs() {
-  $('book-tabs').innerHTML = usable(bookAccountId).map((a) =>
-    `<button type="button" role="tab" data-book="${a.id}" class="${a.id === bookAccountId ? 'active' : ''}"
-      aria-selected="${a.id === bookAccountId}">${esc(a.name)}</button>`).join('');
-}
-
 /** 가계부 한 줄 (이체는 상대 통장을 화살표로) */
 function bookRow(t) {
   if (t.kind === 'TRANSFER') {
@@ -165,7 +159,6 @@ function bookRow(t) {
 }
 
 function renderBook() {
-  renderTabs();
   const [y, m] = bookMonth.split('-').map(Number);
   const account = settings.accounts.find((a) => a.id === bookAccountId);
   $('book-month').textContent = `${account ? `${account.name} · ` : ''}${y}년 ${m}월`;
@@ -423,18 +416,6 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && editing && !document.querySelector('dialog[open]')) endEdit();
 });
 
-// 통장 고르기: 가계부가 바뀌고, 수입·지출 입력 통장도 따라간다
-$('book-tabs').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-book]');
-  if (!b) return;
-  const id = Number(b.dataset.book);
-  if (!editing && kind !== 'TRANSFER' && $('account').querySelector(`option[value="${id}"]`)) {
-    $('account').value = String(id);
-    updatePayerField();
-    loadMemos().catch(() => {});
-  }
-  selectBook(id);
-});
 const shiftMonth = (dir) => {
   bookMonth = addDays(`${bookMonth}-01`, dir > 0 ? 31 : -1).slice(0, 7);
   book = null;
