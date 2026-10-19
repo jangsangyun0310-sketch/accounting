@@ -90,7 +90,7 @@ function summaryHtml(day, closed) {
       <div class="special-summary-head">
         <h3>특별회계 요약 <span class="muted small">양업 사목일지에 붙여 넣기</span></h3>
         <button type="button" class="secondary small" data-copy-summary>복사</button>
-        <a class="button secondary small" href="${href(`/report?type=daily&day=${day.date}`)}">일계표 보기</a>
+        <a class="button secondary small" href="${href(`/report?type=daily&day=${day.date}`)}">일일결산서 보기</a>
       </div>
       <textarea id="special-summary" readonly rows="${text.split('\n').length}">${esc(text)}</textarea>
     </div>`;

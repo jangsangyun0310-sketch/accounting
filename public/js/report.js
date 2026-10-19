@@ -13,7 +13,7 @@ import { downloadXlsx, paperSheet } from './excel.js';
 const $ = (id) => document.getElementById(id);
 
 const TYPES = {
-  daily: { title: '일계표', name: '일계표' }, // 마감한 날만
+  daily: { title: '일일결산서', name: '일일결산서' }, // 마감한 날만
   week: { title: '주간결산서', name: '주간결산서' },
   month: { title: '월말결산서', name: '월말결산서' },
   cashbook: { title: '금전출납부', name: '금전출납부' },
@@ -128,26 +128,26 @@ function render() {
   fillPage();
 }
 
-// ---------------------------------------------------------------- 일계표 (마감한 날만)
+// ---------------------------------------------------------------- 일일결산서 (마감한 날만)
 // 통장마다 전일잔액 · 수입 · 지출 · (이체) · 금일잔액, 합계. 결재란은 월말결산서와 같은 결산서 결재란.
 
 function renderDaily() {
   const r = monthReport;
   const day = r.from;
-  document.title = `일계표 ${day} - 본당살림`;
+  document.title = `일일결산서 ${day} - 본당살림`;
   $('warning').innerHTML = '';
   if (r.status !== 'CLOSED') {
-    $('state').innerHTML = `<span class="pill open">마감 전</span> <span class="muted">일계표는 마감한 날만 나옵니다.
+    $('state').innerHTML = `<span class="pill open">마감 전</span> <span class="muted">일일결산서는 마감한 날만 나옵니다.
       (마지막 마감일: ${r.closedThrough ? formatKoreanDate(r.closedThrough) : '없음'})</span>`;
     $('paper').innerHTML = `<p class="muted">${formatKoreanDate(day)}은(는) 아직 마감하지 않았습니다.
-      <a href="${href(`/closing?date=${day}`)}">일 마감 화면</a>에서 마감하면 일계표가 나옵니다.</p>`;
+      <a href="${href(`/closing?date=${day}`)}">일 마감 화면</a>에서 마감하면 일일결산서가 나옵니다.</p>`;
     return;
   }
   $('state').innerHTML = '<span class="pill closed">마감 완료</span>';
   $('paper').innerHTML = `
     <article class="report">
       ${reportHeadHtml(`
-          <h1 class="one-line">특별회계 일계표</h1>
+          <h1 class="one-line">특별회계 일일결산서</h1>
           <table class="r-meta">
             <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
             <tr><th>일 자</th><td>${formatKoreanDate(day)}</td></tr>

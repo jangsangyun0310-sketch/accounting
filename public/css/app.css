@@ -328,7 +328,7 @@ ul.legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 1
 .detail-actions button, .detail-actions .button { padding: 9px 20px; line-height: 1.5; }
 .special-summary { margin-top: 20px; }
 .special-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
-.special-summary-head h3 { margin: 0 auto 0 0; } /* 제목 왼쪽, [복사] · [일계표 보기] 오른쪽 */
+.special-summary-head h3 { margin: 0 auto 0 0; } /* 제목 왼쪽, [복사] · [일일결산서 보기] 오른쪽 */
 .special-summary textarea { width: 100%; resize: vertical; font: inherit; line-height: 1.6; }
 .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; color: #fff; }
 .pill.closed { background: var(--in); }
