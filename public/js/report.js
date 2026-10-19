@@ -3,6 +3,7 @@
 // 월말결산서는 통장마다 수입 · 지출 내역(= 거래의 내용) × 전월누계 · 금월액 · 누계 · 비고. 비고는 직접 적어 저장한다.
 // 주간결산서(주일~토요일)는 결재란을 따로 둔다.
 // 서류마다 따로 인쇄해서 따로 서명받는다.
+import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, toast, reportHeadHtml } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
@@ -12,6 +13,7 @@ import { downloadXlsx, paperSheet } from './excel.js';
 const $ = (id) => document.getElementById(id);
 
 const TYPES = {
+  daily: { title: '일계표', name: '일계표' }, // 마감한 날만
   week: { title: '주간결산서', name: '주간결산서' },
   month: { title: '월말결산서', name: '월말결산서' },
   cashbook: { title: '금전출납부', name: '금전출납부' },
@@ -24,7 +26,7 @@ let accountOrder = [];  // 설정의 통장 순서 (통장 id)
 let notesDirty = false; // 월말결산서 비고를 고치고 아직 저장하지 않음
 
 // 고르는 단위: 주(주일 날짜) · 달(YYYY-MM) · 해(YYYY)
-const unitOf = (t) => (t === 'donors' ? 'year' : t === 'week' ? 'week' : 'month');
+const unitOf = (t) => ({ donors: 'year', week: 'week', daily: 'day' }[t] ?? 'month');
 const isMonthly = (t) => unitOf(t) === 'month';
 const currentValue = () => $(unitOf(type)).value;
 const sundayOf = (d) => addDays(d, -new Date(`${d}T00:00:00Z`).getUTCDay());
@@ -37,8 +39,8 @@ async function load(nextType, value) {
   type = nextType;
   document.querySelectorAll('#report-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
   const unit = unitOf(type);
-  for (const u of ['week', 'month', 'year']) $(u).hidden = u !== unit;
-  $('now').textContent = { week: '이번 주', month: '이번 달', year: '올해' }[unit];
+  for (const u of ['day', 'week', 'month', 'year']) $(u).hidden = u !== unit;
+  $('now').textContent = { day: '오늘', week: '이번 주', month: '이번 달', year: '올해' }[unit];
   if (unit === 'year' && ![...$('year').options].some((o) => o.value === value)) $('year').append(new Option(`${value}년`, value));
   $(unit).value = value;
   history.replaceState(null, '', `?type=${type}&${unit}=${value}`);
@@ -54,7 +56,7 @@ async function load(nextType, value) {
     const keyOf = (t, v) => `${t === 'month' ? 'ms' : unitOf(t)}:${v}`;
     const key = keyOf(type, value);
     if (monthReport?.key !== key) {
-      const [from, to, doc] = unit === 'week' ? [value, addDays(value, 6), 'week']
+      const [from, to, doc] = unit === 'day' ? [value, value, 'month'] : unit === 'week' ? [value, addDays(value, 6), 'week']
         : type === 'month' ? [`${value.slice(0, 4)}-01-01`, monthEnd(value), 'month'] : [`${value}-01`, monthEnd(value), 'month'];
       const [r, n] = await Promise.all([api(`/api/reports/accounts?from=${from}&to=${to}&doc=${doc}`),
         type === 'month' ? api(`/api/reports/month-notes?month=${value}`) : null]);
@@ -80,11 +82,12 @@ addEventListener('afterprint', fitPaper);
 /** 이전·다음 (한 주 / 한 달 / 한 해) */
 function shift(dir) {
   const v = currentValue();
+  if (unitOf(type) === 'day') return addDays(v, dir);
   if (unitOf(type) === 'week') return addDays(v, dir * 7);
   if (isMonthly(type)) return addDays(`${v}-01`, dir > 0 ? 31 : -1).slice(0, 7);
   return String(Number(v) + dir);
 }
-const nowValue = () => ({ week: sundayOf(todayKST()), month: todayKST().slice(0, 7), year: todayKST().slice(0, 4) })[unitOf(type)];
+const nowValue = () => ({ day: todayKST(), week: sundayOf(todayKST()), month: todayKST().slice(0, 7), year: todayKST().slice(0, 4) })[unitOf(type)];
 
 // ---------------------------------------------------------------- 주간결산서 · 월말결산서 · 금전출납부 · 총계정원장
 
@@ -97,6 +100,7 @@ function fundAccounts(r) {
 function render() {
   $('save-notes').hidden = type !== 'month';
   if (type === 'month') return renderMonthSheet();
+  if (type === 'daily') return renderDaily();
   const r = monthReport;
   const closed = r.status === 'CLOSED';
   const week = type === 'week';
@@ -122,6 +126,35 @@ function render() {
       ${body}
     </article>`;
   fillPage();
+}
+
+// ---------------------------------------------------------------- 일계표 (마감한 날만)
+// 통장마다 전일잔액 · 수입 · 지출 · (이체) · 금일잔액, 합계. 결재란은 월말결산서와 같은 결산서 결재란.
+
+function renderDaily() {
+  const r = monthReport;
+  const day = r.from;
+  document.title = `일계표 ${day} - 본당살림`;
+  $('warning').innerHTML = '';
+  if (r.status !== 'CLOSED') {
+    $('state').innerHTML = `<span class="pill open">마감 전</span> <span class="muted">일계표는 마감한 날만 나옵니다.
+      (마지막 마감일: ${r.closedThrough ? formatKoreanDate(r.closedThrough) : '없음'})</span>`;
+    $('paper').innerHTML = `<p class="muted">${formatKoreanDate(day)}은(는) 아직 마감하지 않았습니다.
+      <a href="${href(`/closing?date=${day}`)}">일 마감 화면</a>에서 마감하면 일계표가 나옵니다.</p>`;
+    return;
+  }
+  $('state').innerHTML = '<span class="pill closed">마감 완료</span>';
+  $('paper').innerHTML = `
+    <article class="report">
+      ${reportHeadHtml(`
+          <h1 class="one-line">특별회계 일계표</h1>
+          <table class="r-meta">
+            <tr><th>성 당</th><td>${esc(r.parishName)}</td></tr>
+            <tr><th>일 자</th><td>${formatKoreanDate(day)}</td></tr>
+          </table>`, r.approvalSteps, 'month')}
+      ${monthTable(r, '전일잔액', '금일잔액')}
+    </article>`;
+  measured(() => scaleToPage($('paper').querySelector('article.report')));
 }
 
 // ---------------------------------------------------------------- 한 장에 꽉 차게
@@ -432,7 +465,7 @@ function periodText(from, to, week) {
 /** 주간결산서 위쪽 표: 통장별 전주이월 · 수입 · 지출 · (이체) · 잔액 */
 const SUM = '=SUM({body})';
 const BAL = '={r-1}+{c-2}-{c-1}'; // 잔액 = 윗줄 잔액 + 수입 − 지출
-function monthTable(r, carry = '전월이월') {
+function monthTable(r, carry = '전월이월', endLabel = '잔액') {
   const list = fundAccounts(r);
   const SUM = list.length ? '=SUM({body})' : '';
   const hasTransfer = list.some((a) => a.transferIn || a.transferOut);
@@ -440,10 +473,10 @@ function monthTable(r, carry = '전월이월') {
   const xfer = (a) => a.transferIn - a.transferOut;
   return `
       <table class="r-table">
-        <thead><tr><th>통장</th><th>${carry}</th><th>수입</th><th>지출</th>${hasTransfer ? '<th>이체</th>' : ''}<th>잔액</th></tr></thead>
+        <thead><tr><th>통장</th><th>${carry}</th><th>수입</th><th>지출</th>${hasTransfer ? '<th>이체</th>' : ''}<th>${endLabel}</th></tr></thead>
         <tbody>${list.map((a) => `
-          <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td><td class="amt">${formatWon(a.income)}</td>
-            <td class="amt">${formatWon(a.expense)}</td>${hasTransfer ? `<td class="amt">${xfer(a) > 0 ? '+' : ''}${formatWon(xfer(a))}</td>` : ''}
+          <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td>${wonCell(a.income)}
+            ${wonCell(a.expense)}${hasTransfer ? (xfer(a) ? `<td class="amt">${xfer(a) > 0 ? '+' : ''}${formatWon(xfer(a))}</td>` : wonCell(0)) : ''}
             <td class="amt strong"${fx(hasTransfer ? '={c-4}+{c-3}-{c-2}+{c-1}' : '={c-3}+{c-2}-{c-1}')}>${formatWon(a.end)}</td></tr>`).join('')
           || `<tr><td colspan="${hasTransfer ? 6 : 5}" class="empty">등록된 통장이 없습니다</td></tr>`}
         </tbody>
@@ -652,7 +685,7 @@ $('paper').addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------- 이벤트
 
 const run = (p) => p.catch((err) => toast(err.message, 'error'));
-const PATTERN = { week: /^\d{4}-\d{2}-\d{2}$/, month: /^\d{4}-\d{2}$/, year: /^\d{4}$/ };
+const PATTERN = { day: /^\d{4}-\d{2}-\d{2}$/, week: /^\d{4}-\d{2}-\d{2}$/, month: /^\d{4}-\d{2}$/, year: /^\d{4}$/ };
 const valid = (v) => PATTERN[unitOf(type)].test(v ?? '');
 // 주는 아무 날을 골라도 그 주 주일로
 const go = (v) => { if (valid(v)) run(load(type, unitOf(type) === 'week' ? sundayOf(v) : v)); };
@@ -663,10 +696,10 @@ $('report-tabs').addEventListener('click', (e) => {
   const next = b.dataset.type;
   // 단위가 바뀌면 이번 주 · 이번 달 · 올해로, 같은 단위(월 서류끼리)면 보던 달 그대로
   const same = unitOf(next) === unitOf(type);
-  const value = same ? currentValue() : { week: sundayOf(todayKST()), month: todayKST().slice(0, 7), year: todayKST().slice(0, 4) }[unitOf(next)];
+  const value = same ? currentValue() : { day: todayKST(), week: sundayOf(todayKST()), month: todayKST().slice(0, 7), year: todayKST().slice(0, 4) }[unitOf(next)];
   run(load(next, value));
 });
-for (const id of ['week', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
+for (const id of ['day', 'week', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
 $('prev').addEventListener('click', () => go(shift(-1)));
 $('next').addEventListener('click', () => go(shift(1)));
 $('now').addEventListener('click', () => go(nowValue()));
