@@ -128,7 +128,9 @@ function render() {
 // 내용이 A4 한 장보다 적으면 마지막 표에 빈 줄을 넣어 쪽 끝까지 채운다 (종이 장부처럼, 합계 줄은 맨 아래).
 // 주간결산서는 빈 줄 없이, 한 장을 넘으면 서류 전체를 줄여 A4 한 장에 맞춘다.
 // 화면 용지와 인쇄의 본문 폭(180mm)이 같아서 화면에서 재면 인쇄와 같다. 월 서류는 한 장을 넘으면 그대로 둔다.
-const PAGE_MM = 258; // A4 297mm - 위 15mm - 아래 17mm 여백, 조금 남김
+// A4 297mm - 위 15mm - 아래 17mm 여백 = 265mm. 프린터 · 글꼴에 따라 조금 길어져도 다음 장으로 밀리지 않게 넉넉히 남긴다
+const PAGE_MM = 250;
+const SHEET_MM = 245; // 월말결산서: 통장 표가 통째로 다음 장으로 밀리므로 더 넉넉히
 const mm = (n) => (n * 96) / 25.4;
 
 function fillPage() {
@@ -335,7 +337,7 @@ function fitMonthSheet() {
   const zoom = $('paper').style.zoom;
   $('paper').style.zoom = '';
   art.classList.add('measuring'); // 인쇄에 안 나오는 버튼은 빼고 잰다
-  const limit = mm(PAGE_MM);
+  const limit = mm(SHEET_MM);
   const BASE = 5.2;
   const set = (row) => {
     const k = (row - BASE) / (12 - BASE); // 0 (기본) ~ 1 (가장 크게)
