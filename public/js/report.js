@@ -238,6 +238,8 @@ function renderMonthSheet() {
   const skip = skipped();
   $('warning').innerHTML = `<div class="ms-pick">인쇄할 통장:
     ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${skip.has(a.id) ? '' : 'checked'}> ${esc(a.name)}</label>`).join('')}
+    <button type="button" class="secondary small" data-pick-all="1">모두 체크</button>
+    <button type="button" class="secondary small" data-pick-all="0">모두 해제</button>
     <span class="muted">· 순서는 ⚙ 특별회계 설정 → 통장에서 ▲▼</span></div>`;
   const notes = new Map(r.notes.map((n) => [`${n.accountId}|${n.key}`, n.note]));
   const shown = list.filter((a) => !skip.has(a.id));
@@ -526,18 +528,29 @@ $('paper').addEventListener('input', (e) => {
   $('save-notes').classList.remove('secondary');
 });
 // 인쇄할 통장 고르기 (고른 것은 이 컴퓨터에 기억). 적던 비고는 화면에 남긴다
-$('warning').addEventListener('change', (e) => {
-  const c = e.target.closest('[data-pick]');
-  if (!c) return;
+function repick(change) {
   const keep = new Map([...$('paper').querySelectorAll('input.note')].map((i) => [`${i.dataset.acc}|${i.dataset.key}`, i.value]));
   const set = skipped();
-  if (c.checked) set.delete(Number(c.dataset.pick)); else set.add(Number(c.dataset.pick));
+  change(set);
   setSkipped(set);
   renderMonthSheet();
   for (const i of $('paper').querySelectorAll('input.note')) {
     const v = keep.get(`${i.dataset.acc}|${i.dataset.key}`);
     if (v != null) i.value = v;
   }
+}
+$('warning').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-pick]');
+  if (!c) return;
+  const id = Number(c.dataset.pick);
+  repick((set) => (c.checked ? set.delete(id) : set.add(id)));
+});
+// [모두 체크] · [모두 해제]
+$('warning').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pick-all]');
+  if (!b) return;
+  const ids = [...$('warning').querySelectorAll('[data-pick]')].map((c) => Number(c.dataset.pick));
+  repick((set) => ids.forEach((id) => (b.dataset.pickAll === '1' ? set.delete(id) : set.add(id))));
 });
 addEventListener('beforeunload', (e) => { if (notesDirty) e.preventDefault(); });
 
