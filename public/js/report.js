@@ -385,10 +385,9 @@ $('report-tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-type]');
   if (!b || b.dataset.type === type) return;
   const next = b.dataset.type;
-  // 단위가 바뀌면 보던 기간의 하루로 그 날의 주 · 달 · 해 (보던 해가 올해면 오늘, 아니면 그 해 12월)
-  const v = currentValue();
-  const day = { week: v, month: `${v}-01`, year: todayKST().startsWith(v) ? todayKST() : `${v}-12-01` }[unitOf(type)];
-  const value = { week: sundayOf(day), month: day.slice(0, 7), year: day.slice(0, 4) }[unitOf(next)];
+  // 단위가 바뀌면 이번 주 · 이번 달 · 올해로, 같은 단위(월 서류끼리)면 보던 달 그대로
+  const same = unitOf(next) === unitOf(type);
+  const value = same ? currentValue() : { week: sundayOf(todayKST()), month: todayKST().slice(0, 7), year: todayKST().slice(0, 4) }[unitOf(next)];
   run(load(next, value));
 });
 for (const id of ['week', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
