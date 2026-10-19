@@ -16,7 +16,7 @@ const ICON = {
 // items: [주소, 이름, 화면 key]. 묶음마다 아래 줄 끝에 ⚙ 설정 (그 기능에 필요한 설정만)
 // 본당살림은 특별회계만 (일반회계 · 사목일지는 양업). 사목일지 화면은 메뉴에서 뺐다
 const GROUPS = [
-  { key: 'acct', label: '특별회계', items: [['/book', '통장 가계부', 'book'], ['/entry', '거래 입력', 'entry'], ['/closing', '일 마감', 'closing'], ['/ledger', '거래 조회', 'ledger'], ['/report', '결산서', 'report']] },
+  { key: 'acct', label: '특별회계', home: '/', items: [['/entry', '거래 입력', 'entry'], ['/closing', '일 마감', 'closing'], ['/ledger', '거래 조회', 'ledger'], ['/report', '결산서', 'report']] },
   { key: 'property', label: '재산관리', items: [['/equipment', '비품대장', 'equipment']] },
 ];
 /**
@@ -46,6 +46,7 @@ export function settingsPlace() {
 /** 지금 화면이 속한 묶음 (설정 화면이면 ?s= 묶음, 오른쪽 위 설정이면 null) */
 function groupOf(active) {
   if (active === 'settings') return GROUPS.find((g) => g.key === settingsPlace().scope) ?? null;
+  if (active === 'home') return GROUPS.find((g) => g.home === '/'); // [특별회계] = 홈 화면 (통장별 잔액)
   return GROUPS.find((x) => x.items.some(([, , key]) => key === active)) ?? null;
 }
 
@@ -66,7 +67,7 @@ function subItems(active) {
 }
 
 // [도움말]은 업무 메뉴와 떨어진 오른쪽(로그아웃 옆)에 두고, 지금 보고 있는 화면의 설명으로 바로 연다
-const HELP_SECTION = { home: 'start', setup: 'start', book: 'entry', entry: 'entry', ledger: 'ledger', closing: 'closing', journal: 'journal', equipment: 'equipment', report: 'report', settings: 'settings' };
+const HELP_SECTION = { home: 'start', setup: 'start', entry: 'entry', ledger: 'ledger', closing: 'closing', journal: 'journal', equipment: 'equipment', report: 'report', settings: 'settings' };
 
 /**
  * 페이지 공통 초기화: 사용자·설정을 불러오고 상단 메뉴를 그린다.
@@ -94,7 +95,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
     bar.innerHTML = `<div class="topbar-inner${width ? ` ${width}` : ''}">
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
       <nav>${ready ? `<a href="${href('/')}" class="nav-home ${active === 'home' ? 'active' : ''}"><span class="ni">${ICON.home}</span><span class="nl">홈</span></a>`
-        + GROUPS.map((g) => `<a href="${href(g.items[0][0])}" class="${g === group ? 'active' : ''}"><span class="ni">${ICON[g.key]}</span><span class="nl">${g.label}</span></a>`).join('') : ''}</nav>
+        + GROUPS.map((g) => `<a href="${href(g.home ?? g.items[0][0])}" class="${g === group ? 'active' : ''}"><span class="ni">${ICON[g.key]}</span><span class="nl">${g.label}</span></a>`).join('') : ''}</nav>
       ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' && !group ? 'active' : ''}" title="성당 정보 · 백업 · 함께 사용">⚙ 성당 설정</a>` : ''}
       <button type="button" class="more-btn" id="more-btn" aria-expanded="false" aria-label="메뉴 더 보기">⋯</button>
       <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button>
