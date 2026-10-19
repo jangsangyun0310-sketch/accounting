@@ -7,7 +7,7 @@ import { api, esc } from './api.js';
 import { initPage, toast, reportHeadHtml } from './ui.js';
 import { formatWon, sumAmounts } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, todayKST } from './shared/dates.js';
-import { downloadXlsx, reportSheet } from './excel.js';
+import { downloadXlsx, paperSheet } from './excel.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -132,28 +132,81 @@ const PAGE_MM = 258; // A4 297mm - 위 15mm - 아래 17mm 여백, 조금 남김
 const mm = (n) => (n * 96) / 25.4;
 
 function fillPage() {
-  if (type === 'month') return; // 월말결산서는 통장마다 표가 나뉘어 채우지 않는다
+  if (type === 'month') return; // 월말결산서는 fitMonthSheet
   const art = $('paper').querySelector('article.report');
-  const table = art && [...art.querySelectorAll('table.r-table')].pop();
-  if (!table?.tBodies[0]) return;
-  const zoom = $('paper').style.zoom;
-  $('paper').style.zoom = '';
-  art.classList.add('measuring'); // 인쇄에 안 나오는 버튼은 빼고 잰다
+  if (!art) return;
+  measured(() => (type === 'week' ? scaleToPage(art, { shrink: true }) : fillRows(art)));
+}
+
+/** 화면 확대(휴대폰) · 인쇄에 안 나오는 버튼을 빼고 잰다 */
+function measured(fn, paper = $('paper')) {
+  const zoom = paper.style.zoom;
+  paper.style.zoom = '';
+  const arts = [...paper.querySelectorAll('article.report')];
+  arts.forEach((a) => a.classList.add('measuring'));
+  try { fn(); } finally {
+    arts.forEach((a) => a.classList.remove('measuring'));
+    paper.style.zoom = zoom;
+  }
+}
+
+/**
+ * 빈 줄로 채우기 (금전출납부 · 총계정원장 · 봉헌자 목록): 마지막 표에 빈 줄을 넣어 마지막 장 끝까지 (합계 줄은 맨 아래).
+ * 여러 장이면 장마다 되풀이되는 머리줄과 장 끝에서 못 들어가는 한 줄만큼을 빼고 센다.
+ */
+function fillRows(art) {
+  const table = [...art.querySelectorAll('table.r-table')].pop();
+  if (!table?.tBodies[0] || !table.tHead) return;
   const cols = [...table.tHead.rows[0].cells].reduce((n, c) => n + c.colSpan, 0);
   const add = () => table.tBodies[0].insertAdjacentHTML('beforeend', `<tr class="blank">${'<td>&nbsp;</td>'.repeat(cols)}</tr>`);
   const height = () => art.getBoundingClientRect().height;
   const before = height();
-  if (type === 'week') {
-    if (before > mm(PAGE_MM)) art.style.zoom = String(Math.floor((mm(PAGE_MM) / before) * 1000) / 1000);
-  } else if (before < mm(PAGE_MM)) {
-    add();
-    const rowH = height() - before;
-    const more = rowH > 0 ? Math.floor((mm(PAGE_MM) - before) / rowH) - 1 : -1;
-    if (more < 0) table.tBodies[0].lastElementChild.remove();
-    for (let i = 0; i < more; i++) add();
+  add();
+  const rowH = height() - before;
+  table.tBodies[0].lastElementChild.remove();
+  if (rowH <= 0) return;
+  const limit = mm(PAGE_MM);
+  const pages = Math.max(1, Math.ceil(before / limit));
+  const target = pages * limit - (pages - 1) * (table.tHead.getBoundingClientRect().height + rowH);
+  const more = Math.floor((target - before) / rowH);
+  for (let i = 0; i < more; i++) add();
+}
+
+/**
+ * 크기로 채우기 (주간결산서 · 봉헌자 내역서): 줄 높이 · 글자 크기를 키워 한 장을 꽉 채운다 (줄 높이 12mm 까지).
+ * shrink: 한 장을 조금 넘으면 85% 까지만 줄여 한 장에 (주간결산서). 더 줄여야 하면 줄이지 않고 다음 장으로
+ *   — 어르신들이 결재하시는 서류라 글자가 너무 작아지지 않게
+ */
+const MIN_ZOOM = 0.85;
+function scaleToPage(art, { shrink = false } = {}) {
+  const limit = mm(PAGE_MM);
+  const base = 5.3; // 보통 줄 높이(mm)
+  const set = (row) => {
+    const k = (row - base) / (12 - base);
+    art.classList.toggle('fit', row > base);
+    art.style.setProperty('--fit-row', `${row}mm`);
+    art.style.setProperty('--fit-font', `${(9 + 3 * k).toFixed(2)}pt`);
+    art.style.setProperty('--fit-head', `${(10.5 + 3 * k).toFixed(2)}pt`);
+    art.style.setProperty('--fit-gap', `${(3.5 + 6 * k).toFixed(2)}mm`);
+    return art.getBoundingClientRect().height <= limit;
+  };
+  if (!set(base)) {
+    set(base);
+    // 줄이면 표가 넓어져 줄바꿈이 달라지므로, 들어갈 때까지 몇 번 다시 잰다
+    for (let i = 0; shrink && i < 6 && art.getBoundingClientRect().height > limit; i++) {
+      const z = Number(art.style.zoom || 1) * (limit / art.getBoundingClientRect().height) * 0.99;
+      if (z < MIN_ZOOM) { art.style.zoom = ''; return; }
+      art.style.zoom = String(Math.floor(z * 1000) / 1000);
+    }
+    return;
   }
-  art.classList.remove('measuring');
-  $('paper').style.zoom = zoom;
+  let lo = base;
+  let hi = 12;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    if (set(mid)) lo = mid; else hi = mid;
+  }
+  set(Math.floor(lo * 10) / 10);
 }
 
 // ---------------------------------------------------------------- 월말결산서 (특별회계 결산서 양식)
@@ -189,7 +242,10 @@ function sheetLines(a, monthStart) {
   return [...map.values()].sort((x, y) => (y.p + y.m) - (x.p + x.m) || x.name.localeCompare(y.name, 'ko'));
 }
 
-const wonCell = (n) => (n ? `<td class="amt">${formatWon(n)}</td>` : '<td class="amt nil">·</td>');
+// f: Excel 함수 틀 (excel.js paperSheet) — 금액을 고치면 합계가 따라 바뀌게
+const fx = (f) => (f ? ` data-f="${f}"` : '');
+const wonCell = (n, f) => (n ? `<td class="amt"${fx(f)}>${formatWon(n)}</td>` : `<td class="amt nil"${fx(f)}>·</td>`);
+const ADD2 = '={c-2}+{c-1}'; // 누계 = 전월누계 + 금월액
 
 function sheetSection(a, month, notes) {
   const monthStart = `${month}-01`;
@@ -205,9 +261,10 @@ function sheetSection(a, month, notes) {
     value="${esc(notes.get(`${a.id}|${key}`) ?? '')}" aria-label="비고"></td>`;
   const fixed = (text) => `<td class="memo fixed">${text}</td>`;
   const row = (x, first, label, n) => `<tr>${first ? `<td class="grp" rowspan="${n}">${label}</td>` : ''}
-      <td class="item">${esc(x.name)}</td>${wonCell(x.p)}${wonCell(x.m)}${wonCell(sumAmounts([x.p, x.m]))}${note(`${x.side}:${x.name}`)}</tr>`;
-  const sumRow = (first, label, n, title, p, m, key) => `<tr class="sum">${first ? `<td class="grp" rowspan="${n}">${label}</td>` : ''}
-      <td class="item">${title}</td>${wonCell(p)}${wonCell(m)}${wonCell(sumAmounts([p, m]))}${note(key)}</tr>`;
+      <td class="item">${esc(x.name)}</td>${wonCell(x.p)}${wonCell(x.m)}${wonCell(sumAmounts([x.p, x.m]), ADD2)}${note(`${x.side}:${x.name}`)}</tr>`;
+  // 수입계 · 지출계: 위 내역 줄(up 줄)의 합, 잔액이 찾을 수 있게 data-k
+  const sumRow = (first, label, n, title, p, m, key, up, k) => `<tr class="sum" data-k="${k}">${first ? `<td class="grp" rowspan="${n}">${label}</td>` : ''}
+      <td class="item">${title}</td>${wonCell(p, up && `=SUM({up:${up}})`)}${wonCell(m, up && `=SUM({up:${up}})`)}${wonCell(sumAmounts([p, m]), ADD2)}${note(key)}</tr>`;
   return `
       <div class="ms-sec">
         <h2>&lt;${esc(a.name)}&gt;</h2>
@@ -216,13 +273,13 @@ function sheetSection(a, month, notes) {
           <thead><tr><th>구분</th><th>내 역</th><th>전월누계</th><th>금월액</th><th>누 계</th><th>비 고</th></tr></thead>
           <tbody>
             <tr class="carry"><td class="grp" rowspan="${inc.length + 2}">수입</td><td class="item">전년도 이월금</td>
-              ${wonCell(a.prev)}<td class="amt nil">·</td>${wonCell(a.prev)}${fixed('전년도 12월 잔액')}</tr>
+              ${wonCell(a.prev)}<td class="amt nil">·</td>${wonCell(a.prev, ADD2)}${fixed('전년도 12월 잔액')}</tr>
             ${inc.map((x) => row(x, false)).join('')}
-            ${sumRow(false, '', 0, '수 입 계', iP, iM, 'IN_SUM')}
+            ${sumRow(false, '', 0, '수 입 계', iP, iM, 'IN_SUM', inc.length + 1, 'in')}
             ${exp.map((x, i) => row(x, i === 0, '지출', exp.length + 1)).join('')}
-            ${sumRow(!exp.length, '지출', 1, '지 출 계', eP, eM, 'OUT_SUM')}
-            <tr class="bal"><td colspan="2" class="item">잔 액</td>${wonCell(sumAmounts([iP, -eP]))}${wonCell(sumAmounts([iM, -eM]))}
-              ${wonCell(a.end)}${fixed('차년도 이월금')}</tr>
+            ${sumRow(!exp.length, '지출', 1, '지 출 계', eP, eM, 'OUT_SUM', exp.length, 'out')}
+            <tr class="bal"><td colspan="2" class="item">잔 액</td>${wonCell(sumAmounts([iP, -eP]), '={row:in}-{row:out}')}${wonCell(sumAmounts([iM, -eM]), '={row:in}-{row:out}')}
+              ${wonCell(a.end, ADD2)}${fixed('차년도 이월금')}</tr>
           </tbody>
         </table>
       </div>`;
@@ -256,41 +313,83 @@ function renderMonthSheet() {
   $('paper').innerHTML = `
     <article class="report ms ${closed ? '' : 'provisional'}">
       ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
-      <h1 class="ms-title">${y}년 ${m}월 특별회계 결산서${closed ? '' : ' <small>(가결산)</small>'}</h1>
-      ${reportHeadHtml('', r.approvalSteps, 'month')}
+      <div class="ms-head-block">
+        <h1 class="ms-title">${y}년 ${m}월 특별회계 결산서${closed ? '' : ' <small>(가결산)</small>'}</h1>
+        ${reportHeadHtml('', r.approvalSteps, 'month')}
+      </div>
       ${shown.map((a) => sheetSection(a, month, notes)).join('') || '<p class="empty">인쇄할 통장을 고르세요</p>'}
     </article>`;
   fitMonthSheet();
 }
 
 /**
- * 고른 통장이 A4 한 장보다 적으면 줄 높이 · 글자 크기를 함께 키워 한 장을 꽉 채운다 (보기 좋게, 너무 커지지 않게 상한).
- * 한 장을 넘으면 기본 크기 그대로 (다음 장으로).
+ * 보기 좋게 장마다 꽉 채우기:
+ * 1) 기본 크기로 몇 장인지 정하고, 통장 표를 장마다 고르게 나눈다 (한 통장 표는 나누지 않음, 체크한 순서 그대로)
+ * 2) 모든 장이 들어가는 가장 큰 줄 높이 · 글자 크기로 (모든 장 같은 크기, 너무 커지지 않게 12mm 까지)
+ * 기본(가장 작은) 크기는 10pt · 줄 5.2mm — 어르신들이 결재하시는 서류라 한 장에 넣으려고 더 줄이지 않는다
  */
 function fitMonthSheet() {
   const art = $('paper').querySelector('article.ms');
-  if (!art?.querySelector('.ms-sec')) return;
+  const secs = art ? [...art.querySelectorAll('.ms-sec')] : [];
+  if (!secs.length) return;
   const zoom = $('paper').style.zoom;
   $('paper').style.zoom = '';
   art.classList.add('measuring'); // 인쇄에 안 나오는 버튼은 빼고 잰다
+  const limit = mm(PAGE_MM);
+  const BASE = 5.2;
   const set = (row) => {
-    const k = (row - 4.4) / (12 - 4.4); // 0 (기본) ~ 1 (가장 크게)
+    const k = (row - BASE) / (12 - BASE); // 0 (기본) ~ 1 (가장 크게)
     art.style.setProperty('--ms-row', `${row}mm`);
-    art.style.setProperty('--ms-font', `${(9 + 3 * k).toFixed(2)}pt`);
+    art.style.setProperty('--ms-font', `${(10 + 2.5 * k).toFixed(2)}pt`);
     art.style.setProperty('--ms-head', `${(10.5 + 3 * k).toFixed(2)}pt`);
     art.style.setProperty('--ms-gap', `${(3 + 7 * k).toFixed(2)}mm`);
-    return art.getBoundingClientRect().height <= mm(PAGE_MM);
   };
-  if (set(4.4)) {
-    // 한 장에 드는 가장 큰 줄 높이 (4.4mm ~ 12mm)
-    let lo = 4.4;
-    let hi = 12;
-    for (let i = 0; i < 12; i++) {
-      const mid = (lo + hi) / 2;
-      if (set(mid)) lo = mid; else hi = mid;
-    }
-    set(Math.floor(lo * 10) / 10);
+
+  // 1) 기본 크기에서 머리(제목 · 결재란)와 통장 표마다의 높이
+  set(BASE);
+  const top = (el) => el.getBoundingClientRect().top;
+  const head = top(secs[0]) - top(art);
+  const hs = secs.map((sec, i) => (i + 1 < secs.length ? top(secs[i + 1]) : art.getBoundingClientRect().bottom) - top(sec));
+  const split = (cap) => { // 앞에서부터 cap 까지 채워 나눈 장들 (첫 장은 머리 높이를 뺀다)
+    const pages = [[]];
+    let used = head;
+    hs.forEach((h, i) => {
+      if (pages.at(-1).length && used + h > cap) { pages.push([]); used = 0; }
+      pages.at(-1).push(i);
+      used += h;
+    });
+    return pages;
+  };
+  const count = split(limit).length;
+  // 같은 장수에서 가장 높은 장이 가장 낮아지게 (장마다 고르게)
+  let lo = Math.max(...hs);
+  let hi = limit;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    if (split(mid).length <= count) hi = mid; else lo = mid;
   }
+  const pages = split(hi);
+  const headBlock = art.querySelector('.ms-head-block');
+  pages.forEach((idx, n) => {
+    const page = document.createElement('div');
+    page.className = 'ms-page';
+    if (n === 0) page.append(headBlock);
+    idx.forEach((i) => page.append(secs[i]));
+    art.append(page);
+  });
+
+  // 2) 모든 장이 한 장씩에 드는 가장 큰 크기
+  const fits = () => [...art.querySelectorAll('.ms-page')].every((pg) => pg.getBoundingClientRect().height <= limit);
+  let a = BASE;
+  let b = 12;
+  if (fits()) {
+    for (let i = 0; i < 12; i++) {
+      const mid = (a + b) / 2;
+      set(mid);
+      if (fits()) a = mid; else b = mid;
+    }
+  }
+  set(Math.floor(a * 10) / 10);
   art.classList.remove('measuring');
   $('paper').style.zoom = zoom;
 }
@@ -323,9 +422,12 @@ function periodText(from, to, week) {
   return `${y}년 ${m}월 ${d}일${tail(from)} ~ ${y2 !== y ? `${y2}년 ` : ''}${toMonth}${d2}일${tail(to)}`;
 }
 
-/** 월말결산서 (주간결산서 위쪽 표도): 통장별 전월이월 · 수입 · 지출 · (이체) · 잔액 */
+/** 주간결산서 위쪽 표: 통장별 전주이월 · 수입 · 지출 · (이체) · 잔액 */
+const SUM = '=SUM({body})';
+const BAL = '={r-1}+{c-2}-{c-1}'; // 잔액 = 윗줄 잔액 + 수입 − 지출
 function monthTable(r, carry = '전월이월') {
   const list = fundAccounts(r);
+  const SUM = list.length ? '=SUM({body})' : '';
   const hasTransfer = list.some((a) => a.transferIn || a.transferOut);
   const t = Object.fromEntries(['prev', 'income', 'expense', 'end'].map((k) => [k, sumBy(list, k)]));
   const xfer = (a) => a.transferIn - a.transferOut;
@@ -335,12 +437,12 @@ function monthTable(r, carry = '전월이월') {
         <tbody>${list.map((a) => `
           <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td><td class="amt">${formatWon(a.income)}</td>
             <td class="amt">${formatWon(a.expense)}</td>${hasTransfer ? `<td class="amt">${xfer(a) > 0 ? '+' : ''}${formatWon(xfer(a))}</td>` : ''}
-            <td class="amt strong">${formatWon(a.end)}</td></tr>`).join('')
+            <td class="amt strong"${fx(hasTransfer ? '={c-4}+{c-3}-{c-2}+{c-1}' : '={c-3}+{c-2}-{c-1}')}>${formatWon(a.end)}</td></tr>`).join('')
           || `<tr><td colspan="${hasTransfer ? 6 : 5}" class="empty">등록된 통장이 없습니다</td></tr>`}
         </tbody>
-        <tfoot><tr><td>합 계</td><td class="amt">${formatWon(t.prev)}</td><td class="amt">${formatWon(t.income)}</td>
-          <td class="amt">${formatWon(t.expense)}</td>${hasTransfer ? `<td class="amt">${formatWon(sumBy(list, 'transferIn') - sumBy(list, 'transferOut'))}</td>` : ''}
-          <td class="amt">${formatWon(t.end)}</td></tr></tfoot>
+        <tfoot><tr><td>합 계</td><td class="amt"${fx(SUM)}>${formatWon(t.prev)}</td><td class="amt"${fx(SUM)}>${formatWon(t.income)}</td>
+          <td class="amt"${fx(SUM)}>${formatWon(t.expense)}</td>${hasTransfer ? `<td class="amt"${fx(SUM)}>${formatWon(sumBy(list, 'transferIn') - sumBy(list, 'transferOut'))}</td>` : ''}
+          <td class="amt"${fx(SUM)}>${formatWon(t.end)}</td></tr></tfoot>
       </table>
       ${hasTransfer ? '<p class="r-note">※ 이체는 통장끼리 옮긴 돈입니다 (+ 받음, − 보냄). 수입 · 지출에 넣지 않습니다.</p>' : ''}`;
 }
@@ -386,11 +488,11 @@ function cashbookTable(r, label = { carry: '전월이월', foot: '월 계', none
             <td>${esc(t.payer ?? '')}</td>
             <td class="amt">${!t.inner && t.direction === 'IN' ? formatWon(t.amount) : ''}</td>
             <td class="amt">${!t.inner && t.direction === 'OUT' ? formatWon(t.amount) : ''}</td>
-            <td class="amt">${formatWon(t.total)}</td></tr>`).join('')}
+            <td class="amt"${fx(BAL)}>${formatWon(t.total)}</td></tr>`).join('')}
           ${rows.length ? '' : '<tr><td colspan="7" class="empty">${label.none} 거래가 없습니다</td></tr>'}
         </tbody>
-        <tfoot><tr><td colspan="4">${label.foot} (${rows.length}건)</td><td class="amt">${formatWon(inSum)}</td>
-          <td class="amt">${formatWon(outSum)}</td><td class="amt">${formatWon(end)}</td></tr></tfoot>
+        <tfoot><tr><td colspan="4">${label.foot} (${rows.length}건)</td><td class="amt"${fx(SUM)}>${formatWon(inSum)}</td>
+          <td class="amt"${fx(SUM)}>${formatWon(outSum)}</td><td class="amt"${fx(rows.length && '={r-1}')}>${formatWon(end)}</td></tr></tfoot>
       </table>`;
 }
 
@@ -408,10 +510,10 @@ function ledgerSections(r) {
             <td>${esc(t.payer ?? '')}</td>
             <td class="amt">${t.direction === 'IN' ? formatWon(t.amount) : ''}</td>
             <td class="amt">${t.direction === 'OUT' ? formatWon(t.amount) : ''}</td>
-            <td class="amt">${formatWon(t.balance)}</td></tr>`).join('')}
+            <td class="amt"${fx(BAL)}>${formatWon(t.balance)}</td></tr>`).join('')}
         </tbody>
-        <tfoot><tr><td colspan="3">월 계 (${a.rows.length}건)</td><td class="amt">${formatWon(a.in)}</td>
-          <td class="amt">${formatWon(a.out)}</td><td class="amt">${formatWon(a.end)}</td></tr></tfoot>
+        <tfoot><tr><td colspan="3">월 계 (${a.rows.length}건)</td><td class="amt"${fx(SUM)}>${formatWon(a.in)}</td>
+          <td class="amt"${fx(SUM)}>${formatWon(a.out)}</td><td class="amt"${fx(a.rows.length && '={r-1}')}>${formatWon(a.end)}</td></tr></tfoot>
       </table>`).join('') || '<p class="empty">등록된 통장이 없습니다</p>';
 }
 
@@ -449,7 +551,7 @@ function donorSheet(r, p) {
         <colgroup><col><col style="width:30mm"><col style="width:40mm"></colgroup>
         <thead><tr><th>통장</th><th>건수</th><th>금액</th></tr></thead>
         <tbody>${p.bySubject.map((s) => `<tr><td>${esc(s.name)}</td><td class="amt">${s.count}</td><td class="amt">${formatWon(s.total)}</td></tr>`).join('')}</tbody>
-        <tfoot><tr><td>합 계</td><td class="amt">${p.count}</td><td class="amt">${formatWon(p.total)}</td></tr></tfoot>
+        <tfoot><tr><td>합 계</td><td class="amt"${fx(SUM)}>${p.count}</td><td class="amt"${fx(SUM)}>${formatWon(p.total)}</td></tr></tfoot>
       </table>
     </article>`;
 }
@@ -467,6 +569,7 @@ function renderDonors() {
       <p class="no-print donor-back"><button type="button" class="secondary small" data-donor-view="list">← 봉헌자 목록</button>
         ${donorsView === 'all' ? `<span class="muted">${list.length}명 · 인쇄하면 한 사람에 한 장씩 나옵니다</span>` : ''}</p>
       ${list.map((p) => donorSheet(r, p)).join('') || '<p class="muted">내역이 없습니다.</p>'}`;
+    measured(() => $('paper').querySelectorAll('article.donor-sheet').forEach((a) => scaleToPage(a)));
     return;
   }
   $('paper').innerHTML = `
@@ -484,10 +587,11 @@ function renderDonors() {
             <td class="no-print"><button type="button" class="secondary small" data-donor-view="${esc(p.payer)}">내역서</button>
               ${p.similar.length ? `<span class="similar">비슷한 이름: ${p.similar.map(esc).join(', ')}</span>` : ''}</td></tr>`).join('')
           || '<tr><td colspan="5" class="empty">봉헌자를 적은 수입이 없습니다</td></tr>'}</tbody>
-        <tfoot><tr><td colspan="2">합 계 (${r.people.length}명)</td><td class="amt">${r.people.reduce((n, p) => n + p.count, 0)}</td><td class="amt">${formatWon(r.total)}</td><td class="no-print"></td></tr></tfoot>
+        <tfoot><tr><td colspan="2">합 계 (${r.people.length}명)</td><td class="amt"${fx(r.people.length && SUM)}>${r.people.reduce((n, p) => n + p.count, 0)}</td><td class="amt"${fx(r.people.length && SUM)}>${formatWon(r.total)}</td><td class="no-print"></td></tr></tfoot>
       </table>
     </article>`;
   filterDonors();
+  measured(() => fillRows($('paper').querySelector('article.report')));
   const find = $('donor-find');
   find.focus();
   find.setSelectionRange(find.value.length, find.value.length);
@@ -594,15 +698,16 @@ $('warning').addEventListener('click', (e) => {
 });
 addEventListener('beforeunload', (e) => { if (notesDirty) e.preventDefault(); });
 
-// 보고 있는 결산서를 Excel 로 (표 내용 그대로, 금액은 숫자로)
+// 보고 있는 결산서를 Excel 로: 인쇄한 종이와 같은 모양(테두리 · 결재란 · A4 폭), 금액은 숫자, 합계는 함수
 $('excel').addEventListener('click', () => {
   if (!$('paper').querySelector('.report')) return;
   if (type === 'donors') {
-    downloadXlsx(`본당살림 봉헌자별 내역 ${donorsReport.year}.xlsx`, donorsSheets());
+    // 보고 있는 종이(목록 또는 내역서) + 사람별 합계 · 봉헌 내역 (연말정산용 자료)
+    downloadXlsx(`본당살림 봉헌자별 내역 ${donorsReport.year}.xlsx`, [paperSheet($('paper'), '봉헌자 조회'), ...donorsSheets()]);
     return;
   }
   const name = `특별회계 ${TYPES[type].name}`;
-  downloadXlsx(`본당살림 ${name} ${currentValue()}.xlsx`, [reportSheet($('paper'), name)]);
+  downloadXlsx(`본당살림 ${name} ${currentValue()}.xlsx`, [paperSheet($('paper'), TYPES[type].name)]);
 });
 
 // 인쇄할 때마다 종이 오른쪽 아래에 출력 일시를 찍는다 (Ctrl+P 로 인쇄해도 같음)

@@ -6,8 +6,11 @@
 //   { v: 값, bold: true } 처럼 쓰면 굵게. header: 위에서 몇 줄을 굵은 머리줄로 할지 (틀 고정도 함께)
 //
 // 양식 모양 시트 (날짜별 사목일지)에 쓰는 것:
-//   칸 { v, st: { bold, size, fill: 'EEF1F5', border: true, h: 'center', v: 'top', wrap: true, shrink: true, color: '888888', strike: true } }
+//   칸 { v, st: { bold, size, fill: 'EEF1F5', border: true, h: 'center', v: 'top', wrap: true, shrink: true, color: '888888', strike: true,
+//                 dot: true (숫자 0 은 가운데 점 · 으로 보임) } }
 //     (st 가 있으면 값이 없어도 칸을 쓴다 — 병합칸 테두리)
+//   함수 칸 { f: 'SUM(C3:C9)', v: 계산해 둔 값, st } — 파일을 열면 Excel 이 다시 계산한다
+//   page.fitWidth: true 면 A4 폭에 맞춰 인쇄 (높이는 여러 장)
 //   시트 { merges: ['A1:G1'], heights: { 행(0부터): pt }, breaks: [이 행부터 새 장(0부터)],
 //          page: { scale: 100, margins: { top, bottom, left, right } (인치), footer: '&C&P / &N' } (A4 세로),
 //          images: [{ data: Uint8Array(JPEG), x, y, cx, cy }] (시트 왼쪽 위에서 EMU) }
@@ -66,12 +69,12 @@ function styleBook() {
       const line = '<color rgb="FF666666"/>';
       const border = st.border ? add(borders, `<border><left style="thin">${line}</left><right style="thin">${line}</right><top style="thin">${line}</top><bottom style="thin">${line}</bottom><diagonal/></border>`) : 0;
       const align = `<alignment${st.h ? ` horizontal="${st.h}"` : ''} vertical="${st.v ?? 'center'}"${st.wrap ? ' wrapText="1"' : ''}${st.shrink ? ' shrinkToFit="1"' : ''}/>`;
-      const id = xfs.push(`<xf numFmtId="${isNum ? 164 : 0}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${align}</xf>`) - 1;
+      const id = xfs.push(`<xf numFmtId="${isNum ? (st.dot ? 165 : 164) : 0}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${align}</xf>`) - 1;
       keys.set(key, id);
       return id;
     },
     xml: () => `${XML_HEAD}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0"/></numFmts>
+<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0"/><numFmt numFmtId="165" formatCode="#,##0;-#,##0;&quot;·&quot;"/></numFmts>
 <fonts count="${fonts.length}">${fonts.join('')}</fonts>
 <fills count="${fills.length}">${fills.join('')}</fills>
 <borders count="${borders.length}">${borders.join('')}</borders>
@@ -94,6 +97,10 @@ function sheetXml({ rows, widths = [], header = 0, merges = [], heights = {}, br
       const { v } = cell;
       const ref = `${colName(c)}${r + 1}`;
       const isNum = typeof v === 'number' && Number.isFinite(v);
+      if (cell.f) {
+        const s = styles.id(cell.st ?? {}, true);
+        return `<c r="${ref}" s="${s}"><f>${escXml(cell.f)}</f>${isNum ? `<v>${v}</v>` : ''}</c>`;
+      }
       if (cell.st) {
         const s = styles.id(cell.st, isNum);
         if (v === null || v === undefined || v === '') return `<c r="${ref}" s="${s}"/>`;
@@ -118,12 +125,15 @@ function sheetXml({ rows, widths = [], header = 0, merges = [], heights = {}, br
     const m = { top: 0.75, bottom: 0.6, left: 0.6, right: 0.6, ...page.margins };
     tail += '<printOptions horizontalCentered="1"/>';
     tail += `<pageMargins left="${m.left}" right="${m.right}" top="${m.top}" bottom="${m.bottom}" header="0.3" footer="0.3"/>`;
-    tail += `<pageSetup paperSize="9" orientation="portrait" scale="${page.scale ?? 100}"/>`;
+    tail += page.fitWidth
+      ? '<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>'
+      : `<pageSetup paperSize="9" orientation="portrait" scale="${page.scale ?? 100}"/>`;
     if (page.footer) tail += `<headerFooter><oddFooter>${escXml(page.footer)}</oddFooter></headerFooter>`;
   }
   if (breaks.length) tail += `<rowBreaks count="${breaks.length}" manualBreakCount="${breaks.length}">${breaks.map((r) => `<brk id="${r}" max="16383" man="1"/>`).join('')}</rowBreaks>`;
   if (images.length) tail += '<drawing r:id="rId1"/>';
-  return `${XML_HEAD}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pane}${cols}<sheetData>${body}</sheetData>${merge}${tail}</worksheet>`;
+  const pr = page?.fitWidth ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '';
+  return `${XML_HEAD}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pr}${pane}${cols}<sheetData>${body}</sheetData>${merge}${tail}</worksheet>`;
 }
 
 // 칸 크기 → EMU (그림 자리 계산용): 너비 w 칸은 약 (w × 7 + 5) 픽셀, 1 픽셀 = 9525 EMU, 1pt = 12700 EMU
@@ -210,6 +220,7 @@ ${drawings.map((_, n) => `<Override PartName="/xl/drawings/drawing${n + 1}.xml" 
 </Relationships>`],
     ['xl/workbook.xml', `${XML_HEAD}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 <sheets>${names.map((n, i) => `<sheet name="${escXml(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>
+<calcPr calcId="191029" fullCalcOnLoad="1"/>
 </workbook>`],
     ['xl/_rels/workbook.xml.rels', `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 ${names.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('\n')}

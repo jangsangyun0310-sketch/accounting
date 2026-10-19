@@ -65,15 +65,29 @@ body.report-page { background: #e9ecf0; }
 .r-table tfoot td { background: #eceef1; font-weight: 700; }
 .r-table tr { break-inside: avoid; }
 .report.measuring .no-print { display: none; }
+/* 크기로 한 장 채우기 (report.js scaleToPage): 줄 높이 · 글자 크기 · 소제목 */
+.report.fit .r-table th, .report.fit .r-table td { height: var(--fit-row); font-size: var(--fit-font); }
+.report.fit h2 { font-size: var(--fit-head); margin-top: var(--fit-gap); }
 
-/* 월말결산서 (특별회계 결산서 양식): 통장 4개가 A4 한 장에 들어가게 줄을 촘촘히 */
+/* 월말결산서 (특별회계 결산서 양식): 기본 10pt, 남는 자리는 report.js 가 키워 채운다 */
 .ms h1.ms-title { text-align: center; font-size: 17pt; letter-spacing: 1px; margin: 0 0 1mm; }
 .ms h1.ms-title small { font-size: 10pt; color: #b42318; letter-spacing: 0; }
 .ms .r-head { margin-bottom: 1mm; }
 .ms h2 { margin: var(--ms-gap, 3mm) 0 1mm; font-size: var(--ms-head, 10.5pt); }
 .ms-sec { break-inside: avoid; }
-.ms-table { table-layout: fixed; font-size: var(--ms-font, 9pt); } /* 한 장을 채우도록 report.js 가 줄 높이 · 글자 크기를 정한다 */
-.ms-table th, .ms-table td { padding: 0.2mm 1.6mm; height: var(--ms-row, 4.4mm); line-height: 1.15; }
+.ms-page + .ms-page { break-before: page; } /* report.js 가 장마다 나눈 통장 표 */
+.ms { counter-reset: mspage; }
+.ms-page { counter-increment: mspage; }
+/* 화면에서만: 인쇄하면 여기서 다음 장으로 넘어간다는 표시 (통장을 체크할 때마다 다시 나뉜다) */
+@media screen {
+  .ms-page + .ms-page { position: relative; margin-top: 14mm; padding-top: 5mm; border-top: 2px dashed #e07a1f; }
+  .ms-page + .ms-page::before {
+    content: "✂ 여기서 다음 장 (" counter(mspage) "쪽)"; position: absolute; top: -4.2mm; left: 50%; transform: translateX(-50%);
+    background: #fff; padding: 0 3mm; color: #c25e00; font-size: 10pt; font-weight: 700; white-space: nowrap;
+  }
+}
+.ms-table { table-layout: fixed; font-size: var(--ms-font, 10pt); } /* 한 장을 채우도록 report.js 가 줄 높이 · 글자 크기를 정한다 */
+.ms-table th, .ms-table td { padding: 0.2mm 1.6mm; height: var(--ms-row, 5.2mm); line-height: 1.2; }
 .ms-table .grp { text-align: center; font-weight: 600; }
 .ms-table .item { text-align: center; }
 .ms-table tr.sum td { font-weight: 700; background: #f4f5f7; }
