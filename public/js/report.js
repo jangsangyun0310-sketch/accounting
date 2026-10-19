@@ -129,7 +129,7 @@ function render() {
 }
 
 // ---------------------------------------------------------------- 일일결산서 (마감한 날만)
-// 통장마다 전일잔액 · 수입 · 지출 · (이체) · 금일잔액, 합계. 결재란은 월말결산서와 같은 결산서 결재란.
+// 통장마다 전일잔액 · 수입 · 지출 · (이체) · 금일잔액, 합계 + 그날 거래내역. 결재란은 월말결산서와 같은 결산서 결재란.
 
 function renderDaily() {
   const r = monthReport;
@@ -153,8 +153,11 @@ function renderDaily() {
             <tr><th>일 자</th><td>${formatKoreanDate(day)}</td></tr>
           </table>`, r.approvalSteps, 'month')}
       ${monthTable(r, '전일잔액', '금일잔액')}
+      <h2>일일 거래내역</h2>
+      ${cashbookTable(r, { carry: '전일잔액', foot: '일 계', none: '이 날에', noDate: true })}
     </article>`;
-  measured(() => scaleToPage($('paper').querySelector('article.report')));
+  // 주간결산서처럼: 남으면 키워 채우고, 조금 넘치면 85% 까지만 줄여 한 장에
+  measured(() => scaleToPage($('paper').querySelector('article.report'), { shrink: true }));
 }
 
 // ---------------------------------------------------------------- 한 장에 꽉 차게
@@ -517,21 +520,24 @@ function cashbookTable(r, label = { carry: '전월이월', foot: '월 계', none
   };
   const inSum = sumAmounts(rows.filter((t) => !t.inner && t.direction === 'IN').map((t) => t.amount));
   const outSum = sumAmounts(rows.filter((t) => !t.inner && t.direction === 'OUT').map((t) => t.amount));
+  // 일일결산서는 모든 줄이 같은 날이라 날짜 칸을 뺀다
+  const dateCell = (d) => (label.noDate ? '' : `<td>${md(d)}</td>`);
+  const n = label.noDate ? 6 : 7;
   return `
       <table class="r-table fixed">
-        <colgroup><col style="width:13mm"><col style="width:32mm"><col><col style="width:22mm">
+        <colgroup>${label.noDate ? '' : '<col style="width:13mm">'}<col style="width:32mm"><col><col style="width:22mm">
           <col style="width:22mm"><col style="width:22mm"><col style="width:25mm"></colgroup>
-        <thead><tr><th>날짜</th><th>통장</th><th>내용</th><th>봉헌자</th><th>수입</th><th>지출</th><th>잔액</th></tr></thead>
+        <thead><tr>${label.noDate ? '' : '<th>날짜</th>'}<th>통장</th><th>내용</th><th>봉헌자</th><th>수입</th><th>지출</th><th>잔액</th></tr></thead>
         <tbody>
-          <tr class="carry"><td>${md(r.from)}</td><td></td><td>${label.carry}</td><td></td><td></td><td></td><td class="amt">${formatWon(prev)}</td></tr>
-          ${rows.map((t) => `<tr><td>${md(t.date)}</td><td>${esc(t.accountName)}</td><td class="${t.kind === 'TRANSFER' ? 'xfer' : ''}">${what(t)}</td>
+          <tr class="carry">${dateCell(r.from)}<td></td><td>${label.carry}</td><td></td><td></td><td></td><td class="amt">${formatWon(prev)}</td></tr>
+          ${rows.map((t) => `<tr>${dateCell(t.date)}<td>${esc(t.accountName)}</td><td class="${t.kind === 'TRANSFER' ? 'xfer' : ''}">${what(t)}</td>
             <td>${esc(t.payer ?? '')}</td>
             <td class="amt">${!t.inner && t.direction === 'IN' ? formatWon(t.amount) : ''}</td>
             <td class="amt">${!t.inner && t.direction === 'OUT' ? formatWon(t.amount) : ''}</td>
             <td class="amt"${fx(BAL)}>${formatWon(t.total)}</td></tr>`).join('')}
-          ${rows.length ? '' : '<tr><td colspan="7" class="empty">${label.none} 거래가 없습니다</td></tr>'}
+          ${rows.length ? '' : `<tr><td colspan="${n}" class="empty">${label.none} 거래가 없습니다</td></tr>`}
         </tbody>
-        <tfoot><tr><td colspan="4">${label.foot} (${rows.length}건)</td><td class="amt"${fx(SUM)}>${formatWon(inSum)}</td>
+        <tfoot><tr><td colspan="${n - 3}">${label.foot} (${rows.length}건)</td><td class="amt"${fx(SUM)}>${formatWon(inSum)}</td>
           <td class="amt"${fx(SUM)}>${formatWon(outSum)}</td><td class="amt"${fx(rows.length && '={r-1}')}>${formatWon(end)}</td></tr></tfoot>
       </table>`;
 }
