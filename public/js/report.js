@@ -325,12 +325,12 @@ function renderMonthSheet() {
 }
 
 /**
- * 보기 좋게 장마다 꽉 채우기:
- * 1) 기본 크기로 몇 장인지 정하고, 장마다 채울 비율(통장 표 높이 ÷ 그 장에 쓸 수 있는 높이, 첫 장은 제목 · 결재란을 뺀다)이
- *    비슷하게 통장 표를 나눈다 (한 통장 표는 나누지 않음, 체크한 순서 그대로)
- * 2) 장마다 따로 줄 높이 · 글자 크기를 키워 그 장을 채우고 (너무 커지지 않게 줄 높이 12mm 까지),
- *    그래도 남는 자리는 통장 표 사이 간격으로 고르게 나눠 마지막 표가 종이 아래까지 오게 한다
- * 기본(가장 작은) 크기는 10pt · 줄 5.2mm — 어르신들이 결재하시는 서류라 한 장에 넣으려고 더 줄이지 않는다
+ * 장 나누기와 크기 (모든 장 같은 크기):
+ * 1) 기본 크기(10pt · 줄 5.2mm)로 앞에서부터 채워 몇 장인지 정한다
+ * 2) 그 장수를 넘지 않는 크기(줄 높이 12mm 까지) 가운데 첫 장 빈자리가 가장 적은 크기로 (비슷하면 큰 쪽),
+ *    첫 장부터 들어갈 만큼 채운 뒤 다음 장으로 (한 통장 표는 나누지 않음)
+ * 3) 한 장뿐이면 남는 자리를 표 사이 간격으로 나눠 종이 아래까지, 여러 장이면 마지막 장은 남은 표만
+ * 어르신들이 결재하시는 서류라 한 장에 넣으려고 기본 크기보다 줄이지 않는다
  */
 function fitMonthSheet() {
   const art = $('paper').querySelector('article.ms');
@@ -341,78 +341,62 @@ function fitMonthSheet() {
   art.classList.add('measuring'); // 인쇄에 안 나오는 버튼은 빼고 잰다
   const limit = mm(SHEET_MM);
   const BASE = 5.2;
-  const set = (el, row) => {
+  const set = (row) => {
     const k = (row - BASE) / (12 - BASE); // 0 (기본) ~ 1 (가장 크게)
-    el.style.setProperty('--ms-row', `${row}mm`);
-    el.style.setProperty('--ms-font', `${(10 + 2.5 * k).toFixed(2)}pt`);
-    el.style.setProperty('--ms-head', `${(10.5 + 3 * k).toFixed(2)}pt`);
-    el.style.setProperty('--ms-gap', `${(3 + 7 * k).toFixed(2)}mm`);
+    art.style.setProperty('--ms-row', `${row}mm`);
+    art.style.setProperty('--ms-font', `${(10 + 2.5 * k).toFixed(2)}pt`);
+    art.style.setProperty('--ms-head', `${(10.5 + 3 * k).toFixed(2)}pt`);
+    art.style.setProperty('--ms-gap', `${(3 + 7 * k).toFixed(2)}mm`);
   };
-
-  // 1) 기본 크기에서 머리(제목 · 결재란)와 통장 표마다의 높이
-  set(art, BASE);
-  const top = (el) => el.getBoundingClientRect().top;
-  const head = top(secs[0]) - top(art);
-  const hs = secs.map((sec, i) => (i + 1 < secs.length ? top(secs[i + 1]) : art.getBoundingClientRect().bottom) - top(sec));
-  // 몇 장인지: 앞에서부터 채워 본다 (첫 장은 머리 높이를 뺀다)
-  let count = 1;
-  let used = head;
-  hs.forEach((h, i) => { if (i && used + h > limit) { count++; used = 0; } used += h; });
-  // 나누는 자리를 모두 따져 보고, 모든 장이 들어가면서 장마다 채울 비율의 차이가 가장 적게
-  let best = null;
-  const sum = (a, b) => hs.slice(a, b).reduce((t, h) => t + h, 0);
-  const tryCuts = (from, left, cuts) => {
-    if (left === 1) {
-      const groups = [];
-      [0, ...cuts, hs.length].reduce((a, b) => { groups.push([a, b]); return b; });
-      if (groups.some(([a, b], i) => sum(a, b) + (i === 0 ? head : 0) > limit)) return;
-      const ratios = groups.map(([a, b], i) => sum(a, b) / (limit - (i === 0 ? head : 0)));
-      const score = Math.max(...ratios) - Math.min(...ratios);
-      if (!best || score < best.score) best = { score, groups };
-      return;
-    }
-    for (let c = from + 1; c <= hs.length - left + 1; c++) tryCuts(c, left - 1, [...cuts, c]);
-  };
-  if (count > 1 && hs.length <= 40) tryCuts(0, count, []);
-  let groups = best?.groups;
-  if (!groups) { // 한 장이거나, 한 통장 표가 한 장보다 길면 앞에서부터 채운다
-    groups = [[0, 0]];
-    let u = head;
+  /** 이 크기에서 앞에서부터 채운 장들: [[시작, 끝), ...] */
+  const paginate = (row) => {
+    set(row);
+    const top = (el) => el.getBoundingClientRect().top;
+    const head = top(secs[0]) - top(art);
+    const hs = secs.map((sec, i) => (i + 1 < secs.length ? top(secs[i + 1]) : art.getBoundingClientRect().bottom) - top(sec));
+    const groups = [[0, 0]];
+    let used = head;
     hs.forEach((h, i) => {
-      if (i && u + h > limit) { groups.push([i, i]); u = 0; }
+      if (i && used + h > limit) { groups.push([i, i]); used = 0; }
       groups.at(-1)[1] = i + 1;
-      u += h;
+      used += h;
     });
+    const used0 = hs.slice(...groups[0]).reduce((t, h) => t + h, head);
+    const fitsAll = groups.every(([a, b], n) => hs.slice(a, b).reduce((t, h) => t + h, n === 0 ? head : 0) <= limit);
+    return { groups, fitsAll, left: limit - used0 };
+  };
+  const count = paginate(BASE).groups.length;
+  let lo = BASE;
+  let hi = 12;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    const r = paginate(mid);
+    if (r.groups.length <= count && r.fitsAll) lo = mid; else hi = mid;
   }
+  // 기본 크기부터 가장 큰 크기까지 0.2mm 씩: 첫 장 빈자리가 가장 적은 크기 (10mm 안쪽 차이면 큰 크기)
+  const max = Math.floor(lo * 10) / 10;
+  const tries = [];
+  for (let row = BASE; row <= max + 1e-9; row += 0.2) {
+    const r = paginate(row);
+    if (r.groups.length <= count && r.fitsAll) tries.push({ row, left: r.left });
+  }
+  if (!tries.length) tries.push({ row: BASE, left: 0 });
+  const least = Math.min(...tries.map((t) => t.left));
+  const row = Math.round(Math.max(...tries.filter((t) => t.left <= least + mm(10)).map((t) => t.row)) * 10) / 10;
+  const { groups } = paginate(row);
   const headBlock = art.querySelector('.ms-head-block');
-  const pages = groups.map(([a, b], n) => {
+  groups.forEach(([a, b], n) => {
     const page = document.createElement('div');
     page.className = 'ms-page';
     if (n === 0) page.append(headBlock);
     secs.slice(a, b).forEach((sec) => page.append(sec));
     art.append(page);
-    return page;
   });
-
-  // 2) 장마다 그 장에 드는 가장 큰 크기
-  for (const page of pages) {
-    const fits = () => page.getBoundingClientRect().height <= limit;
-    set(page, BASE);
-    let lo = BASE;
-    let hi = 12;
-    if (fits()) {
-      for (let i = 0; i < 12; i++) {
-        const mid = (lo + hi) / 2;
-        set(page, mid);
-        if (fits()) lo = mid; else hi = mid;
-      }
-    }
-    set(page, Math.floor(lo * 10) / 10);
-    // 남는 자리는 표 사이 간격으로 (화면 · 인쇄 같게)
-    if (page.getBoundingClientRect().height < limit) {
-      page.classList.add('spread');
-      page.style.minHeight = `${SHEET_MM}mm`;
-    }
+  // 한 장뿐이면 남는 자리를 표 사이 간격으로 (화면 · 인쇄 같게)
+  const pages = art.querySelectorAll('.ms-page');
+  if (pages.length === 1 && pages[0].getBoundingClientRect().height < limit) {
+    pages[0].classList.add('spread');
+    pages[0].style.minHeight = `${SHEET_MM}mm`;
   }
   art.classList.remove('measuring');
   $('paper').style.zoom = zoom;
