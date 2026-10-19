@@ -485,7 +485,7 @@ td, th { overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 적요도 칸 안
 
 /* ======================================================================
    휴대폰 화면 (폭 720px 이하)
-   - 위: 로고 · [⚙ 성당 설정] · [도움말], 그 아래 줄 오른쪽에 [공유하기] · [로그아웃]
+   - 위: 첫 줄 로고, 둘째 줄 [⚙ 성당 설정] [도움말] [공유하기] [로그아웃] 같은 크기로 한 줄
    - 아래: 홈 · 거래 입력 · 거래 조회 · 일 마감 · 결산 고정 메뉴 바
    - 표: 숫자는 한 줄로, 넓은 표는 옆으로 밀어서 본다
    ====================================================================== */
@@ -498,15 +498,17 @@ td.num, th.num { overflow-wrap: normal; white-space: nowrap; }
   .topbar .brand { margin-right: auto; }
   .topbar .brand img { height: 36px; }
   .topbar .settings-link, .topbar .help-link, .topbar .account button, .topbar .share-btn { height: 36px; padding: 0 10px; font-size: 14px; }
-  /* 둘째 줄: 성당 설정 버튼 아래 오른쪽에 공유하기 · 로그아웃 (작게) */
+  /* 첫 줄 로고, 둘째 줄 버튼 네 개를 같은 크기로 한 줄 */
   .topbar-inner { flex-wrap: wrap; row-gap: 6px; }
+  .topbar .brand { flex-basis: 100%; margin-right: 0; }
   .topbar .account { display: contents; }
   .topbar .settings-link { order: 1; }
   .topbar .help-link { order: 2; }
-  .topbar .m-break { display: block; order: 3; flex-basis: 100%; height: 0; }
-  .topbar .share-btn { order: 4; margin-left: auto; }
-  .topbar .account button { order: 5; }
-  .topbar .share-btn, .topbar .account button { height: 30px; padding: 0 10px; font-size: 13px; }
+  .topbar .share-btn { order: 3; }
+  .topbar .account button { order: 4; }
+  .topbar .settings-link, .topbar .help-link, .topbar .share-btn, .topbar .account button {
+    flex: 1 1 0; min-width: 0; justify-content: center; height: 34px; padding: 0 4px; font-size: 13px; margin: 0; white-space: nowrap;
+  }
 
   /* 아래 고정 메뉴 바 */
   .topbar nav {
