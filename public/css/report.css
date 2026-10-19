@@ -76,16 +76,8 @@ body.report-page { background: #e9ecf0; }
 .ms h2 { margin: var(--ms-gap, 3mm) 0 1mm; font-size: var(--ms-head, 10.5pt); }
 .ms-sec { break-inside: avoid; }
 .ms-page + .ms-page { break-before: page; } /* report.js 가 장마다 나눈 통장 표 */
-.ms { counter-reset: mspage; }
-.ms-page { counter-increment: mspage; }
-/* 화면에서만: 인쇄하면 여기서 다음 장으로 넘어간다는 표시 (통장을 체크할 때마다 다시 나뉜다) */
-@media screen {
-  .ms-page + .ms-page { position: relative; margin-top: 14mm; padding-top: 5mm; border-top: 2px dashed #e07a1f; }
-  .ms-page + .ms-page::before {
-    content: "✂ 여기서 다음 장 (" counter(mspage) "쪽)"; position: absolute; top: -4.2mm; left: 50%; transform: translateX(-50%);
-    background: #fff; padding: 0 3mm; color: #c25e00; font-size: 10pt; font-weight: 700; white-space: nowrap;
-  }
-}
+/* 화면에서만: 종이가 바뀌는 자리에 연한 실선 (통장을 체크할 때마다 다시 나뉜다, 인쇄에는 없음) */
+@media screen { .ms-page + .ms-page { margin-top: 10mm; padding-top: 6mm; border-top: 1px solid #d5d9e0; } }
 .ms-table { table-layout: fixed; font-size: var(--ms-font, 10pt); } /* 한 장을 채우도록 report.js 가 줄 높이 · 글자 크기를 정한다 */
 .ms-table th, .ms-table td { padding: 0.2mm 1.6mm; height: var(--ms-row, 5.2mm); line-height: 1.2; }
 .ms-table .grp { text-align: center; font-weight: 600; }
