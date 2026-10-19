@@ -35,7 +35,12 @@ body.report-page { background: #e9ecf0; }
 .r-head.stacked { flex-direction: column; }
 .r-title h1 { font-size: 18pt; margin: 0 0 2mm; letter-spacing: 1px; }
 .r-title h1 small { font-size: 11pt; color: #b42318; letter-spacing: 0; }
-.r-title h1.one-line { font-size: 16pt; letter-spacing: 0; white-space: nowrap; } /* 특별회계 서류: 4칸 결재란 옆에 한 줄로 */
+/* 특별회계 서류: 4칸 결재란(107mm) 옆에 한 줄로, 인쇄 폭 180mm 안에 (결재란은 줄이지 않음) */
+.r-title h1.one-line { font-size: 15pt; letter-spacing: 0; white-space: nowrap; }
+.r-title h1.one-line small { font-size: 10pt; }
+.r-head:has(h1.one-line) { gap: 4mm; }
+.r-head:has(h1.one-line) .r-approval { flex-shrink: 0; }
+.r-head:has(h1.one-line) .r-meta { font-size: 9pt; }
 .r-meta { border-collapse: collapse; font-size: 10pt; }
 .r-meta th { text-align: left; font-weight: normal; color: #333; padding: 0.6mm 4mm 0.6mm 0; white-space: nowrap; }
 .r-meta td { font-weight: 600; padding: 0.6mm 0; min-width: 45mm; border-bottom: 1px solid #999; }

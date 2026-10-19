@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>통장 가계부 - 본당살림</title>
+  <link rel="icon" href="/img/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/icon-180.png">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header id="topbar" class="topbar"><div class="topbar-inner wide"><a href="/" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a></div></header>
+  <main class="container wide">
+    <!-- 특별회계 첫 화면: 입력 칸 없이 통장 가계부만 (입력 · 수정은 [거래 입력] 화면). 화면 코드는 entry.js 와 같이 쓴다 -->
+    <section>
+      <div class="section-head book-head">
+        <h2>통장 가계부 <small id="book-month" class="muted"></small></h2>
+        <span class="book-nav">
+          <button type="button" class="secondary small" id="book-prev" title="전달">◀</button>
+          <button type="button" class="secondary small" id="book-next" title="다음 달">▶</button>
+        </span>
+      </div>
+      <div class="book-tabs" id="book-tabs" role="tablist" aria-label="통장"></div>
+      <div id="book"></div>
+    </section>
+  </main>
+  <script type="module" src="/js/entry.js"></script>
+</body>
+</html>

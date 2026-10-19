@@ -16,7 +16,7 @@ const ICON = {
 // items: [주소, 이름, 화면 key]. 묶음마다 아래 줄 끝에 ⚙ 설정 (그 기능에 필요한 설정만)
 // 본당살림은 특별회계만 (일반회계 · 사목일지는 양업). 사목일지 화면은 메뉴에서 뺐다
 const GROUPS = [
-  { key: 'acct', label: '특별회계', items: [['/entry', '거래 입력', 'entry'], ['/closing', '일 마감', 'closing'], ['/ledger', '거래 조회', 'ledger'], ['/report', '결산서', 'report']] },
+  { key: 'acct', label: '특별회계', items: [['/book', '통장 가계부', 'book'], ['/entry', '거래 입력', 'entry'], ['/closing', '일 마감', 'closing'], ['/ledger', '거래 조회', 'ledger'], ['/report', '결산서', 'report']] },
   { key: 'property', label: '재산관리', items: [['/equipment', '비품대장', 'equipment']] },
 ];
 /**
@@ -66,7 +66,7 @@ function subItems(active) {
 }
 
 // [도움말]은 업무 메뉴와 떨어진 오른쪽(로그아웃 옆)에 두고, 지금 보고 있는 화면의 설명으로 바로 연다
-const HELP_SECTION = { home: 'start', setup: 'start', entry: 'entry', ledger: 'ledger', closing: 'closing', journal: 'journal', equipment: 'equipment', report: 'report', settings: 'settings' };
+const HELP_SECTION = { home: 'start', setup: 'start', book: 'entry', entry: 'entry', ledger: 'ledger', closing: 'closing', journal: 'journal', equipment: 'equipment', report: 'report', settings: 'settings' };
 
 /**
  * 페이지 공통 초기화: 사용자·설정을 불러오고 상단 메뉴를 그린다.

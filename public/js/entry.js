@@ -1,4 +1,5 @@
 // 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제 + 통장 가계부 (통장마다 한 달 내역과 잔액)
+// 통장 가계부 화면(/book, 특별회계 첫 화면)도 이 코드를 쓴다: 입력 칸 없이 가계부만, [수정]은 거래 입력 화면에서 연다.
 // 과목은 고르지 않는다 (통장이 과목 역할). 수입은 봉헌자를 꼭 적는다 (연말정산 때 이름으로 모음).
 import { href } from './base.js';
 import { api, esc } from './api.js';
@@ -8,6 +9,7 @@ import { addDays, formatKoreanDate, isValidDate, monthStart, todayKST } from './
 
 const PREF_KEY = 'bondang.entryPrefs.v2';
 const $ = (id) => document.getElementById(id);
+const BOOK_ONLY = !$('entry'); // 통장 가계부 화면
 
 let settings = null;
 let day = null;         // 입력 날짜의 하루 현황 (잠김 여부)
@@ -169,7 +171,7 @@ function renderBook() {
         ${rows.map((r) => {
           const editable = !(lastClosed && r.date <= lastClosed);
           const isIn = r.direction === 'IN';
-          return `<tr class="${editing && editing.id === r.id ? 'editing' : ''} ${r.date === $('date').value ? 'today-row' : ''}">
+          return `<tr class="${editing && editing.id === r.id ? 'editing' : ''} ${!BOOK_ONLY && r.date === $('date').value ? 'today-row' : ''}">
             <td class="date">${md(r.date)}</td>
             <td>${r.what ? `<span class="xfer">${esc(r.what)}</span> ` : ''}${esc(r.memo)}</td>
             <td>${esc(r.payer)}</td>
@@ -351,6 +353,7 @@ function changeDate(next) {
 
 const run = (p) => p.catch((err) => toast(err.message, 'error'));
 
+if (!BOOK_ONLY) {
 $('date').addEventListener('change', () => changeDate($('date').value));
 $('account').addEventListener('change', () => {
   updatePayerField();
@@ -393,13 +396,14 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Escape' && editing && !document.querySelector('dialog[open]')) endEdit();
 });
+}
 
 // 통장 고르기: 가계부가 바뀌고, 수입·지출 입력 통장도 따라간다
 $('book-tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-book]');
   if (!b) return;
   const id = Number(b.dataset.book);
-  if (!editing && kind !== 'TRANSFER' && $('account').querySelector(`option[value="${id}"]`)) {
+  if (!BOOK_ONLY && !editing && kind !== 'TRANSFER' && $('account').querySelector(`option[value="${id}"]`)) {
     $('account').value = String(id);
     updatePayerField();
   }
@@ -417,6 +421,11 @@ $('book-next').addEventListener('click', () => shiftMonth(1));
 $('book').addEventListener('click', (e) => {
   const find = (id) => book.rows.map(bookRow).find((r) => r.id === Number(id));
   const ed = e.target.closest('[data-edit]');
+  if (ed && BOOK_ONLY) {
+    const r = find(ed.dataset.edit);
+    location.href = href(`/entry?date=${r.date}&account=${bookAccountId}&edit=${r.id}`);
+    return;
+  }
   if (ed) run(startEdit(find(ed.dataset.edit)));
   const del = e.target.closest('[data-delete]');
   if (del) deleteRow(find(del.dataset.delete));
@@ -424,8 +433,23 @@ $('book').addEventListener('click', (e) => {
 
 // ---------------------------------------------------------------- 시작
 
-initPage('entry').then(async (ctx) => {
+/** 통장 가계부 화면: 마지막에 쓴 통장(또는 첫 통장)의 이번 달 */
+async function startBook() {
+  const p = new URLSearchParams(location.search);
+  const want = Number(p.get('account')) || prefs.IN?.accountId;
+  bookAccountId = (usable(null).find((a) => a.id === want) ?? usable(null)[0])?.id ?? null;
+  bookMonth = /^\d{4}-\d{2}$/.test(p.get('month') ?? '') ? p.get('month') : todayKST().slice(0, 7);
+  if (!bookAccountId) {
+    $('book').innerHTML = `<p class="muted">등록된 통장이 없습니다. <a href="${href('/settings?s=acct#accounts')}">통장 등록</a></p>`;
+    return;
+  }
+  [lastClosed] = await Promise.all([api(`/api/closings/${todayKST()}`).then((r) => r.lastClosed ?? null), loadBook()]);
+  renderBook();
+}
+
+initPage(BOOK_ONLY ? 'book' : 'entry').then(async (ctx) => {
   settings = ctx.settings;
+  if (BOOK_ONLY) return startBook();
   bindAmountInput($('amount'));
   let start = todayKST();
   try { start = sessionStorage.getItem('bondang.entryDate') || start; } catch { /* 무시 */ }
@@ -434,12 +458,18 @@ initPage('entry').then(async (ctx) => {
   $('date').value = start;
   $('date').min = settings.parish.startDate;
   const first = usable(null)[0];
-  bookAccountId = (usable(null).find((a) => a.id === prefs.IN?.accountId) ?? first)?.id ?? null;
+  const p = new URLSearchParams(location.search);
+  bookAccountId = (usable(null).find((a) => a.id === (Number(p.get('account')) || prefs.IN?.accountId)) ?? first)?.id ?? null;
+  if (p.get('account')) prefs.IN = { accountId: bookAccountId }; // 가계부에서 [수정]으로 왔으면 그 통장
   setKind('IN');
   bookAccountId = Number($('account').value) || bookAccountId;
   if (!bookAccountId) $('book').innerHTML = `<p class="muted">등록된 통장이 없습니다. <a href="${href('/settings?s=acct#accounts')}">통장 등록</a></p>`;
   loadPayers().catch(() => {});
   await loadDay();
+  // 통장 가계부에서 [수정]을 눌러 왔으면 그 거래를 바로 연다
+  const editRow = book?.rows.map(bookRow).find((r) => r.id === Number(p.get('edit')));
+  if (p.has('edit')) history.replaceState(null, '', location.pathname); // 새로고침하면 그냥 입력 화면
+  if (editRow) return startEdit(editRow);
   visibleFields()[0]?.focus();
 }).catch((err) => {
   $('book').innerHTML = `<p class="error">${esc(err.message)}</p>`;

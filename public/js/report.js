@@ -99,7 +99,7 @@ function render() {
         (마지막 마감일: ${r.closedThrough ? formatKoreanDate(r.closedThrough) : '없음'})</span>`;
   $('warning').innerHTML = '';
   const body = week
-    ? `${monthTable(r, '전주이월')}<h2>그 주 거래 내역</h2>${cashbookTable(r, { carry: '전주이월', foot: '주 계', none: '이 주에' })}`
+    ? `${monthTable(r, '전주이월')}<h2>주간 거래내역</h2>${cashbookTable(r, { carry: '전주이월', foot: '주 계', none: '이 주에' })}`
     : { month: monthTable, cashbook: cashbookTable, gl: ledgerSections }[type](r);
   $('paper').innerHTML = `
     <article class="report ${closed ? '' : 'provisional'}">
