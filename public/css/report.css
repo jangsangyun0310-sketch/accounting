@@ -76,6 +76,7 @@ body.report-page { background: #e9ecf0; }
 .ms h2 { margin: var(--ms-gap, 3mm) 0 1mm; font-size: var(--ms-head, 10.5pt); }
 .ms-sec { break-inside: avoid; }
 .ms-page + .ms-page { break-before: page; } /* report.js 가 장마다 나눈 통장 표 */
+.ms-page.spread { display: flex; flex-direction: column; justify-content: space-between; } /* 남는 자리를 표 사이에 고르게 */
 /* 화면에서만: 종이가 바뀌는 자리에 연한 실선 (통장을 체크할 때마다 다시 나뉜다, 인쇄에는 없음) */
 @media screen { .ms-page + .ms-page { margin-top: 10mm; padding-top: 6mm; border-top: 2px solid #9aa3b0; } }
 .ms-table { table-layout: fixed; font-size: var(--ms-font, 10pt); } /* 한 장을 채우도록 report.js 가 줄 높이 · 글자 크기를 정한다 */
