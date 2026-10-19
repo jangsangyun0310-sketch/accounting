@@ -238,8 +238,9 @@ function renderMonthSheet() {
   const skip = skipped();
   $('warning').innerHTML = `<div class="ms-pick">인쇄할 통장:
     ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${skip.has(a.id) ? '' : 'checked'}> ${esc(a.name)}</label>`).join('')}
-    <button type="button" class="secondary small" data-pick-all="1">모두 체크</button>
-    <button type="button" class="secondary small" data-pick-all="0">모두 해제</button>
+    ${list.every((a) => !skip.has(a.id))
+      ? '<button type="button" class="secondary small" data-pick-all="0">모두 해제</button>'
+      : '<button type="button" class="secondary small" data-pick-all="1">모두 체크</button>'}
     <span class="muted">· 순서는 ⚙ 특별회계 설정 → 통장에서 ▲▼</span></div>`;
   const notes = new Map(r.notes.map((n) => [`${n.accountId}|${n.key}`, n.note]));
   const shown = list.filter((a) => !skip.has(a.id));
@@ -545,7 +546,7 @@ $('warning').addEventListener('change', (e) => {
   const id = Number(c.dataset.pick);
   repick((set) => (c.checked ? set.delete(id) : set.add(id)));
 });
-// [모두 체크] · [모두 해제]
+// 버튼 하나: 모두 체크되어 있으면 [모두 해제], 아니면 [모두 체크]
 $('warning').addEventListener('click', (e) => {
   const b = e.target.closest('[data-pick-all]');
   if (!b) return;
