@@ -1,8 +1,10 @@
 // 거래 입력 화면: 수입·지출·이체 입력, 수정, 삭제 + 통장 가계부 (통장마다 한 달 내역과 잔액)
+// + 마감 줄: 입력을 마치면 이 화면에서 바로 마감하고, 요약 복사 · 일일결산서 보기 (달력 · 마감취소는 일 마감 화면)
 // 과목은 고르지 않는다 (통장이 과목 역할). 수입은 봉헌자를 꼭 적는다 (연말정산 때 이름으로 모음).
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, bindAmountInput, toast } from './ui.js';
+import { closeBarHtml, copyText, openCloseDialog, specialSummary } from './closebar.js';
 import { formatWon, parseAmount } from './shared/money.js';
 import { addDays, formatKoreanDate, isValidDate, monthStart, todayKST } from './shared/dates.js';
 
@@ -103,6 +105,7 @@ async function loadDay() {
   lastClosed = info.lastClosed ?? null;
   $('date-label').textContent = formatKoreanDate(date);
   renderLock();
+  $('close-bar').innerHTML = closeBarHtml(info, day);
   if (date.slice(0, 7) !== bookMonth) {
     bookMonth = date.slice(0, 7);
     await loadBook();
@@ -384,6 +387,15 @@ document.querySelector('.kind-toggle').addEventListener('click', (e) => {
 });
 
 $('save').addEventListener('click', save);
+// 마감 줄
+$('close-bar').addEventListener('click', (e) => {
+  const close = e.target.closest('[data-bar-close]');
+  if (close) run(openCloseDialog($('action-dialog'), close.dataset.barClose, loadDay));
+  const go = e.target.closest('[data-bar-goto]');
+  if (go) changeDate(go.dataset.barGoto);
+  if (e.target.closest('[data-bar-copy]')) run(copyText(specialSummary(day)));
+});
+$('action-dialog').addEventListener('click', (e) => { if (e.target === $('action-dialog')) $('action-dialog').close(); });
 $('cancel-edit').addEventListener('click', () => endEdit());
 
 // Enter: 다음 칸, 마지막 칸(또는 저장 버튼)에서 저장

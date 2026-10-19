@@ -622,8 +622,9 @@ td.num.minus { color: #b42318; }
   .cash-count input.counted { width: 110px; }
 }
 
-/* 거래 입력 · 사목일지: 그날 마감 안내 막대 */
-.close-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border: 1.5px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
+/* 거래 입력: 그날 마감 줄 (날짜 · 상태 · 안내는 왼쪽부터, 버튼은 오른쪽) */
+.close-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 14px; border: 1.5px solid var(--accent); border-radius: 8px; background: var(--accent-soft); font-size: 14px; }
+.close-bar .bar-actions { margin-left: auto; display: flex; gap: 8px; }
 .close-bar.pending { border-color: #c27803; background: #fff8eb; }
 .close-bar:empty { display: none; }
 /* 마감 전 한 줄 안내 (거래 입력 · 사목일지 2쪽) — 마감은 [일 마감] 화면에서만 */

@@ -2,7 +2,8 @@
 import { href } from './base.js';
 import { api, esc } from './api.js';
 import { initPage, personName, toast, signedWon } from './ui.js';
-import { formatWon, sumAmounts } from './shared/money.js';
+import { copyText, openCloseDialog, specialSummary } from './closebar.js';
+import { formatWon } from './shared/money.js';
 import { addDays, formatDateTimeKST, formatKoreanDate, isValidDate, todayKST } from './shared/dates.js';
 
 const $ = (id) => document.getElementById(id);
@@ -59,28 +60,6 @@ async function loadCalendar() {
 
 // ---------------------------------------------------------------- 특별회계 요약 (양업 사목일지에 붙여넣기)
 
-function specialSummary(day) {
-  const special = day.accounts.filter((a) => a.fundCode === 'SPECIAL');
-  if (!special.length) return '';
-  const fundOf = new Map(day.accounts.map((a) => [a.id, a.fundCode]));
-  const [y, m, d] = day.date.split('-').map(Number);
-  const w = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  const list = (key) => special.filter((a) => a[key] !== 0).map((a) => `${a.name} ${formatWon(a[key])}`).join(' / ') || '없음';
-  // 이체는 출금 쪽 한 줄만 (특별회계 통장이 한쪽이라도 걸린 것)
-  const transfers = day.transactions.filter((t) => t.kind === 'TRANSFER' && t.direction === 'OUT'
-    && (t.fundCode === 'SPECIAL' || fundOf.get(t.counterpartAccountId) === 'SPECIAL'));
-  return [
-    `[특별회계] ${day.date}(${w})`,
-    `수입 ${formatWon(sumAmounts(special.map((a) => a.income)))}원 · 지출 ${formatWon(sumAmounts(special.map((a) => a.expense)))}원`,
-    `- 수입: ${list('income')}`,
-    `- 지출: ${list('expense')}`,
-    ...transfers.map((t) => `- 이체: ${t.accountName}에서 ${t.counterpartName}(으)로 ${formatWon(t.amount)}원`),
-    '잔액',
-    ...special.map((a) => `- ${a.name} ${formatWon(a.end)}`),
-    `- 합계 ${formatWon(sumAmounts(special.map((a) => a.end)))}`,
-  ].join('\n');
-}
-
 function summaryHtml(day, closed) {
   const text = specialSummary(day);
   if (!text) return '';
@@ -96,16 +75,7 @@ function summaryHtml(day, closed) {
     </div>`;
 }
 
-async function copySummary() {
-  const box = $('special-summary');
-  try {
-    await navigator.clipboard.writeText(box.value);
-  } catch {
-    box.select();
-    document.execCommand('copy');
-  }
-  toast('특별회계 요약을 복사했습니다. 양업 사목일지에 붙여 넣으세요.');
-}
+const copySummary = () => copyText($('special-summary').value, $('special-summary'));
 
 // ---------------------------------------------------------------- 날짜 상세
 
@@ -165,42 +135,6 @@ async function loadDetail(date) {
 
 // ---------------------------------------------------------------- 마감 / 마감취소
 
-async function openCloseDialog(date) {
-  const [day, settings] = await Promise.all([api(`/api/day?date=${date}`), api('/api/settings')]);
-  const dlg = $('action-dialog');
-  dlg.innerHTML = `
-    <h3>${formatKoreanDate(date)} 마감</h3>
-    <p>마감하면 이 날짜와 그 이전 날짜의 거래를 <b>입력·수정·삭제할 수 없습니다.</b><br>
-      고쳐야 할 때는 마감취소를 먼저 하면 됩니다.</p>
-    <table class="grid summary">
-      <thead><tr><th>구분</th><th class="num">전일잔액</th><th class="num">수입</th><th class="num">지출</th>
-        <th class="num">이체</th><th class="num">당일잔액</th></tr></thead>
-      <tbody>${[...day.funds, { ...day.total, name: '합계' }].map((f) => `<tr>
-        <td>${esc(f.name)}</td><td class="num">${formatWon(f.prev)}</td><td class="num">${formatWon(f.income)}</td>
-        <td class="num">${formatWon(f.expense)}</td><td class="num">${signedWon(f.transferIn - f.transferOut)}</td>
-        <td class="num"><b>${formatWon(f.end)}</b></td></tr>`).join('')}</tbody>
-    </table>
-    <label>결산서 작성자 <input id="writer" maxlength="20" value="${esc(settings.parish.writerName)}"></label>
-    <div class="dialog-foot">
-      <button type="button" class="secondary" data-cancel>닫기</button>
-      <button type="button" id="confirm-close">마감</button>
-    </div>`;
-  dlg.showModal();
-  $('confirm-close').focus();
-  $('confirm-close').addEventListener('click', async () => {
-    $('confirm-close').disabled = true;
-    try {
-      await api(`/api/closings/${date}/close`, { method: 'POST', body: { writerName: $('writer').value } });
-      dlg.close();
-      toast(`${formatKoreanDate(date)} 마감했습니다.`);
-      await refresh(date);
-    } catch (err) {
-      toast(err.message, 'error');
-      $('confirm-close').disabled = false;
-    }
-  });
-}
-
 function openReopenDialog(date) {
   const dlg = $('action-dialog');
   dlg.innerHTML = `
@@ -259,7 +193,7 @@ $('next-month').addEventListener('click', () => {
 });
 document.addEventListener('click', (e) => {
   const close = e.target.closest('[data-close-date]');
-  if (close) { run(goto(close.dataset.closeDate).then(() => openCloseDialog(close.dataset.closeDate))); return; }
+  if (close) { run(goto(close.dataset.closeDate).then(() => openCloseDialog($('action-dialog'), close.dataset.closeDate, () => refresh(close.dataset.closeDate)))); return; }
   if (e.target.closest('[data-copy-summary]')) { run(copySummary()); return; }
   const reopen = e.target.closest('[data-reopen]');
   if (reopen) { openReopenDialog(reopen.dataset.reopen); return; }
