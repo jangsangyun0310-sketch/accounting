@@ -39,6 +39,7 @@ export function reportSheet(paper, name) {
       continue;
     }
     for (const tr of el.querySelectorAll('tr')) {
+      if (tr.classList.contains('blank')) continue; // 종이를 채우는 빈 줄
       const head = ['THEAD', 'TFOOT'].includes(tr.parentElement.tagName);
       const row = [];
       for (const cell of tr.children) {

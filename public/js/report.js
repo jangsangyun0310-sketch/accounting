@@ -112,6 +112,35 @@ function render() {
           </table>`, r.approvalSteps, week ? 'week' : 'month')}
       ${body}
     </article>`;
+  fillPage();
+}
+
+// ---------------------------------------------------------------- 한 장에 꽉 차게
+// 내용이 A4 한 장보다 적으면 마지막 표에 빈 줄을 넣어 쪽 끝까지 채운다 (종이 장부처럼, 합계 줄은 맨 아래).
+// 화면 용지와 인쇄의 본문 폭(180mm)이 같아서 화면에서 재면 인쇄와 같다. 한 장을 넘으면 그대로 둔다.
+const PAGE_MM = 258; // A4 297mm - 위 15mm - 아래 17mm 여백, 조금 남김
+const mm = (n) => (n * 96) / 25.4;
+
+function fillPage() {
+  const art = $('paper').querySelector('article.report');
+  const table = art && [...art.querySelectorAll('table.r-table')].pop();
+  if (!table?.tBodies[0]) return;
+  const zoom = $('paper').style.zoom;
+  $('paper').style.zoom = '';
+  art.classList.add('measuring'); // 인쇄에 안 나오는 버튼은 빼고 잰다
+  const cols = [...table.tHead.rows[0].cells].reduce((n, c) => n + c.colSpan, 0);
+  const add = () => table.tBodies[0].insertAdjacentHTML('beforeend', `<tr class="blank">${'<td>&nbsp;</td>'.repeat(cols)}</tr>`);
+  const height = () => art.getBoundingClientRect().height;
+  const before = height();
+  if (before < mm(PAGE_MM)) {
+    add();
+    const rowH = height() - before;
+    const more = rowH > 0 ? Math.floor((mm(PAGE_MM) - before) / rowH) - 1 : -1;
+    if (more < 0) table.tBodies[0].lastElementChild.remove();
+    for (let i = 0; i < more; i++) add();
+  }
+  art.classList.remove('measuring');
+  $('paper').style.zoom = zoom;
 }
 
 const WEEKDAY = ['주일', '월', '화', '수', '목', '금', '토'];
@@ -384,7 +413,11 @@ window.addEventListener('beforeprint', () => {
 });
 // 결재란을 고치면 기억해 둔 것도 바꾼다 (월 서류 셋이 같은 결재란을 쓰므로)
 document.addEventListener('approval-changed', (e) => {
-  if (monthReport && e.detail.doc === (monthReport.key.startsWith('week') ? 'week' : 'month')) monthReport.approvalSteps = e.detail.titles;
+  if (monthReport && e.detail.doc === (monthReport.key.startsWith('week') ? 'week' : 'month')) {
+    monthReport.approvalSteps = e.detail.titles;
+    render(); // 결재란 높이가 바뀌면 빈 줄 수도 다시
+    fitPaper();
+  }
 });
 
 initPage('report').then(({ settings }) => {

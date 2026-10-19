@@ -64,6 +64,7 @@ body.report-page { background: #e9ecf0; }
 .r-table thead th { background: #eceef1; font-weight: 600; text-align: center; white-space: nowrap; }
 .r-table tfoot td { background: #eceef1; font-weight: 700; }
 .r-table tr { break-inside: avoid; }
+.report.measuring .no-print { display: none; }
 .r-table .amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .r-table .amt.strong { font-weight: 700; }
 .r-table td.nil { text-align: center; } /* 내용 없는 칸의 가운데 점 */
