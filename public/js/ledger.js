@@ -81,14 +81,32 @@ const sum = (rows, f) => rows.reduce((n, r) => n + f(r), 0);
 const dayLabelSub = (date, rows) => `${dayLabel(date)} 소계${rows.some((r) => r.kind === 'TRANSFER') ? ' (이체 제외)' : ''}`;
 const normalOnly = (rows) => rows.filter((r) => r.kind === 'NORMAL');
 
-function txRow(r, showBalance) {
+// 휴대폰(좁은 화면)에서는 칸을 줄인 표: 날짜(10.04) · 구분 · 통장 · 내용(상대통장 · 봉헌자 포함) · 금액(+/−) · (잔액)
+const narrow = () => matchMedia('(max-width: 720px)').matches;
+const md = (d) => `${d.slice(5, 7)}.${d.slice(8, 10)}`;
+const badge = (r) => `<span class="badge ${r.kind === 'TRANSFER' ? 'transfer' : r.deduction ? 'deduct' : isDeposit(r) ? 'in' : 'out'}">${typeLabel(r)}</span>`;
+const signed = (inN, outN, show = 'both') => [show !== 'out' && inN ? `<span class="in">+${formatWon(inN)}</span>` : '',
+  show !== 'in' && outN ? `<span class="out">−${formatWon(outN)}</span>` : ''].filter(Boolean).join('<br>') || '<span class="nil">·</span>';
+
+function txRow(r, showBalance, compact) {
   const isIn = isDeposit(r);
   const target = r.kind === 'TRANSFER' ? `${isIn ? '←' : '→'} ${esc(r.counterpartName ?? '')}` : '';
+  if (compact) {
+    return `
+      <tr>
+        <td>${md(r.date)}</td>
+        <td>${badge(r)}</td>
+        <td>${esc(r.accountName)}</td>
+        <td>${target ? `<span class="xfer">${target}</span> ` : ''}${esc(r.memo)}${payerCell(r)}</td>
+        <td class="num">${signed(inAmount(r), outAmount(r))}</td>
+        ${showBalance ? `<td class="num">${r.balanceAfter == null ? '' : formatWon(r.balanceAfter)}</td>` : ''}
+      </tr>`;
+  }
   return `
       <tr>
         <td>${esc(r.date)}</td>
-        <td><span class="badge ${r.kind === 'TRANSFER' ? 'transfer' : r.deduction ? 'deduct' : isIn ? 'in' : 'out'}">${typeLabel(r)}</span></td>
-        <td>${esc(r.accountName)} <span class="muted small">${FUND_LABEL[r.fundCode]}</span></td>
+        <td>${badge(r)}</td>
+        <td>${esc(r.accountName)}</td>
         <td>${target}</td>
         <td>${esc(r.memo)}${payerCell(r)}</td>
         <td class="num ${r.deduction ? 'minus' : ''}">${inAmount(r) ? formatWon(inAmount(r)) : ''}</td>
@@ -98,31 +116,38 @@ function txRow(r, showBalance) {
       </tr>`;
 }
 
-const tableHead = (showBalance) => `<thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>상대통장</th><th>내용</th>
-        <th class="num">입금</th><th class="num">출금</th>${showBalance ? '<th class="num">잔액</th>' : ''}<th>입력자</th></tr></thead>`;
+const tableHead = (showBalance, compact) => (compact
+  ? `<thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>내용</th><th class="num">금액</th>${showBalance ? '<th class="num">잔액</th>' : ''}</tr></thead>`
+  : `<thead><tr><th>날짜</th><th>구분</th><th>통장</th><th>상대통장</th><th>내용</th>
+        <th class="num">입금</th><th class="num">출금</th>${showBalance ? '<th class="num">잔액</th>' : ''}<th>입력자</th></tr></thead>`);
 
 function render(data, byAccount) {
   last = { data, byAccount };
   const showBalance = byAccount && data.rows.some((r) => r.balanceAfter != null);
-  const cols = showBalance ? 9 : 8;
+  const compact = narrow();
+  const head = tableHead(showBalance, compact);
+  const row = (r) => txRow(r, showBalance, compact);
+  const cols = compact ? (showBalance ? 6 : 5) : showBalance ? 9 : 8;
   const opening = data.openingBalance == null ? '' : showBalance
-    ? `<tr class="subtotal"><td colspan="7">이월 잔액 (${esc($('from').value)} 이전)</td>
-        <td class="num">${formatWon(data.openingBalance)}</td><td></td></tr>`
+    ? `<tr class="subtotal"><td colspan="${compact ? 5 : 7}">이월 잔액 (${esc($('from').value)} 이전)</td>
+        <td class="num">${formatWon(data.openingBalance)}</td>${compact ? '' : '<td></td>'}</tr>`
     : `<tr class="subtotal"><td colspan="${cols}">이월 잔액 (${esc($('from').value)} 이전): ${formatWon(data.openingBalance)}원</td></tr>`;
   const empty = `<tr><td colspan="${cols}" class="muted">조건에 맞는 거래가 없습니다.</td></tr>`;
   // 소계 줄: 입금 · 출금 칸에 합계 (0원은 가운데 점, show 로 한쪽만), 앞 칸에 설명
   const money = (n) => (n ? `<td class="num">${formatWon(n)}</td>` : '<td class="num nil">·</td>');
-  const subRow = (label, rows, cls = 'subtotal', show = 'both') => `<tr class="${cls}"><td colspan="5">${label}</td>
+  const subRow = (label, rows, cls = 'subtotal', show = 'both') => (compact
+    ? `<tr class="${cls}"><td colspan="4">${label}</td><td class="num">${signed(sum(rows, inAmount), sum(rows, outAmount), show)}</td>${showBalance ? '<td></td>' : ''}</tr>`
+    : `<tr class="${cls}"><td colspan="5">${label}</td>
       ${show === 'out' ? '<td></td>' : money(sum(rows, inAmount))}${show === 'in' ? '<td></td>' : money(sum(rows, outAmount))}
-      ${showBalance ? '<td></td>' : ''}<td></td></tr>`;
+      ${showBalance ? '<td></td>' : ''}<td></td></tr>`);
 
   let tables;
   if (view === 'date') {
     const days = groupBy(data.rows, (r) => r.date);
-    tables = `<table class="grid tx-list">${tableHead(showBalance)}<tbody>${opening}
+    tables = `<table class="grid tx-list">${head}<tbody>${opening}
       ${days.length ? days.map(([date, rows]) => `
         <tr class="group-head"><td colspan="${cols}">${dayLabel(date)} <span class="muted small">${rows.length}건</span></td></tr>
-        ${rows.map((r) => txRow(r, showBalance)).join('')}
+        ${rows.map(row).join('')}
         ${subRow(dayLabelSub(date, rows), normalOnly(rows))}`).join('') : empty}
       </tbody></table>`;
   } else if (view === 'kind') {
@@ -132,13 +157,13 @@ function render(data, byAccount) {
       <col style="width:105px"><col style="width:105px">${showBalance ? '<col style="width:115px">' : ''}<col style="width:165px"></colgroup>`;
     tables = groups.length ? groups.map(([k, label, rows]) => `
       <h3 class="group-title ${label === '수입' ? 'in' : label === '지출' ? 'out' : ''}">${label} <span class="muted small">${rows.length}건</span></h3>
-      <table class="grid tx-list fixed-cols">${colgroup}${tableHead(showBalance)}<tbody>
-        ${rows.map((r) => txRow(r, showBalance)).join('')}
+      <table class="grid tx-list ${compact ? '' : 'fixed-cols'}">${compact ? '' : colgroup}${head}<tbody>
+        ${rows.map(row).join('')}
         ${subRow(`${label} 합계`, rows, 'subtotal total', { IN: 'in', OUT: 'out', TRANSFER: 'both' }[k])}
-      </tbody></table>`).join('') : `<table class="grid tx-list">${tableHead(showBalance)}<tbody>${empty}</tbody></table>`;
+      </tbody></table>`).join('') : `<table class="grid tx-list">${head}<tbody>${empty}</tbody></table>`;
   } else {
-    tables = `<table class="grid tx-list">${tableHead(showBalance)}<tbody>${opening}
-      ${data.rows.map((r) => txRow(r, showBalance)).join('') || empty}</tbody></table>`;
+    tables = `<table class="grid tx-list">${head}<tbody>${opening}
+      ${data.rows.map(row).join('') || empty}</tbody></table>`;
   }
 
   const t = data.totals;
@@ -184,6 +209,8 @@ $('filters').addEventListener('click', (e) => {
   if (b) { setRange(b.dataset.range); search(); }
 });
 $('search').addEventListener('click', search);
+// 화면 폭이 휴대폰 ↔ 컴퓨터로 바뀌면 표를 다시 그린다
+matchMedia('(max-width: 720px)').addEventListener('change', () => { if (last) render(last.data, last.byAccount); });
 
 // 납부자 이름 고치기: 그 자리에서 입력칸으로 바꿔 저장
 $('result').addEventListener('click', async (e) => {

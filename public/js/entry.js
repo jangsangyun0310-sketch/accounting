@@ -177,20 +177,21 @@ function renderBook() {
   const end = rows.length ? rows[rows.length - 1].balanceAfter : book.openingBalance;
   $('book').innerHTML = `
     <table class="grid tx-list book">
-      <thead><tr><th class="date">날짜</th><th>내용</th><th>봉헌자</th><th class="num">수입</th><th class="num">지출</th>
-        <th class="num">잔액</th><th class="actions"></th></tr></thead>
+      <thead><tr><th class="date">날짜</th><th>내용</th><th class="d-only">봉헌자</th><th class="num d-only">수입</th><th class="num d-only">지출</th>
+        <th class="num m-only">금액</th><th class="num">잔액</th><th class="actions"></th></tr></thead>
       <tbody>
-        <tr class="carry"><td class="date">${md(`${bookMonth}-01`)}</td><td>전월이월</td><td></td><td></td><td></td>
+        <tr class="carry"><td class="date">${md(`${bookMonth}-01`)}</td><td>전월이월</td><td class="d-only"></td><td class="d-only"></td><td class="d-only"></td><td class="m-only"></td>
           <td class="num">${formatWon(book.openingBalance)}</td><td></td></tr>
         ${rows.map((r) => {
           const editable = !(lastClosed && r.date <= lastClosed);
           const isIn = r.direction === 'IN';
           return `<tr class="${editing && editing.id === r.id ? 'editing' : ''} ${r.date === $('date').value ? 'today-row' : ''}">
             <td class="date">${md(r.date)}</td>
-            <td>${r.what ? `<span class="xfer">${esc(r.what)}</span> ` : ''}${esc(r.memo)}</td>
-            <td>${esc(r.payer)}</td>
-            <td class="num in">${isIn ? formatWon(r.amount) : ''}</td>
-            <td class="num out">${isIn ? '' : formatWon(r.amount)}</td>
+            <td>${r.what ? `<span class="xfer">${esc(r.what)}</span> ` : ''}${esc(r.memo)}${r.payer ? `<span class="m-payer">${esc(r.payer)}</span>` : ''}</td>
+            <td class="d-only">${esc(r.payer)}</td>
+            <td class="num in d-only">${isIn ? formatWon(r.amount) : ''}</td>
+            <td class="num out d-only">${isIn ? '' : formatWon(r.amount)}</td>
+            <td class="num m-only ${isIn ? 'in' : 'out'}">${isIn ? '+' : '−'}${formatWon(r.amount)}</td>
             <td class="num">${r.balanceAfter == null ? '' : formatWon(r.balanceAfter)}</td>
             <td class="actions">${editable ? `
               <button type="button" class="secondary small" data-edit="${r.id}">수정</button>
@@ -198,8 +199,9 @@ function renderBook() {
           </tr>`;
         }).join('')}
       </tbody>
-      <tfoot><tr class="total"><td></td><td>이 달 합계 (${rows.length}건)</td><td></td>
-        <td class="num">${formatWon(inSum)}</td><td class="num">${formatWon(outSum)}</td>
+      <tfoot><tr class="total"><td></td><td>이 달 합계 (${rows.length}건)</td><td class="d-only"></td>
+        <td class="num d-only">${formatWon(inSum)}</td><td class="num d-only">${formatWon(outSum)}</td>
+        <td class="num m-only"><span class="in">+${formatWon(inSum)}</span><br><span class="out">−${formatWon(outSum)}</span></td>
         <td class="num">${formatWon(end)}</td><td></td></tr></tfoot>
     </table>
     ${book.truncated ? '<p class="error">거래가 너무 많아 일부만 보입니다.</p>' : ''}`;
