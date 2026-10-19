@@ -410,6 +410,7 @@ $('book-tabs').addEventListener('click', (e) => {
   selectBook(id);
 });
 const shiftMonth = (dir) => {
+  if (!bookAccountId) return; // 통장을 아직 고르지 않음
   bookMonth = addDays(`${bookMonth}-01`, dir > 0 ? 31 : -1).slice(0, 7);
   book = null;
   renderBook();
@@ -433,18 +434,22 @@ $('book').addEventListener('click', (e) => {
 
 // ---------------------------------------------------------------- 시작
 
-/** 통장 가계부 화면: 마지막에 쓴 통장(또는 첫 통장)의 이번 달 */
+/** 통장 가계부 화면: 처음엔 통장을 고르지 않은 채 (마지막에 입력한 통장을 열지 않음). 주소에 통장이 있으면 그 통장 */
 async function startBook() {
   const p = new URLSearchParams(location.search);
-  const want = Number(p.get('account')) || prefs.IN?.accountId;
-  bookAccountId = (usable(null).find((a) => a.id === want) ?? usable(null)[0])?.id ?? null;
+  const want = Number(p.get('account'));
+  bookAccountId = usable(null).find((a) => a.id === want)?.id ?? null;
   bookMonth = /^\d{4}-\d{2}$/.test(p.get('month') ?? '') ? p.get('month') : todayKST().slice(0, 7);
-  if (!bookAccountId) {
+  if (!usable(null).length) {
     $('book').innerHTML = `<p class="muted">등록된 통장이 없습니다. <a href="${href('/settings?s=acct#accounts')}">통장 등록</a></p>`;
     return;
   }
+  if (!bookAccountId) {
+    renderTabs();
+    $('book').innerHTML = '<p class="muted">위에서 통장을 고르면 그 통장의 가계부가 나옵니다.</p>';
+  }
   [lastClosed] = await Promise.all([api(`/api/closings/${todayKST()}`).then((r) => r.lastClosed ?? null), loadBook()]);
-  renderBook();
+  if (bookAccountId) renderBook();
 }
 
 initPage(BOOK_ONLY ? 'book' : 'entry').then(async (ctx) => {
