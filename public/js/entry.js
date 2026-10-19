@@ -464,7 +464,7 @@ initPage('entry').then(async (ctx) => {
   bookAccountId = usable(null)[0]?.id ?? null; // 처음엔 통장 목록의 맨 위 통장
   setKind('IN');
   bookAccountId = Number($('account').value) || bookAccountId;
-  if (!bookAccountId) $('book').innerHTML = `<p class="muted">등록된 통장이 없습니다. <a href="${href('/settings?s=acct#accounts')}">통장 등록</a></p>`;
+  if (!bookAccountId) $('book').innerHTML = `<p class="muted">등록된 통장이 없습니다. <a href="${href('/settings#accounts')}">통장 등록</a></p>`;
   loadPayers().catch(() => {});
   await loadDay();
   visibleFields()[0]?.focus();

@@ -16,7 +16,7 @@ import { handoverSheets } from './handover.js';
 
 const panel = document.getElementById('panel');
 
-const SCOPE_TITLES = { acct: '회계 설정', journal: '사목일지 설정', property: '재산관리 설정', '': '성당 설정' };
+const SCOPE_TITLES = { journal: '사목일지 설정', property: '재산관리 설정', '': '성당 설정' };
 const TAB_TITLES = Object.fromEntries(Object.values(SETTINGS_SCOPES).flat());
 const subtabs = document.getElementById('subtabs');
 
@@ -224,7 +224,7 @@ const APPROVAL_HELP = {
   journal: '날마다 인쇄하는 사목일지 1쪽의 결재란입니다.',
   daily: '일일결산서의 결재란입니다. 마감한 날은 마감할 때의 결재란으로 인쇄됩니다.',
   week: '주간결산서(주일~토요일)의 결재란입니다.',
-  month: '월말결산서 · 금전출납부 · 총계정원장에 함께 쓰는 결재란입니다. 서류마다 첫 장에만 인쇄됩니다.',
+  month: '일일결산서 · 월말결산서 · 금전출납부 · 총계정원장에 함께 쓰는 결재란입니다. 서류마다 첫 장에만 인쇄됩니다.',
   year: '연말결산서의 결재란입니다.',
   budget: '예산 대비 집행의 결재란입니다.',
   accounts: '통장별 입출금 내역의 결재란입니다.',

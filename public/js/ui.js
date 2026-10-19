@@ -24,8 +24,8 @@ const GROUPS = [
  * '' = 오른쪽 위 [⚙ 설정]: 성당 전체에 관한 것만.
  */
 export const SETTINGS_SCOPES = {
-  acct: [['accounts', '통장'], ['approval-main', '결산서 결재란']],
-  '': [['parish', '성당 정보'], ['backup', '백업'], ['members', '함께 사용'], ['account', '초기화 · 탈퇴']],
+  // 특별회계 설정(통장 · 결재란)도 성당 설정 하나로 (본당살림은 특별회계만). 예전 주소 ?s=acct#accounts 도 여기로 열린다
+  '': [['parish', '성당 정보'], ['accounts', '통장'], ['approval-main', '결재란'], ['backup', '백업'], ['members', '함께 사용'], ['account', '초기화 · 탈퇴']],
 };
 // 예전 주소(#approval 등)도 맞는 묶음으로
 const OLD_TABS = { approval: 'approval-main' };
@@ -96,7 +96,7 @@ export async function initPage(active, { requireSetup = true } = {}) {
       <a href="${href('/')}" class="brand"><img src="/img/logo.png" alt="본당살림" width="171" height="48"></a>
       <nav>${ready ? `<a href="${href('/')}" class="nav-home ${active === 'home' ? 'active' : ''}"><span class="ni">${ICON.home}</span><span class="nl">홈</span></a>`
         + GROUPS.map((g) => `<a href="${href(g.home ?? g.items[0][0])}" class="${g === group ? 'active' : ''}"><span class="ni">${ICON[g.key]}</span><span class="nl">${g.label}</span></a>`).join('') : ''}</nav>
-      ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' && !group ? 'active' : ''}" title="성당 정보 · 백업 · 함께 사용">⚙ 성당 설정</a>` : ''}
+      ${ready ? `<a href="${href('/settings')}" class="settings-link ${active === 'settings' && !group ? 'active' : ''}" title="성당 정보 · 통장 · 결재란 · 백업 · 함께 사용">⚙ 성당 설정</a>` : ''}
       <span class="m-break" aria-hidden="true"></span>
       <button type="button" class="share-btn" id="share-btn" title="다른 성당에 본당살림 알려주기">공유하기</button>
       <span class="account"><a class="help-link ${active === 'help' ? 'active' : ''}" href="${href(HELP_SECTION[active] ? `/help#${HELP_SECTION[active]}` : '/help')}">도움말</a>
