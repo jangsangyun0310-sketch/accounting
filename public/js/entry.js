@@ -80,6 +80,16 @@ function setKind(next, values = next === 'TRANSFER' ? prefs.TRANSFER ?? {} : {})
     setSelect($('account'), accountOptions(values.accountId), values.accountId ?? bookAccountId);
   }
   updatePayerField();
+  loadMemos().catch(() => {});
+}
+
+/** 그 통장에서 전에 적은 내용 (자동 완성). 월말결산서는 내용이 같은 글자끼리 한 줄로 모이므로 골라 넣게 한다 */
+let memoSeq = 0;
+async function loadMemos() {
+  const accountId = kind === 'TRANSFER' ? 0 : Number($('account').value);
+  const seq = ++memoSeq;
+  const { memos } = accountId ? await api(`/api/memos?accountId=${accountId}`) : { memos: [] };
+  if (seq === memoSeq) $('memo-list').innerHTML = memos.map((m) => `<option value="${esc(m)}">`).join('');
 }
 
 // ---------------------------------------------------------------- 입력 날짜
@@ -279,6 +289,7 @@ async function save() {
     await loadDay();
     await loadBook();
     if (body.payer) loadPayers().catch(() => {});
+    loadMemos().catch(() => {});
   } catch (err) {
     toast(err.message, 'error');
   } finally {
@@ -357,6 +368,7 @@ const run = (p) => p.catch((err) => toast(err.message, 'error'));
 $('date').addEventListener('change', () => changeDate($('date').value));
 $('account').addEventListener('change', () => {
   updatePayerField();
+  loadMemos().catch(() => {});
   selectBook(Number($('account').value));
 });
 $('from-account').addEventListener('change', () => selectBook(Number($('from-account').value)));
@@ -405,6 +417,7 @@ $('book-tabs').addEventListener('click', (e) => {
   if (!editing && kind !== 'TRANSFER' && $('account').querySelector(`option[value="${id}"]`)) {
     $('account').value = String(id);
     updatePayerField();
+    loadMemos().catch(() => {});
   }
   selectBook(id);
 });

@@ -47,6 +47,9 @@ export const TABLES = [
       'voucher_no', 'status', 'replaces_id', 'void_reason', 'voided_at', 'voided_by', 'created_at', 'created_by'] },
   // 납부자 (2026-10-11 이전 백업에는 없다). 거래 다음에 넣는다
   { name: 'tx_payers', order: 'tx_id', optional: true, columns: ['tx_id', 'payer', 'updated_at', 'updated_by'] },
+  // 월말결산서 비고 (2026-10-19 이전 백업에는 없다)
+  { name: 'month_notes', order: 'month, account_id, row_key', optional: true,
+    columns: ['month', 'account_id', 'row_key', 'note', 'updated_at', 'updated_by'] },
   // 비품대장 (2026-10-12 이전 백업에는 없다). 사진은 넣지 않는다
   { name: 'equipment', order: 'id', optional: true,
     columns: ['id', 'item_no', 'name', 'spec', 'quantity', 'purchase_date', 'price', 'vendor', 'location',

@@ -2,9 +2,10 @@
 // 마감된 날은 마감 당시의 결재선·작성자를 쓰고, 잔액이 마감 스냅샷과 같은지 검증 결과를 함께 준다.
 // 미마감 날은 현재 결재선·기본 작성자로 "가결산"을 만든다.
 // 자동 마감된 날(거래가 없어 이후 날짜를 마감할 때 함께 잠긴 날)은 그 이후 마감 기록의 결재선·작성자로 정상 결산서를 만든다.
-import { json } from '../lib/http.js';
+import { json, readJson } from '../lib/http.js';
+import { auditStatement } from '../lib/db.js';
 import { TX_SELECT, computeDay, computePeriod, mapTx, periodBreakdown, subjectTotals, verifySnapshot } from '../lib/ledger.js';
-import { bad } from '../lib/validate.js';
+import { array, bad, id as parseId, text } from '../lib/validate.js';
 import { sumAmounts } from '../../js/shared/money.js';
 import { addDays, isValidDate, todayKST } from '../../js/shared/dates.js';
 import { approvalOf } from '../lib/approvals.js';
@@ -260,4 +261,39 @@ export async function donors({ env, url }) {
     people,
     total: sumAmounts(people.map((p) => p.total)),
   });
+}
+
+// ---------------------------------------------------------------- 월말결산서 비고
+
+const parseMonth = (v) => {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(v ?? '')) throw bad('달 형식이 올바르지 않습니다.', 'BAD_MONTH');
+  return v;
+};
+
+/** GET /api/reports/month-notes?month=YYYY-MM : 그 달 월말결산서에 직접 적은 비고 */
+export async function monthNotes({ env, url }) {
+  const month = parseMonth(url.searchParams.get('month'));
+  const { results } = await env.DB.prepare('SELECT account_id, row_key, note FROM month_notes WHERE month = ?').bind(month).all();
+  return json({ month, notes: results.map((r) => ({ accountId: r.account_id, key: r.row_key, note: r.note })) });
+}
+
+/** PUT /api/reports/month-notes { month, notes: [{ accountId, key, note }] } : 그 달 비고를 통째로 바꾼다 (빈 비고는 지움) */
+export async function saveMonthNotes({ request, env, actor }) {
+  const body = await readJson(request);
+  const month = parseMonth(body?.month);
+  const notes = array(body?.notes, '비고', { max: 2000 }).map((n) => ({
+    accountId: parseId(n?.accountId, '통장'),
+    key: text(n?.key, '비고 줄', { max: 120 }),
+    note: text(n?.note, '비고', { max: 60, required: false }),
+  })).filter((n) => n.note);
+  const db = env.DB;
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare('DELETE FROM month_notes WHERE month = ?').bind(month),
+    ...notes.map((n) => db.prepare(
+      'INSERT OR REPLACE INTO month_notes (month, account_id, row_key, note, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(month, n.accountId, n.key, n.note, now, actor.email)),
+    auditStatement(db, { actor: actor.email, entity: 'month_notes', entityId: month, action: 'UPDATE', after: { count: notes.length } }),
+  ]);
+  return json({ ok: true, count: notes.length });
 }

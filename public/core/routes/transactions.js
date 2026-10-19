@@ -243,6 +243,16 @@ export async function setPayer({ request, env, actor, params }) {
   return json({ ok: true });
 }
 
+/** GET /api/memos?accountId= : 그 통장에서 지금까지 적은 내용 (많이 쓴 순, 내용 칸 자동 완성용 — 월말결산서 내역이 같은 글자로 모이게) */
+export async function memos({ env, url }) {
+  const accountId = parseId(url.searchParams.get('accountId'), '통장');
+  const { results } = await env.DB.prepare(
+    `SELECT memo FROM transactions WHERE account_id = ? AND status = 'POSTED' AND kind = 'NORMAL' AND memo <> ''
+     GROUP BY memo ORDER BY COUNT(*) DESC, MAX(id) DESC LIMIT 500`
+  ).bind(accountId).all();
+  return json({ memos: results.map((r) => r.memo) });
+}
+
 /** GET /api/payers : 지금까지 적은 납부자 이름 (최근에 쓴 순, 입력 칸 자동 완성용) */
 export async function payers({ env }) {
   const { results } = await env.DB.prepare(

@@ -1,5 +1,6 @@
 // 결산서 (특별회계): 주간결산서 · 월말결산서 · 금전출납부 · 총계정원장 · 봉헌자 조회 A4 미리보기와 인쇄
 // 과목이 없고 통장이 과목 역할. 월 서류 셋은 결재란 하나를 함께 쓰고(설정의 '결산서' 결재란), 첫 장에만 인쇄된다.
+// 월말결산서는 통장마다 수입 · 지출 내역(= 거래의 내용) × 전월누계 · 금월액 · 누계 · 비고. 비고는 직접 적어 저장한다.
 // 주간결산서(주일~토요일)는 결재란을 따로 둔다.
 // 서류마다 따로 인쇄해서 따로 서명받는다.
 import { api, esc } from './api.js';
@@ -18,7 +19,9 @@ const TYPES = {
   donors: { name: '봉헌자 조회' }, // 봉헌자별 1년 내역 (연말정산 준비)
 };
 let type = 'month';
-let monthReport = null; // 기간 하나의 통장별 내역 (월 서류 셋 공용, 주간결산서는 그 주)
+let monthReport = null; // 기간 하나의 통장별 내역 (금전출납부 · 총계정원장은 그 달, 주간결산서는 그 주, 월말결산서는 1월부터 그 달까지)
+let accountOrder = [];  // 설정의 통장 순서 (통장 id)
+let notesDirty = false; // 월말결산서 비고를 고치고 아직 저장하지 않음
 
 // 고르는 단위: 주(주일 날짜) · 달(YYYY-MM) · 해(YYYY)
 const unitOf = (t) => (t === 'donors' ? 'year' : t === 'week' ? 'week' : 'month');
@@ -48,13 +51,17 @@ async function load(nextType, value) {
       renderDonors();
     }
   } else {
-    const key = `${unit}:${value}`;
+    const keyOf = (t, v) => `${t === 'month' ? 'ms' : unitOf(t)}:${v}`;
+    const key = keyOf(type, value);
     if (monthReport?.key !== key) {
-      const [from, to, doc] = unit === 'week' ? [value, addDays(value, 6), 'week'] : [`${value}-01`, monthEnd(value), 'month'];
-      const r = await api(`/api/reports/accounts?from=${from}&to=${to}&doc=${doc}`);
-      monthReport = { ...r, key };
+      const [from, to, doc] = unit === 'week' ? [value, addDays(value, 6), 'week']
+        : type === 'month' ? [`${value.slice(0, 4)}-01-01`, monthEnd(value), 'month'] : [`${value}-01`, monthEnd(value), 'month'];
+      const [r, n] = await Promise.all([api(`/api/reports/accounts?from=${from}&to=${to}&doc=${doc}`),
+        type === 'month' ? api(`/api/reports/month-notes?month=${value}`) : null]);
+      monthReport = { ...r, key, notes: n?.notes ?? [] };
+      notesDirty = false;
     }
-    if (monthReport.key === `${unitOf(type)}:${currentValue()}`) render();
+    if (monthReport.key === keyOf(type, currentValue())) render();
   }
   fitPaper();
 }
@@ -88,6 +95,8 @@ function fundAccounts(r) {
 }
 
 function render() {
+  $('save-notes').hidden = type !== 'month';
+  if (type === 'month') return renderMonthSheet();
   const r = monthReport;
   const closed = r.status === 'CLOSED';
   const week = type === 'week';
@@ -123,6 +132,7 @@ const PAGE_MM = 258; // A4 297mm - 위 15mm - 아래 17mm 여백, 조금 남김
 const mm = (n) => (n * 96) / 25.4;
 
 function fillPage() {
+  if (type === 'month') return; // 월말결산서는 통장마다 표가 나뉘어 채우지 않는다
   const art = $('paper').querySelector('article.report');
   const table = art && [...art.querySelectorAll('table.r-table')].pop();
   if (!table?.tBodies[0]) return;
@@ -144,6 +154,116 @@ function fillPage() {
   }
   art.classList.remove('measuring');
   $('paper').style.zoom = zoom;
+}
+
+// ---------------------------------------------------------------- 월말결산서 (특별회계 결산서 양식)
+// 통장마다: 수입(전년도 이월금 + 내용별) → 수입계, 지출(내용별) → 지출계, 잔액.
+// 내역 = 거래의 '내용' (같은 글자끼리 한 줄, 내용이 없으면 기타), 통장끼리 옮긴 돈은 '이체 받음' · '이체 보냄'. 줄은 누계가 큰 순.
+// 전월누계 = 1월 1일부터 지난달 말까지, 금월액 = 이번 달, 누계 = 둘의 합.
+
+const PRINT_KEY = 'bondang.monthSheetSkip'; // 인쇄하지 않을 통장 (이 컴퓨터에 기억)
+function skipped() {
+  try { return new Set(JSON.parse(localStorage.getItem(PRINT_KEY)) ?? []); } catch { return new Set(); }
+}
+function setSkipped(set) {
+  try { localStorage.setItem(PRINT_KEY, JSON.stringify([...set])); } catch { /* 저장 불가 환경 */ }
+}
+
+/** 통장 하나의 내역 줄: [{ name, side: 'IN'|'OUT', p: 전월누계, m: 금월액 }] (누계 큰 순) */
+function sheetLines(a, monthStart) {
+  const map = new Map();
+  for (const t of a.rows) {
+    const name = t.kind === 'TRANSFER' ? (t.direction === 'IN' ? '이체 받음' : '이체 보냄') : (t.memo ?? '').trim() || '기타';
+    const k = `${t.direction}:${name}`;
+    const line = map.get(k) ?? { name, side: t.direction, p: 0, m: 0 };
+    if (t.date < monthStart) line.p = sumAmounts([line.p, t.amount]);
+    else line.m = sumAmounts([line.m, t.amount]);
+    map.set(k, line);
+  }
+  return [...map.values()].sort((x, y) => (y.p + y.m) - (x.p + x.m) || x.name.localeCompare(y.name, 'ko'));
+}
+
+const wonCell = (n) => (n ? `<td class="amt">${formatWon(n)}</td>` : '<td class="amt nil">·</td>');
+
+function sheetSection(a, month, notes) {
+  const monthStart = `${month}-01`;
+  const lines = sheetLines(a, monthStart);
+  const inc = lines.filter((x) => x.side === 'IN');
+  const exp = lines.filter((x) => x.side === 'OUT');
+  const tot = (xs, k) => sumAmounts(xs.map((x) => x[k]));
+  const iP = sumAmounts([a.prev, tot(inc, 'p')]);
+  const iM = tot(inc, 'm');
+  const [eP, eM] = [tot(exp, 'p'), tot(exp, 'm')];
+  if (sumAmounts([iP, iM, -eP, -eM]) !== a.end) throw new Error(`통장 ${a.name}: 결산서 합계와 잔액이 맞지 않습니다.`);
+  const note = (key) => `<td class="memo"><input class="note" data-acc="${a.id}" data-key="${esc(key)}" maxlength="60"
+    value="${esc(notes.get(`${a.id}|${key}`) ?? '')}" aria-label="비고"></td>`;
+  const fixed = (text) => `<td class="memo fixed">${text}</td>`;
+  const row = (x, first, label, n) => `<tr>${first ? `<td class="grp" rowspan="${n}">${label}</td>` : ''}
+      <td class="item">${esc(x.name)}</td>${wonCell(x.p)}${wonCell(x.m)}${wonCell(sumAmounts([x.p, x.m]))}${note(`${x.side}:${x.name}`)}</tr>`;
+  const sumRow = (first, label, n, title, p, m, key) => `<tr class="sum">${first ? `<td class="grp" rowspan="${n}">${label}</td>` : ''}
+      <td class="item">${title}</td>${wonCell(p)}${wonCell(m)}${wonCell(sumAmounts([p, m]))}${note(key)}</tr>`;
+  return `
+      <div class="ms-sec">
+        <h2>&lt;${esc(a.name)}&gt;</h2>
+        <table class="r-table ms-table">
+          <colgroup><col style="width:13mm"><col style="width:36mm"><col><col><col><col style="width:40mm"></colgroup>
+          <thead><tr><th>구분</th><th>내 역</th><th>전월누계</th><th>금월액</th><th>누 계</th><th>비 고</th></tr></thead>
+          <tbody>
+            <tr class="carry"><td class="grp" rowspan="${inc.length + 2}">수입</td><td class="item">전년도 이월금</td>
+              ${wonCell(a.prev)}<td class="amt nil">·</td>${wonCell(a.prev)}${fixed('전년도 12월 잔액')}</tr>
+            ${inc.map((x) => row(x, false)).join('')}
+            ${sumRow(false, '', 0, '수 입 계', iP, iM, 'IN_SUM')}
+            ${exp.map((x, i) => row(x, i === 0, '지출', exp.length + 1)).join('')}
+            ${sumRow(!exp.length, '지출', 1, '지 출 계', eP, eM, 'OUT_SUM')}
+            <tr class="bal"><td colspan="2" class="item">잔 액</td>${wonCell(sumAmounts([iP, -eP]))}${wonCell(sumAmounts([iM, -eM]))}
+              ${wonCell(a.end)}${fixed('차년도 이월금')}</tr>
+          </tbody>
+        </table>
+      </div>`;
+}
+
+function renderMonthSheet() {
+  const r = monthReport;
+  const month = currentValue();
+  const [y, m] = month.split('-').map(Number);
+  const closed = r.status === 'CLOSED';
+  document.title = `월말결산서 ${month} - 본당살림`;
+  $('state').innerHTML = (closed
+    ? '<span class="pill closed">마감 완료</span> <span class="muted">이 달까지 모든 날이 마감되었습니다.</span>'
+    : `<span class="pill open">미마감 포함</span> <span class="muted">마감되지 않은 날이 있어 가결산으로 출력됩니다.
+        (마지막 마감일: ${r.closedThrough ? formatKoreanDate(r.closedThrough) : '없음'})</span>`)
+    + ' <span class="muted">· 노란 칸(비고)은 적고 [비고 저장]을 누르세요.</span>';
+  const order = (a) => { const i = accountOrder.indexOf(a.id); return i < 0 ? 1e9 : i; };
+  const list = [...fundAccounts(r)].sort((p, q) => order(p) - order(q));
+  const skip = skipped();
+  $('warning').innerHTML = `<div class="ms-pick">인쇄할 통장:
+    ${list.map((a) => `<label><input type="checkbox" data-pick="${a.id}" ${skip.has(a.id) ? '' : 'checked'}> ${esc(a.name)}</label>`).join('')}
+    <span class="muted">· 순서는 ⚙ 특별회계 설정 → 통장에서 ▲▼</span></div>`;
+  const notes = new Map(r.notes.map((n) => [`${n.accountId}|${n.key}`, n.note]));
+  const shown = list.filter((a) => !skip.has(a.id));
+  $('paper').innerHTML = `
+    <article class="report ms ${closed ? '' : 'provisional'}">
+      ${closed ? '' : '<div class="watermark" aria-hidden="true">가결산</div>'}
+      <h1 class="ms-title">${y}년 ${m}월 특별회계 결산서${closed ? '' : ' <small>(가결산)</small>'}</h1>
+      ${reportHeadHtml('', r.approvalSteps, 'month')}
+      ${shown.map((a) => sheetSection(a, month, notes)).join('') || '<p class="empty">인쇄할 통장을 고르세요</p>'}
+    </article>`;
+}
+
+/** 비고 저장 (그 달 비고를 통째로) */
+async function saveNotes() {
+  const month = currentValue();
+  const inputs = [...$('paper').querySelectorAll('input.note')];
+  // 화면에 없는(인쇄하지 않는) 통장의 비고는 그대로 둔다
+  const shownIds = new Set(inputs.map((i) => Number(i.dataset.acc)));
+  const kept = monthReport.notes.filter((n) => !shownIds.has(n.accountId));
+  const notes = [...kept, ...inputs.map((i) => ({ accountId: Number(i.dataset.acc), key: i.dataset.key, note: i.value.trim() }))
+    .filter((n) => n.note)];
+  await api('/api/reports/month-notes', { method: 'PUT', body: { month, notes } });
+  monthReport.notes = notes;
+  notesDirty = false;
+  $('save-notes').classList.add('secondary');
+  toast('비고를 저장했습니다.');
 }
 
 const WEEKDAY = ['주일', '월', '화', '수', '목', '금', '토'];
@@ -394,7 +514,32 @@ for (const id of ['week', 'month', 'year']) $(id).addEventListener('change', () 
 $('prev').addEventListener('click', () => go(shift(-1)));
 $('next').addEventListener('click', () => go(shift(1)));
 $('now').addEventListener('click', () => go(nowValue()));
-$('print').addEventListener('click', () => window.print());
+// 월말결산서: 저장하지 않은 비고가 있으면 저장하고 인쇄
+$('print').addEventListener('click', () => run((async () => {
+  if (type === 'month' && notesDirty) await saveNotes();
+  window.print();
+})()));
+$('save-notes').addEventListener('click', () => run(saveNotes()));
+$('paper').addEventListener('input', (e) => {
+  if (!e.target.classList.contains('note')) return;
+  notesDirty = true;
+  $('save-notes').classList.remove('secondary');
+});
+// 인쇄할 통장 고르기 (고른 것은 이 컴퓨터에 기억). 적던 비고는 화면에 남긴다
+$('warning').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-pick]');
+  if (!c) return;
+  const keep = new Map([...$('paper').querySelectorAll('input.note')].map((i) => [`${i.dataset.acc}|${i.dataset.key}`, i.value]));
+  const set = skipped();
+  if (c.checked) set.delete(Number(c.dataset.pick)); else set.add(Number(c.dataset.pick));
+  setSkipped(set);
+  renderMonthSheet();
+  for (const i of $('paper').querySelectorAll('input.note')) {
+    const v = keep.get(`${i.dataset.acc}|${i.dataset.key}`);
+    if (v != null) i.value = v;
+  }
+});
+addEventListener('beforeunload', (e) => { if (notesDirty) e.preventDefault(); });
 
 // 보고 있는 결산서를 Excel 로 (표 내용 그대로, 금액은 숫자로)
 $('excel').addEventListener('click', () => {
@@ -423,6 +568,7 @@ document.addEventListener('approval-changed', (e) => {
 });
 
 initPage('report').then(({ settings }) => {
+  accountOrder = settings.accounts.map((a) => a.id);
   const thisYear = Number(todayKST().slice(0, 4));
   const firstYear = Number((settings.parish?.startDate ?? todayKST()).slice(0, 4));
   for (let y = thisYear; y >= Math.min(firstYear, thisYear); y--) $('year').append(new Option(`${y}년`, String(y)));

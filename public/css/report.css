@@ -65,6 +65,28 @@ body.report-page { background: #e9ecf0; }
 .r-table tfoot td { background: #eceef1; font-weight: 700; }
 .r-table tr { break-inside: avoid; }
 .report.measuring .no-print { display: none; }
+
+/* 월말결산서 (특별회계 결산서 양식): 통장 4개가 A4 한 장에 들어가게 줄을 촘촘히 */
+.ms h1.ms-title { text-align: center; font-size: 17pt; letter-spacing: 1px; margin: 0 0 1mm; }
+.ms h1.ms-title small { font-size: 10pt; color: #b42318; letter-spacing: 0; }
+.ms .r-head { margin-bottom: 1mm; }
+.ms h2 { margin: 3mm 0 1mm; }
+.ms-sec { break-inside: avoid; }
+.ms-table { table-layout: fixed; }
+.ms-table th, .ms-table td { padding: 0.2mm 1.6mm; height: 4.4mm; line-height: 1.15; }
+.ms-table .grp { text-align: center; font-weight: 600; }
+.ms-table .item { text-align: center; }
+.ms-table tr.sum td { font-weight: 700; background: #f4f5f7; }
+.ms-table tr.carry td.item { background: #e2e4e8; font-weight: 600; }
+.ms-table tr.bal td { font-weight: 700; background: #eceef1; border-top: 0.6mm solid #222; }
+.ms-table td.memo { font-size: 8.5pt; padding: 0.2mm 0.8mm; }
+.ms-table td.memo input { width: 100%; border: none; border-radius: 0; background: #fffbe6; font: inherit; color: #000; padding: 0.2mm 0.6mm; height: auto; min-width: 0; }
+.ms-table td.memo input:focus { outline: 2px solid var(--accent); background: #fff; }
+.ms-table tr.sum td, .ms-table tr.bal td, .ms-table tr.carry td.item { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@media print { .ms-table td.memo input { background: none; } }
+.ms-pick { max-width: 210mm; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 14px; }
+.ms-pick label { display: inline-flex; flex-direction: row; gap: 5px; align-items: center; font-weight: 600; margin: 0; }
+.ms-pick .muted { font-weight: normal; }
 .r-table .amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .r-table .amt.strong { font-weight: 700; }
 .r-table td.nil { text-align: center; } /* 내용 없는 칸의 가운데 점 */

@@ -20,4 +20,5 @@ export const MIGRATIONS = [
   '0017_equipment.sql',
   '0018_doc_approvals.sql',
   '0019_week_approval.sql',
+  '0020_month_notes.sql',
 ];

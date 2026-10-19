@@ -42,7 +42,8 @@
         <label class="f-payer" id="payer-field" hidden>봉헌자 <span class="req">*</span> <input id="payer" maxlength="30" list="payer-list" autocomplete="off" placeholder="이름 (꼭 적기)"></label>
         <datalist id="payer-list"></datalist>
         <label class="f-amount">금액(원) <input id="amount" placeholder="0"></label>
-        <label class="f-memo">내용 <input id="memo" maxlength="100" placeholder="예) 성소후원"></label>
+        <label class="f-memo">내용 <input id="memo" maxlength="100" list="memo-list" autocomplete="off" placeholder="예) 성소후원"></label>
+        <datalist id="memo-list"></datalist>
         <button type="button" id="save" class="save">저장 <kbd>Enter</kbd></button>
       </div>
       <p class="help f-transfer transfer-help">💡 <b>이체</b>는 통장끼리 돈을 옮길 때 씁니다. 수입·지출에 잡히지 않고 두 통장의 잔액만 바뀝니다.</p>
