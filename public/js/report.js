@@ -117,7 +117,8 @@ function render() {
 
 // ---------------------------------------------------------------- 한 장에 꽉 차게
 // 내용이 A4 한 장보다 적으면 마지막 표에 빈 줄을 넣어 쪽 끝까지 채운다 (종이 장부처럼, 합계 줄은 맨 아래).
-// 화면 용지와 인쇄의 본문 폭(180mm)이 같아서 화면에서 재면 인쇄와 같다. 한 장을 넘으면 그대로 둔다.
+// 주간결산서는 빈 줄 없이, 한 장을 넘으면 서류 전체를 줄여 A4 한 장에 맞춘다.
+// 화면 용지와 인쇄의 본문 폭(180mm)이 같아서 화면에서 재면 인쇄와 같다. 월 서류는 한 장을 넘으면 그대로 둔다.
 const PAGE_MM = 258; // A4 297mm - 위 15mm - 아래 17mm 여백, 조금 남김
 const mm = (n) => (n * 96) / 25.4;
 
@@ -132,7 +133,9 @@ function fillPage() {
   const add = () => table.tBodies[0].insertAdjacentHTML('beforeend', `<tr class="blank">${'<td>&nbsp;</td>'.repeat(cols)}</tr>`);
   const height = () => art.getBoundingClientRect().height;
   const before = height();
-  if (before < mm(PAGE_MM)) {
+  if (type === 'week') {
+    if (before > mm(PAGE_MM)) art.style.zoom = String(Math.floor((mm(PAGE_MM) / before) * 1000) / 1000);
+  } else if (before < mm(PAGE_MM)) {
     add();
     const rowH = height() - before;
     const more = rowH > 0 ? Math.floor((mm(PAGE_MM) - before) / rowH) - 1 : -1;
