@@ -12,10 +12,10 @@ export const TABLES = [
   { name: 'parish_settings', order: 'id',
     columns: ['id', 'parish_name', 'start_date', 'writer_name', 'setup_completed', 'updated_at', 'updated_by'] },
   { name: 'setup_lock', order: 'id', columns: ['id', 'created_at', 'created_by'] },
-  // defaults: 나중에 생긴 칸 — 예전 백업에 없으면 이 값으로 복구한다 (is_cash: 2026-10-11)
+  // defaults: 나중에 생긴 칸 — 예전 백업에 없으면 이 값으로 복구한다 (is_cash: 2026-10-11, divider_after: 2026-10-27)
   { name: 'accounts', order: 'id',
     columns: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active',
-      'created_at', 'created_by', 'updated_at', 'updated_by', 'is_cash'], defaults: { is_cash: 0 } },
+      'created_at', 'created_by', 'updated_at', 'updated_by', 'is_cash', 'divider_after'], defaults: { is_cash: 0, divider_after: 0 } },
   { name: 'budget_subjects', order: 'parent_id IS NOT NULL, id',
     columns: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active',
       'created_at', 'created_by', 'updated_at', 'updated_by', 'allow_deduction', 'is_equipment'], defaults: { allow_deduction: 0, is_equipment: 0 } },

@@ -488,8 +488,8 @@ function monthTable(r, carry = '전월이월', endLabel = '잔액') {
   return `
       <table class="r-table">
         <thead><tr><th>통장</th><th>${carry}</th><th>수입</th><th>지출</th>${hasTransfer ? '<th>이체</th>' : ''}<th>${endLabel}</th></tr></thead>
-        <tbody>${list.map((a) => `
-          <tr><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td>${wonCell(a.income)}
+        <tbody>${list.map((a, i) => `
+          <tr${a.dividerAfter && i < list.length - 1 ? ' class="divider"' : ''}><td>${esc(a.name)}</td><td class="amt">${formatWon(a.prev)}</td>${wonCell(a.income)}
             ${wonCell(a.expense)}${hasTransfer ? (xfer(a) ? `<td class="amt">${xfer(a) > 0 ? '+' : ''}${formatWon(xfer(a))}</td>` : wonCell(0)) : ''}
             <td class="amt strong"${fx(hasTransfer ? '={c-4}+{c-3}-{c-2}+{c-1}' : '={c-3}+{c-2}-{c-1}')}>${formatWon(a.end)}</td></tr>`).join('')
           || `<tr><td colspan="${hasTransfer ? 6 : 5}" class="empty">등록된 통장이 없습니다</td></tr>`}

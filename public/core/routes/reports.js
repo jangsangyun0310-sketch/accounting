@@ -174,7 +174,7 @@ export async function accounts({ env, url }) {
     const outSum = sumAmounts([a.expense, a.transferOut]);
     if (balance !== a.end) throw new Error(`통장 ${a.name}: 거래 합계와 기말 잔액이 맞지 않습니다.`);
     return {
-      id: a.id, name: a.name, fundCode: a.fundCode, isCash: a.isCash, prev: a.prev, in: inSum, out: outSum, end: a.end,
+      id: a.id, name: a.name, fundCode: a.fundCode, isCash: a.isCash, dividerAfter: a.dividerAfter, prev: a.prev, in: inSum, out: outSum, end: a.end,
       // 이체를 뺀 수입 · 지출과 이체 (월말결산서 · 금전출납부용)
       income: a.income, expense: a.expense, transferIn: a.transferIn, transferOut: a.transferOut,
       rows: items,

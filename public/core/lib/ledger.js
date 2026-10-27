@@ -87,9 +87,10 @@ export async function computePeriod(db, from, to) {
        WHERE t.tx_date BETWEEN ? AND ? AND t.status = 'POSTED'
        GROUP BY t.account_id`
     ).bind(from, to),
-    db.prepare('SELECT id FROM accounts WHERE is_cash = 1'),
+    db.prepare('SELECT id, is_cash, divider_after FROM accounts WHERE is_cash = 1 OR divider_after = 1'),
   ]);
-  const cashIds = new Set(cash.results.map((r) => r.id));
+  const cashIds = new Set(cash.results.filter((r) => r.is_cash === 1).map((r) => r.id));
+  const dividerIds = new Set(cash.results.filter((r) => r.divider_after === 1).map((r) => r.id));
 
   const prevById = new Map(prev.results.map((r) => [r.id, r.balance]));
   const sumById = new Map(sums.results.map((r) => [r.account_id, r]));
@@ -101,6 +102,7 @@ export async function computePeriod(db, from, to) {
       name: r.name,
       isActive: r.is_active === 1,
       isCash: cashIds.has(r.id), // 사무실 현금
+      dividerAfter: dividerIds.has(r.id), // 결산서 통장 표에서 이 통장 아래 굵은 선
       prev: assertInteger(prevById.get(r.id)),
       income: assertInteger(sum.income ?? 0),
       expense: assertInteger(sum.expense ?? 0),

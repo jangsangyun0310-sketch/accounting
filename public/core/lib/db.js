@@ -73,7 +73,7 @@ export function auditStatement(db, { actor, entity, entityId, action, before = n
 // 감사 로그에 남길 테이블별 컬럼
 const SNAPSHOT_COLUMNS = {
   parish_settings: ['parish_name', 'start_date', 'writer_name', 'setup_completed'],
-  accounts: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active', 'is_cash'],
+  accounts: ['id', 'fund_id', 'name', 'bank_name', 'account_no', 'opening_balance', 'sort_order', 'is_active', 'is_cash', 'divider_after'],
   budget_subjects: ['id', 'kind', 'parent_id', 'code', 'name', 'sort_order', 'is_active', 'allow_deduction', 'is_equipment'],
   equipment: ['id', 'item_no', 'name', 'spec', 'quantity', 'purchase_date', 'price', 'vendor',
     'location', 'note', 'tx_id', 'disposed_at', 'dispose_reason', 'deleted_at', 'delete_reason'],

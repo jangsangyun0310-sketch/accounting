@@ -19,7 +19,7 @@ export async function getSettings({ env }) {
     db.prepare('SELECT id, code, name FROM funds ORDER BY sort_order'),
     db.prepare(
       `SELECT a.id, f.code AS fund_code, a.name, a.bank_name, a.account_no, a.opening_balance,
-              a.sort_order, a.is_active, a.is_cash,
+              a.sort_order, a.is_active, a.is_cash, a.divider_after,
               (SELECT COUNT(*) FROM transactions t WHERE t.account_id = a.id) AS tx_count
        FROM accounts a JOIN funds f ON f.id = a.fund_id
        ORDER BY f.sort_order, a.sort_order, a.id`
@@ -46,7 +46,7 @@ export async function getSettings({ env }) {
     accounts: accounts.results.map((a) => ({
       id: a.id, fundCode: a.fund_code, name: a.name, bankName: a.bank_name, accountNo: a.account_no,
       openingBalance: a.opening_balance, sortOrder: a.sort_order, isActive: a.is_active === 1, isCash: a.is_cash === 1,
-      txCount: a.tx_count,
+      dividerAfter: a.divider_after === 1, txCount: a.tx_count,
     })),
     subjects: subjects.results.map((s) => ({
       id: s.id, kind: s.kind, parentId: s.parent_id, code: s.code, name: s.name,
@@ -143,6 +143,21 @@ export async function deleteAccount({ env, actor, params }) {
   await db.batch([
     db.prepare('DELETE FROM accounts WHERE id = ?').bind(id),
     auditStatement(db, { actor: actor.email, entity: 'accounts', entityId: id, action: 'DELETE', before: JSON.parse(before) }),
+  ]);
+  return json({ ok: true });
+}
+
+/** 결산서 통장 표에서 이 통장 아래 굵은 선 켜기 · 끄기 */
+export async function setAccountDivider({ request, env, actor, params }) {
+  const db = env.DB;
+  await requireSetup(db);
+  const id = parseId(params.id, '통장 번호');
+  const on = bool((await readJson(request))?.on, '굵은 선');
+  const before = await requireRow(db, 'accounts', id, '통장');
+  await db.batch([
+    db.prepare('UPDATE accounts SET divider_after = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+      .bind(on ? 1 : 0, new Date().toISOString(), actor.email, id),
+    auditRowStatement(db, { actor: actor.email, action: 'UPDATE', table: 'accounts', id, beforeJson: before }),
   ]);
   return json({ ok: true });
 }

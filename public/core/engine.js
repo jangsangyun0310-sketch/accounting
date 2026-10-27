@@ -27,6 +27,7 @@ const routes = [
   ['POST', '/api/accounts', settings.createAccount],
   ['POST', '/api/accounts/reorder', settings.reorderAccounts],
   ['PUT', '/api/accounts/:id', settings.updateAccount],
+  ['PUT', '/api/accounts/:id/divider', settings.setAccountDivider],
   ['DELETE', '/api/accounts/:id', settings.deleteAccount],
   ['POST', '/api/subjects', settings.createSubject],
   ['POST', '/api/subjects/reorder', settings.reorderSubjects],

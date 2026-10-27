@@ -26,6 +26,7 @@ import m0017 from '../public/migrations/0017_equipment.sql';
 import m0018 from '../public/migrations/0018_doc_approvals.sql';
 import m0019 from '../public/migrations/0019_week_approval.sql';
 import m0020 from '../public/migrations/0020_month_notes.sql';
+import m0021 from '../public/migrations/0021_account_divider.sql';
 
 const MIGRATION_FILES = [
   { name: '0001_init.sql', sql: m0001 },
@@ -47,6 +48,7 @@ const MIGRATION_FILES = [
   { name: '0018_doc_approvals.sql', sql: m0018 },
   { name: '0019_week_approval.sql', sql: m0019 },
   { name: '0020_month_notes.sql', sql: m0020 },
+  { name: '0021_account_divider.sql', sql: m0021 },
 ];
 
 export class Ledger extends DurableObject {

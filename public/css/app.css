@@ -137,6 +137,7 @@ table.grid tfoot td { background: #fafbfc; }
 table.grid td.order { white-space: nowrap; width: 1%; }
 table.grid td.actions, table.grid th.actions { white-space: nowrap; width: 1%; text-align: right; }
 table.grid .status { white-space: nowrap; width: 1%; }
+table.grid .divider { white-space: nowrap; width: 1%; text-align: center; }
 tr.inactive td { color: var(--muted); }
 tr.editing td { background: var(--accent-soft); }
 .num { text-align: right !important; font-variant-numeric: tabular-nums; }

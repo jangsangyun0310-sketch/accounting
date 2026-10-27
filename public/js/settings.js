@@ -70,10 +70,10 @@ function renderAccounts() {
       <h3>${FUND_LABEL[fund]}</h3>
       <table class="grid edit">
         <thead><tr><th class="order">순서</th><th class="kind">종류</th><th>통장명</th><th>은행</th><th>계좌번호</th>
-          <th class="num">초기잔액(원)</th><th class="status">상태</th><th class="actions"></th></tr></thead>
+          <th class="num">초기잔액(원)</th><th class="status">상태</th><th class="divider" title="결산서 통장 표에서 이 통장 아래에 굵은 실선">아래 굵은 선</th><th class="actions"></th></tr></thead>
         <tbody>
           ${list.map((a, i) => (editing === `account:${a.id}` ? accountEditRow(a) : accountViewRow(a, i, list.length))).join('')
-            || '<tr><td colspan="8" class="muted">등록된 통장이 없습니다.</td></tr>'}
+            || '<tr><td colspan="9" class="muted">등록된 통장이 없습니다.</td></tr>'}
         </tbody>
         <tfoot>
           <tr data-form="account-new" data-fund="${fund}">
@@ -84,12 +84,14 @@ function renderAccounts() {
             <td><input name="accountNo" maxlength="40"></td>
             <td><input name="openingBalance" placeholder="0" ${openingLocked ? 'disabled title="마감 후 새 통장은 0원으로 시작합니다"' : ''}></td>
             <td></td>
+            <td></td>
             <td><button type="button" data-action="account-add" data-fund="${fund}">추가</button></td>
           </tr>
         </tfoot>
       </table>`;
     }).join('')}
     <p class="help">거래가 있는 통장은 삭제할 수 없습니다. 더 이상 쓰지 않는 통장은 [수정]에서 "사용"을 해제하세요.</p>
+    <p class="help">'아래 굵은 선'을 체크한 통장은 결산서 통장 표에서 그 아래에 굵은 실선이 그어져 통장이 묶음으로 나뉘어 보입니다.</p>
     <p class="help">💡 통장마다 가계부가 한 권씩 생깁니다. 과목 대신 통장으로 나눕니다 (예: 성소 예치금, 사회복지 예치금).</p>`;
 }
 
@@ -107,6 +109,7 @@ function accountViewRow(a, i, count) {
       ${a.isCash ? '<td class="nil">·</td><td class="nil">·</td>' : `<td>${esc(a.bankName)}</td><td>${esc(a.accountNo)}</td>`}
       <td class="num">${formatWon(a.openingBalance)}</td>
       <td class="status">${a.isActive ? '사용' : '<span class="muted">사용중지</span>'}</td>
+      <td class="divider"><input type="checkbox" data-divider="${a.id}" ${a.dividerAfter ? 'checked' : ''} aria-label="${esc(a.name)} 아래 굵은 선"></td>
       <td class="actions">
         <button type="button" class="secondary small" data-action="edit" data-key="account:${a.id}">수정</button>
         ${deleteControl(accountDeleteBlocker(a), `data-action="account-delete" data-id="${a.id}"`)}
@@ -127,6 +130,7 @@ function accountEditRow(a) {
       <td><input name="accountNo" value="${esc(a.accountNo)}" maxlength="40" ${a.isCash ? 'disabled' : ''}></td>
       <td><input name="openingBalance" value="${formatWon(a.openingBalance)}" ${settings.locks.openingBalance ? 'disabled' : ''}></td>
       <td><label class="check"><input type="checkbox" name="isActive" ${a.isActive ? 'checked' : ''}> 사용</label></td>
+      <td></td>
       <td class="actions">
         <button type="button" class="small" data-action="account-save" data-id="${a.id}">저장</button>
         <button type="button" class="secondary small" data-action="cancel">취소</button>
@@ -290,6 +294,16 @@ function renderEquipmentSubjects() {
       || '<p class="muted">지출 과목이 없습니다. ⚙ 회계 설정 → 예산과목에서 추가하세요.</p>'}</div>
     <p class="help">체크하면 바로 저장됩니다. 과목을 더하거나 이름을 바꾸는 것은 ⚙ 회계 설정 → 예산과목에서 합니다.</p>`;
 }
+
+// 결산서 통장 표에서 이 통장 아래 굵은 선: 체크하면 바로 저장
+panel.addEventListener('change', async (e) => {
+  const box = e.target.closest('[data-divider]');
+  if (!box) return;
+  const a = settings.accounts.find((x) => x.id === Number(box.dataset.divider));
+  const ok = await attempt(() => api(`/api/accounts/${a.id}/divider`, { method: 'PUT', body: { on: box.checked } }),
+    box.checked ? `'${a.name}' 아래에 굵은 선을 긋습니다.` : `'${a.name}' 아래 굵은 선을 뺐습니다.`);
+  if (ok) a.dividerAfter = box.checked; else box.checked = !box.checked;
+});
 
 panel.addEventListener('change', async (e) => {
   const box = e.target.closest('[data-eq-subject]');
