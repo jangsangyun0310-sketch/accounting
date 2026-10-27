@@ -156,8 +156,8 @@ function renderDaily() {
       <h2>일일 거래내역</h2>
       ${cashbookTable(r, { carry: '전일잔액', foot: '일 계', none: '이 날에', noDate: true })}
     </article>`;
-  // 주간결산서처럼: 남으면 키워 채우고, 조금 넘치면 85% 까지만 줄여 한 장에
-  measured(() => scaleToPage($('paper').querySelector('article.report'), { shrink: true }));
+  // 남으면 키워 채우고, 넘치면 줄여서라도 늘 A4 한 장에 (일일결산서는 한 장 — 85% 하한 없음)
+  measured(() => scaleToPage($('paper').querySelector('article.report'), { shrink: true, minZoom: 0 }));
 }
 
 // ---------------------------------------------------------------- 한 장에 꽉 차게
@@ -213,10 +213,10 @@ function fillRows(art) {
 /**
  * 크기로 채우기 (주간결산서 · 봉헌자 내역서): 줄 높이 · 글자 크기를 키워 한 장을 꽉 채운다 (줄 높이 12mm 까지).
  * shrink: 한 장을 조금 넘으면 85% 까지만 줄여 한 장에 (주간결산서). 더 줄여야 하면 줄이지 않고 다음 장으로
- *   — 어르신들이 결재하시는 서류라 글자가 너무 작아지지 않게
+ *   — 어르신들이 결재하시는 서류라 글자가 너무 작아지지 않게. 일일결산서는 minZoom 0 (늘 한 장)
  */
 const MIN_ZOOM = 0.85;
-function scaleToPage(art, { shrink = false } = {}) {
+function scaleToPage(art, { shrink = false, minZoom = MIN_ZOOM } = {}) {
   const limit = mm(PAGE_MM);
   const base = 5.3; // 보통 줄 높이(mm)
   const set = (row) => {
@@ -233,7 +233,7 @@ function scaleToPage(art, { shrink = false } = {}) {
     // 줄이면 표가 넓어져 줄바꿈이 달라지므로, 들어갈 때까지 몇 번 다시 잰다
     for (let i = 0; shrink && i < 6 && art.getBoundingClientRect().height > limit; i++) {
       const z = Number(art.style.zoom || 1) * (limit / art.getBoundingClientRect().height) * 0.99;
-      if (z < MIN_ZOOM) { art.style.zoom = ''; return; }
+      if (z < minZoom) { art.style.zoom = ''; return; }
       art.style.zoom = String(Math.floor(z * 1000) / 1000);
     }
     return;
@@ -528,13 +528,13 @@ function cashbookTable(r, label = { carry: '전월이월', foot: '월 계', none
   const n = label.noDate ? 6 : 7;
   return `
       <table class="r-table fixed">
-        <colgroup>${label.noDate ? '' : '<col style="width:13mm">'}<col style="width:32mm"><col><col style="width:22mm">
+        <colgroup>${label.noDate ? '' : '<col style="width:13mm">'}<col style="width:32mm"><col><col style="width:${label.noDate ? 38 : 22}mm">
           <col style="width:22mm"><col style="width:22mm"><col style="width:25mm"></colgroup>
         <thead><tr>${label.noDate ? '' : '<th>날짜</th>'}<th>통장</th><th>내용</th><th>봉헌자</th><th>수입</th><th>지출</th><th>잔액</th></tr></thead>
         <tbody>
           <tr class="carry">${dateCell(r.from)}<td></td><td>${label.carry}</td><td></td><td></td><td></td><td class="amt">${formatWon(prev)}</td></tr>
           ${rows.map((t) => `<tr>${dateCell(t.date)}<td>${esc(t.accountName)}</td><td class="${t.kind === 'TRANSFER' ? 'xfer' : ''}">${what(t)}</td>
-            <td>${esc(t.payer ?? '')}</td>
+            <td${label.noDate ? ' class="one-line-cell"' : ''}>${esc(t.payer ?? '')}</td>
             <td class="amt">${!t.inner && t.direction === 'IN' ? formatWon(t.amount) : ''}</td>
             <td class="amt">${!t.inner && t.direction === 'OUT' ? formatWon(t.amount) : ''}</td>
             <td class="amt"${fx(BAL)}>${formatWon(t.total)}</td></tr>`).join('')}

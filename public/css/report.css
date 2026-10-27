@@ -297,3 +297,4 @@ body.printing .journal .photo .caption-row input.cell::placeholder { color: #000
   }
   .report-tabs, .report-toolbar, .print-guide { padding-left: 0; padding-right: 0; }
 }
+.r-table.fixed td.one-line-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; } /* 일일결산서 봉헌자: 한 줄 */
