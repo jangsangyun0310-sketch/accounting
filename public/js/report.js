@@ -20,7 +20,8 @@ const TYPES = {
   gl: { title: '총계정원장', name: '총계정원장' },
   donors: { name: '봉헌자 조회' }, // 봉헌자별 1년 내역 (연말정산 준비)
 };
-let type = 'month';
+let type = 'daily';
+let autoDay = false; // 날짜 없이 결산서를 열었음: 오늘이 아직 마감 전이면 마지막 마감일을 보여 준다
 let monthReport = null; // 기간 하나의 통장별 내역 (금전출납부 · 총계정원장은 그 달, 주간결산서는 그 주, 월말결산서는 1월부터 그 달까지)
 let accountOrder = [];  // 설정의 통장 순서 (통장 id)
 let notesDirty = false; // 월말결산서 비고를 고치고 아직 저장하지 않음
@@ -136,6 +137,12 @@ function renderDaily() {
   const day = r.from;
   document.title = `일일결산서 ${day} - 본당살림`;
   $('warning').innerHTML = '';
+  const auto = autoDay;
+  autoDay = false;
+  if (r.status !== 'CLOSED' && auto && r.closedThrough && r.closedThrough < day) {
+    load('daily', r.closedThrough);
+    return;
+  }
   if (r.status !== 'CLOSED') {
     $('state').innerHTML = `<span class="pill open">마감 전</span> <span class="muted">일일결산서는 마감한 날만 나옵니다.
       (마지막 마감일: ${r.closedThrough ? formatKoreanDate(r.closedThrough) : '없음'})</span>`;
@@ -707,6 +714,7 @@ $('report-tabs').addEventListener('click', (e) => {
   // 단위가 바뀌면 이번 주 · 이번 달 · 올해로, 같은 단위(월 서류끼리)면 보던 달 그대로
   const same = unitOf(next) === unitOf(type);
   const value = same ? currentValue() : { day: todayKST(), week: sundayOf(todayKST()), month: todayKST().slice(0, 7), year: todayKST().slice(0, 4) }[unitOf(next)];
+  autoDay = next === 'daily';
   run(load(next, value));
 });
 for (const id of ['day', 'week', 'month', 'year']) $(id).addEventListener('change', () => go(currentValue()));
@@ -781,9 +789,13 @@ initPage('report').then(({ settings }) => {
   const firstYear = Number((settings.parish?.startDate ?? todayKST()).slice(0, 4));
   for (let y = thisYear; y >= Math.min(firstYear, thisYear); y--) $('year').append(new Option(`${y}년`, String(y)));
   const p = new URLSearchParams(location.search);
-  type = TYPES[p.get('type')] ? p.get('type') : 'month';
+  // 결산 메뉴를 누르면 일일결산서 (날마다 뽑는 서류)
+  type = TYPES[p.get('type')] ? p.get('type') : 'daily';
   const v = p.get(unitOf(type));
-  if (!valid(v)) return load(type, nowValue());
+  if (!valid(v)) {
+    autoDay = type === 'daily';
+    return load(type, nowValue());
+  }
   return load(type, unitOf(type) === 'week' ? sundayOf(v) : v);
 }).catch((err) => {
   $('paper').innerHTML = `<p class="error">${esc(err.message)}</p>`;
